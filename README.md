@@ -10,7 +10,7 @@ A lightweight, self-hosted web application to stream and organize your personal 
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 ---
-## 📸 Screenshots https://github.com/Axolat000/PurpleMusic/blob/main/screenshot/pc.png
+## 📸 Screenshots
 
 <p align="center">
   <img src="https://github.com/Axolat000/PurpleMusic/blob/main/screenshot/lecteur.png" alt="Purple Music Phone Interface" width="10%">
