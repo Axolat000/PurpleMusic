@@ -13,6 +13,7 @@ A lightweight, self-hosted web application to stream and organize your personal 
 ## 📸 Screenshots
 
 <p align="center">
+  <br>
   <img src="https://github.com/Axolat000/PurpleMusic/blob/main/screenshot/lecteur.png" alt="Purple Music Phone Interface" width="10%">
   <img src="https://github.com/Axolat000/PurpleMusic/blob/main/screenshot/pc.png" alt="Purple Music Desktop Interface" width="40%">
   <br>
