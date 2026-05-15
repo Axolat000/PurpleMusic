@@ -11,6 +11,8 @@ A lightweight, self-hosted web application to stream and organize your personal 
 
 ---
 
+https://github.com/Axolat000/PurpleMusic/blob/main/screenshot/lecteur.png
+
 ## ✨ Features
 
 - **🚀 One-Click Install**: Automated setup wizard on the first run.
