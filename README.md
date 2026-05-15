@@ -44,4 +44,4 @@ To run Purple Music, you only need:
 1. **Clone the repository** into your web directory:
    ```bash
    git clone https://github.com/Axolat000/PurpleMusic
-   cd purple-music
+   cd PurpleMusic
