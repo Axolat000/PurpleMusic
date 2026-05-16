@@ -1,12 +1,9 @@
-# 🎵 Purple Music
+# 🎵 Amethyst Music
 
-A lightweight, self-hosted web application to stream and organize your personal music library. Built with a responsive, dark-purple interface, it runs smoothly without heavy dependencies using **PHP** and **SQLite**.
-
-> ✨ **Vibe-coded** with love and powered by AI.
+A lightweight fork of Purple Music, self-hosted web application to stream and organize your personal music library. Built with a responsive, dark-purple interface, it runs smoothly without heavy dependencies using **PHP** and **MY SQL**.
 
 ![PHP](https://img.shields.io/badge/PHP-%3E%3D%207.4-777BB4?style=flat-square&logo=php)
-![My SQL](https://img.shields.io/badge/Database-SQLite-003B57?style=flat-square&logo=mysql)
-![Vibe-Coded](https://img.shields.io/badge/Method-Vibe--Coded-8e44ad?style=flat-square)
+![My SQL](https://img.shields.io/badge/Database-mysql-003B57?style=flat-square&logo=mysql)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 ---
