@@ -5,7 +5,7 @@ A lightweight, self-hosted web application to stream and organize your personal 
 > ✨ **Vibe-coded** with love and powered by AI.
 
 ![PHP](https://img.shields.io/badge/PHP-%3E%3D%207.4-777BB4?style=flat-square&logo=php)
-![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?style=flat-square&logo=sqlite)
+![My SQL](https://img.shields.io/badge/Database-SQLite-003B57?style=flat-square&logo=mysql)
 ![Vibe-Coded](https://img.shields.io/badge/Method-Vibe--Coded-8e44ad?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
