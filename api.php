@@ -137,6 +137,7 @@ if ($user && password_verify($password, $user['password'])) {
     ];
 }
 return false;
+}
 
 // --- CALCULE LA DURÉE MULTI-FORMATS ---
 function calculateAudioDuration($path) {
