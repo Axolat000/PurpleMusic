@@ -37,6 +37,14 @@ try {
     if(!$hasPlayCount) $db->exec("ALTER TABLE tracks ADD COLUMN play_count INTEGER DEFAULT 0");
     if(!$hasDuration) $db->exec("ALTER TABLE tracks ADD COLUMN duration INTEGER DEFAULT 0");
 
+    // --- MIGRATIONS AUTOMATIQUES (USERS) ---
+    $colsUsers = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_ASSOC);
+    $hasIsAdmin = false;
+    foreach($colsUsers as $c) { 
+        if($c['name'] == 'is_admin') $hasIsAdmin = true; 
+    }
+    if(!$hasIsAdmin) $db->exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0");
+
 } catch (Exception $e) { die(json_encode(["status" => "error", "message" => "Erreur BDD"])); }
 
 $musicDir = __DIR__ . '/music';
@@ -117,7 +125,7 @@ function authenticate_api_user($db) {
         return false;
     }
     
-    $stmt = $db->prepare("SELECT id, username, password FROM users WHERE username = ?");
+    $stmt = $db->prepare("SELECT id, username, password, is_admin FROM users WHERE username = ?");
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -125,7 +133,7 @@ function authenticate_api_user($db) {
         return [
             'id' => $user['id'],
             'username' => $user['username'],
-            'is_admin' => ($user['username'] === 'Axolat')
+            'is_admin' => (isset($user['is_admin']) && $user['is_admin'] == 1) || ($user['username'] === 'Axolat')
         ];
     }
     return false;
