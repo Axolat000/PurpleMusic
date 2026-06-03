@@ -129,15 +129,14 @@ function authenticate_api_user($db) {
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($user && password_verify($password, $user['password'])) {
-        return [
-            'id' => $user['id'],
-            'username' => $user['username'],
-            'is_admin' => (isset($user['is_admin']) && $user['is_admin'] == 1) || ($user['username'] === 'Axolat')
-        ];
-    }
-    return false;
+if ($user && password_verify($password, $user['password'])) {
+    return [
+        'id' => $user['id'],
+        'username' => $user['username'],
+        'is_admin' => isset($user['is_admin']) && $user['is_admin'] == 1
+    ];
 }
+return false;
 
 // --- CALCULE LA DURÉE MULTI-FORMATS ---
 function calculateAudioDuration($path) {
