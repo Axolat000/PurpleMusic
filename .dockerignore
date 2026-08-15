@@ -1,0 +1,25 @@
+# Config/dev local (Windows) — jamais dans l'image
+php.ini
+cacert.pem
+run-local.bat
+config.php
+
+# Données locales de test (SQLite, samples) — l'image doit démarrer "vierge"
+music_app.db
+amusic_app.db
+music/*
+covers/*
+!covers/default.png
+
+# Git / éditeurs / docs
+.git
+.gitignore
+.idea
+.vscode
+README.md
+screenshot/
+
+# Docker lui-même (pas besoin dans le contexte de build)
+Dockerfile
+docker-compose.yml
+.dockerignore

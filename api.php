@@ -9,8 +9,12 @@ header('X-Frame-Options: DENY');
 header('X-XSS-Protection: 1; mode=block');
 
 // --- CONFIGURATION BDD ---
+// Même variable d'environnement que index.php/install.php (voir PURPLEMUSIC_DATA_DIR) :
+// absent = comportement inchangé (music_app.db dans le dossier de l'app, comme avant).
+$dataDir = getenv('PURPLEMUSIC_DATA_DIR') ?: __DIR__;
+if (!is_dir($dataDir)) @mkdir($dataDir, 0755, true);
 try {
-    $db = new PDO('sqlite:music_app.db');
+    $db = new PDO('sqlite:' . $dataDir . '/music_app.db');
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db->exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)");
     $db->exec("CREATE TABLE IF NOT EXISTS tracks (id INTEGER PRIMARY KEY, filename TEXT, title TEXT, artist TEXT DEFAULT 'Artiste inconnu', cover TEXT DEFAULT 'default.png', genre TEXT DEFAULT 'Autre', uploader_id INTEGER, upload_date DATETIME DEFAULT CURRENT_TIMESTAMP, play_count INTEGER DEFAULT 0, duration INTEGER DEFAULT 0)");
@@ -37,6 +41,19 @@ try {
     if(!$hasPlayCount) $db->exec("ALTER TABLE tracks ADD COLUMN play_count INTEGER DEFAULT 0");
     if(!$hasDuration) $db->exec("ALTER TABLE tracks ADD COLUMN duration INTEGER DEFAULT 0");
 
+    // --- MIGRATIONS AUTOMATIQUES (PAROLES / lrclib.net) ---
+    $hasLyricsSynced = false;
+    $hasLyricsPlain = false;
+    $hasLyricsCheckedAt = false;
+    foreach($cols as $c) {
+        if($c['name'] == 'lyrics_synced') $hasLyricsSynced = true;
+        if($c['name'] == 'lyrics_plain') $hasLyricsPlain = true;
+        if($c['name'] == 'lyrics_checked_at') $hasLyricsCheckedAt = true;
+    }
+    if(!$hasLyricsSynced) $db->exec("ALTER TABLE tracks ADD COLUMN lyrics_synced TEXT");
+    if(!$hasLyricsPlain) $db->exec("ALTER TABLE tracks ADD COLUMN lyrics_plain TEXT");
+    if(!$hasLyricsCheckedAt) $db->exec("ALTER TABLE tracks ADD COLUMN lyrics_checked_at INTEGER");
+
     // --- MIGRATIONS AUTOMATIQUES (USERS) ---
     $colsUsers = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_ASSOC);
     $hasIsAdmin = false;
@@ -49,8 +66,8 @@ try {
 
 $musicDir = __DIR__ . '/music';
 $coverDir = __DIR__ . '/covers';
-if(!is_dir($musicDir)) mkdir($musicDir, 0777, true);
-if(!is_dir($coverDir)) mkdir($coverDir, 0777, true);
+if(!is_dir($musicDir)) mkdir($musicDir, 0755, true);
+if(!is_dir($coverDir)) mkdir($coverDir, 0755, true);
 
 $action = $_GET['action'] ?? '';
 $baseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/";
@@ -129,14 +146,14 @@ function authenticate_api_user($db) {
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-if ($user && password_verify($password, $user['password'])) {
-    return [
-        'id' => $user['id'],
-        'username' => $user['username'],
-        'is_admin' => isset($user['is_admin']) && $user['is_admin'] == 1
-    ];
-}
-return false;
+    if ($user && password_verify($password, $user['password'])) {
+        return [
+            'id' => $user['id'],
+            'username' => $user['username'],
+            'is_admin' => (isset($user['is_admin']) && $user['is_admin'] == 1)
+        ];
+    }
+    return false;
 }
 
 // --- CALCULE LA DURÉE MULTI-FORMATS ---
