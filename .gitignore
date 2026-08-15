@@ -1,0 +1,17 @@
+# Config/dev local — jamais dans le repo
+config.php
+php.ini
+cacert.pem
+run-local.bat
+
+# Données locales (SQLite, samples de test)
+music_app.db
+amusic_app.db
+*.db
+music/*
+covers/*
+!covers/default.png
+!covers/.gitkeep
+
+.idea/
+.vscode/

@@ -1,0 +1,19 @@
+services:
+  purplemusic:
+    build: .
+    image: purplemusic-web:latest
+    container_name: purplemusic
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - PURPLEMUSIC_DATA_DIR=/var/www/html/data
+    volumes:
+      - purplemusic_data:/var/www/html/data     # config.php + base SQLite
+      - purplemusic_music:/var/www/html/music    # fichiers audio uploadés
+      - purplemusic_covers:/var/www/html/covers  # pochettes
+
+volumes:
+  purplemusic_data:
+  purplemusic_music:
+  purplemusic_covers:
