@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgd-dev \
         libcurl4-openssl-dev \
         libzip-dev \
+        libonig-dev \
         ca-certificates \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" pdo pdo_sqlite gd mbstring curl \
