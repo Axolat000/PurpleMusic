@@ -738,7 +738,7 @@ function openSmartPlayer() {
             document.body.style.overflow = 'hidden';
         }
     } else {
-        toggleQueue();
+        openDesktopPlayer();
     }
 }
 
@@ -746,6 +746,24 @@ function closeFullPlayer() {
     const fp = document.getElementById('full-player');
     if (fp) {
         fp.classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// --- Lecteur "grand écran" desktop (#desktop-player) : ouvert en cliquant sur .player-info de la barre
+// de lecture (largeur > 768px, voir openSmartPlayer() ci-dessus). Distinct de #full-player (mobile).
+function openDesktopPlayer() {
+    const dp = document.getElementById('desktop-player');
+    if (dp) {
+        dp.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeDesktopPlayer() {
+    const dp = document.getElementById('desktop-player');
+    if (dp) {
+        dp.classList.remove('active');
         document.body.style.overflow = 'auto';
     }
 }
@@ -901,6 +919,9 @@ function loadTrack(autoPlay = true) {
     const fpTitle = document.getElementById('fp-title');
     const fpArtist = document.getElementById('fp-artist');
     const fpCover = document.getElementById('fp-cover');
+    const dpTitle = document.getElementById('dp-title');
+    const dpArtist = document.getElementById('dp-artist');
+    const dpCover = document.getElementById('dp-cover');
 
     if (fpTitle) {
         const safeFpTitle = escapeHTML(track.title);
@@ -914,6 +935,11 @@ function loadTrack(autoPlay = true) {
     if (fpArtist) fpArtist.innerText = track.artist || 'Artiste inconnu';
     if (fpCover) fpCover.src = 'covers/' + (track.cover || 'default.png');
 
+    // Carte desktop : pas de marquee (largeur confortable), simple troncature CSS (ellipsis).
+    if (dpTitle) dpTitle.innerText = track.title;
+    if (dpArtist) dpArtist.innerText = track.artist || 'Artiste inconnu';
+    if (dpCover) dpCover.src = 'covers/' + (track.cover || 'default.png');
+
     document.getElementById('curr-time').innerText = "0:00";
     document.getElementById('total-time').innerText = "0:00";
     progressBar.style.width = "0%";
@@ -924,6 +950,13 @@ function loadTrack(autoPlay = true) {
     if (fpCurrTime) fpCurrTime.innerText = "0:00";
     const fpTotalTime = document.getElementById('fp-total-time');
     if (fpTotalTime) fpTotalTime.innerText = "0:00";
+
+    const dpProgressBar = document.getElementById('dp-progress-bar');
+    if (dpProgressBar) dpProgressBar.style.width = "0%";
+    const dpCurrTime = document.getElementById('dp-curr-time');
+    if (dpCurrTime) dpCurrTime.innerText = "0:00";
+    const dpTotalTime = document.getElementById('dp-total-time');
+    if (dpTotalTime) dpTotalTime.innerText = "0:00";
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -942,10 +975,14 @@ function loadTrack(autoPlay = true) {
         masterPlay.innerHTML = pauseIcon;
         const fpMasterPlay = document.getElementById('fp-masterPlay');
         if (fpMasterPlay) fpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+        const dpMasterPlay = document.getElementById('dp-masterPlay');
+        if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
     } else {
         masterPlay.innerHTML = playIcon;
         const fpMasterPlay = document.getElementById('fp-masterPlay');
         if (fpMasterPlay) fpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black; margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
+        const dpMasterPlay = document.getElementById('dp-masterPlay');
+        if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
     }
     updateQueueUI();
 }
@@ -956,6 +993,8 @@ if (audio) {
         document.getElementById('total-time').innerText = t;
         const fpTotalTime = document.getElementById('fp-total-time');
         if (fpTotalTime) fpTotalTime.innerText = t;
+        const dpTotalTime = document.getElementById('dp-total-time');
+        if (dpTotalTime) dpTotalTime.innerText = t;
     };
     audio.ontimeupdate = () => {
         const pct = (audio.currentTime / audio.duration) * 100;
@@ -969,6 +1008,13 @@ if (audio) {
         if (fpCurrTime) fpCurrTime.innerText = formatTime(audio.currentTime);
         const fpTotalTime = document.getElementById('fp-total-time');
         if (fpTotalTime && audio.duration) fpTotalTime.innerText = formatTime(audio.duration);
+
+        const dpProgressBar = document.getElementById('dp-progress-bar');
+        if (dpProgressBar) dpProgressBar.style.width = (pct || 0) + "%";
+        const dpCurrTime = document.getElementById('dp-curr-time');
+        if (dpCurrTime) dpCurrTime.innerText = formatTime(audio.currentTime);
+        const dpTotalTime = document.getElementById('dp-total-time');
+        if (dpTotalTime && audio.duration) dpTotalTime.innerText = formatTime(audio.duration);
 
         if (window.Alpine) {
             const store = Alpine.store('ui');
@@ -997,6 +1043,8 @@ function nextTrack() {
         masterPlay.innerHTML = playIcon;
         const fpMasterPlay = document.getElementById('fp-masterPlay');
         if (fpMasterPlay) fpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black; margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
+        const dpMasterPlay = document.getElementById('dp-masterPlay');
+        if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
     }
 }
 
@@ -1011,17 +1059,22 @@ function togglePlay() {
     if(!audio.src) return;
     const fpPlayIcon = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black; margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
     const fpPauseIcon = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+    const dpPlayIcon = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
+    const dpPauseIcon = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
     const fpMasterPlay = document.getElementById('fp-masterPlay');
+    const dpMasterPlay = document.getElementById('dp-masterPlay');
 
     if(audio.paused) {
         audio.play();
         masterPlay.innerHTML = pauseIcon;
         if (fpMasterPlay) fpMasterPlay.innerHTML = fpPauseIcon;
+        if (dpMasterPlay) dpMasterPlay.innerHTML = dpPauseIcon;
     }
     else {
         audio.pause();
         masterPlay.innerHTML = playIcon;
         if (fpMasterPlay) fpMasterPlay.innerHTML = fpPlayIcon;
+        if (dpMasterPlay) dpMasterPlay.innerHTML = dpPlayIcon;
     }
 }
 
@@ -1030,6 +1083,8 @@ function toggleShuffle() {
     document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
     const fpShuffleBtn = document.getElementById('fp-shuffleBtn');
     if (fpShuffleBtn) fpShuffleBtn.classList.toggle('active', isShuffle);
+    const dpShuffleBtn = document.getElementById('dp-shuffleBtn');
+    if (dpShuffleBtn) dpShuffleBtn.classList.toggle('active', isShuffle);
 
     if (queue.length > 0) {
         const currentTrack = queue[currentIndex];
@@ -1046,6 +1101,8 @@ function toggleLoop() {
     document.getElementById('loopBtn').classList.toggle('active', isActive);
     const fpLoopBtn = document.getElementById('fp-loopBtn');
     if (fpLoopBtn) fpLoopBtn.classList.toggle('active', isActive);
+    const dpLoopBtn = document.getElementById('dp-loopBtn');
+    if (dpLoopBtn) dpLoopBtn.classList.toggle('active', isActive);
 
     const loopInd = document.getElementById('loop-ind');
     if (loopInd) loopInd.style.display = (loopMode === 2) ? 'flex' : 'none';
@@ -1053,6 +1110,11 @@ function toggleLoop() {
     if (fpLoopInd) {
         fpLoopInd.style.display = isActive ? 'block' : 'none';
         fpLoopInd.style.background = (loopMode === 2) ? 'var(--primary)' : 'white';
+    }
+    const dpLoopInd = document.getElementById('dp-loop-ind');
+    if (dpLoopInd) {
+        dpLoopInd.style.display = isActive ? 'block' : 'none';
+        dpLoopInd.style.background = (loopMode === 2) ? 'var(--primary)' : 'white';
     }
 }
 
@@ -1075,6 +1137,14 @@ const fpProgressArea = document.getElementById('fp-progress-area');
 if (fpProgressArea) {
     fpProgressArea.onclick = (e) => {
         const rect = fpProgressArea.getBoundingClientRect();
+        audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+    };
+}
+
+const dpProgressArea = document.getElementById('dp-progress-area');
+if (dpProgressArea) {
+    dpProgressArea.onclick = (e) => {
+        const rect = dpProgressArea.getBoundingClientRect();
         audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
     };
 }

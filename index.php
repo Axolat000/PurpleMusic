@@ -1078,6 +1078,68 @@ docker stop purplemusic && docker rm purplemusic</code>
         </div>
     </div>
 
+    <!-- Lecteur "grand écran" desktop : carte centrée à deux colonnes (pochette | infos+contrôles), distinct
+         du lecteur plein écran mobile (#full-player, jamais modifié) -- ce dernier serait trop vide/étiré tel
+         quel à 1920px de large. Réutilise le même dégradé --fp-gradient-1/2 pour l'identité visuelle mais avec
+         son propre préfixe de classes (.dfp-*) pour ne jamais hériter des styles .fp-*. Paroles/File d'attente
+         ne sont PAS ré-implémentées ici : ces boutons rouvrent les panneaux latéraux existants
+         (#lyrics-panel/#queue-panel) via les mêmes fonctions que la barre de lecture desktop. -->
+    <div id="desktop-player" @click.self="closeDesktopPlayer()" @keydown.escape.window="closeDesktopPlayer()">
+        <div class="dfp-card">
+            <button class="dfp-close" onclick="closeDesktopPlayer()" title="<?php echo htmlspecialchars(t('queue_close')); ?>">
+                <svg viewBox="0 0 24 24" style="width:20px; height:20px; fill:currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+            <div class="dfp-art-col">
+                <img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="dp-cover" loading="lazy" class="dfp-cover">
+            </div>
+            <div class="dfp-info-col">
+                <span class="dfp-eyebrow"><?php echo t('now_playing_label'); ?></span>
+                <div id="dp-title" class="dfp-title"><?php echo t('title_placeholder'); ?></div>
+                <div id="dp-artist" class="dfp-artist"><?php echo t('artist_placeholder'); ?></div>
+
+                <div class="dfp-progress-wrapper">
+                    <div class="progress-bg" id="dp-progress-area" style="height:6px; background:rgba(255,255,255,0.2);">
+                        <div class="progress-fill" id="dp-progress-bar" style="background:white;"></div>
+                    </div>
+                    <div class="dfp-time-row">
+                        <span id="dp-curr-time">0:00</span>
+                        <span id="dp-total-time">0:00</span>
+                    </div>
+                </div>
+
+                <div class="dfp-controls">
+                    <button class="control-btn" id="dp-shuffleBtn" onclick="toggleShuffle()" title="<?php echo htmlspecialchars(t('tooltip_shuffle')); ?>">
+                        <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                    </button>
+                    <button class="control-btn dfp-skip-btn" onclick="prevTrack()" title="<?php echo htmlspecialchars(t('tooltip_prev')); ?>">
+                        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    </button>
+                    <button id="dp-masterPlay" class="dfp-master-play" onclick="togglePlay()" title="<?php echo htmlspecialchars(t('tooltip_play')); ?>">
+                        <svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <button class="control-btn dfp-skip-btn" onclick="nextTrack()" title="<?php echo htmlspecialchars(t('tooltip_next')); ?>">
+                        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    </button>
+                    <button class="control-btn" id="dp-loopBtn" onclick="toggleLoop()" style="position:relative;" title="<?php echo htmlspecialchars(t('tooltip_loop')); ?>">
+                        <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                        <span id="dp-loop-ind" style="display:none; position:absolute; top:-5px; right:-5px; background:var(--primary); width:10px; height:10px; border-radius:50%;"></span>
+                    </button>
+                </div>
+
+                <div class="dfp-secondary-actions">
+                    <button type="button" class="dfp-action-btn" onclick="openLyricsFromPlayerBar()">
+                        <svg viewBox="0 0 24 24"><path d="M14 17H4v2h10v-2zM20 9H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg>
+                        <span><?php echo t('btn_lyrics'); ?></span>
+                    </button>
+                    <button type="button" class="dfp-action-btn" onclick="toggleQueue()">
+                        <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+                        <span><?php echo t('btn_queue'); ?></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <audio id="mainAudio"></audio>
 
     <div class="modal" x-show="$store.ui.confirmState.open" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.confirmNo()" @keydown.escape.window="$store.ui.confirmNo()">

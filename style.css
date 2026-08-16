@@ -200,6 +200,34 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .fp-lyrics-btn.active { background: var(--primary); color: white; }
 .fp-lyrics-btn:active { transform: scale(0.96); }
 
+/* --- LECTEUR DESKTOP "GRAND ÉCRAN" (#desktop-player) : distinct du lecteur plein écran mobile
+   (#full-player, non modifié) -- carte centrée à deux colonnes plutôt qu'une pile verticale plein
+   viewport (qui paraîtrait vide/étirée à 1920px de large). Préfixe de classes .dfp-* dédié pour ne
+   jamais hériter des styles .fp- (et ne pas interférer avec le lecteur mobile). z-index volontairement
+   sous #queue-panel/#lyrics-panel (999) : ouvrir un de ces panneaux depuis ce lecteur doit le faire
+   apparaître par-dessus la carte, pas derrière. */
+#desktop-player { display: none; position: fixed; inset: 0; background: rgba(5, 3, 12, 0.65); backdrop-filter: blur(10px); z-index: 500; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; }
+#desktop-player.active { display: flex; }
+.dfp-card { position: relative; width: 100%; max-width: 980px; max-height: calc(100vh - 80px); background: radial-gradient(circle at top right, var(--fp-gradient-1), var(--fp-gradient-2)); border-radius: 28px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 30px 90px rgba(0,0,0,0.6); display: flex; overflow: hidden; color: #fff; animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.dfp-close { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; z-index: 2; }
+.dfp-close:hover { background: rgba(255,255,255,0.18); color: #fff; }
+.dfp-art-col { flex: 0 0 380px; display: flex; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; }
+.dfp-cover { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); }
+.dfp-info-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 40px 56px 40px 10px; box-sizing: border-box; }
+.dfp-eyebrow { font-size: 0.78em; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
+.dfp-title { font-size: 2em; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -12px; }
+.dfp-artist { font-size: 1.15em; color: var(--accent); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -14px; }
+.dfp-time-row { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.85em; color: #ccc; font-family: monospace; }
+.dfp-controls { display: flex; align-items: center; gap: 14px; }
+.dfp-controls .control-btn svg { width: 26px; height: 26px; }
+.dfp-skip-btn svg { width: 30px; height: 30px; }
+.dfp-master-play { background: #fff; border: none; width: 68px; height: 68px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(255,255,255,0.25); transition: transform 0.2s, box-shadow 0.2s; flex-shrink: 0; }
+.dfp-master-play:hover { transform: scale(1.06); box-shadow: 0 0 40px rgba(255,255,255,0.4); }
+.dfp-secondary-actions { display: flex; gap: 12px; margin-top: 4px; }
+.dfp-action-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.75); padding: 11px 20px; border-radius: 999px; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
+.dfp-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.dfp-action-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+
 #mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; width: 100%; background: var(--mob-nav-bg); backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.05); z-index: 3000; justify-content: space-around; padding: 10px 0 15px 0; height: 70px; box-sizing: border-box; box-shadow: 0 -10px 30px rgba(0,0,0,0.2); }
 .mob-nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.7em; background: none; border: none; gap: 5px; font-weight: 600; width: 20%; }
 .mob-nav-item svg { width: 24px; height: 24px; fill: currentColor; transition: transform 0.2s; }
@@ -288,4 +316,6 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
     .settings-grid { grid-template-columns: 1fr; }
     #mobile-bottom-nav { display: flex; }
     .extended-color-grid { grid-template-columns: 1fr; }
+    /* Lecteur desktop uniquement — sur mobile, .player-info rouvre #full-player (voir openSmartPlayer()). */
+    #desktop-player { display: none !important; }
 }
