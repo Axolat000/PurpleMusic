@@ -32,6 +32,11 @@ document.addEventListener('alpine:init', () => {
         lyricsPlain: '',
         lyricsActiveIndex: -1,
 
+        // --- LECTEUR DESKTOP "GRAND ÉCRAN" (#desktop-player) : carrousel vertical à 3 positions.
+        // 'player' = carte lecteur (vue par défaut) ; 'lyrics'/'queue' = cartes paroles/file d'attente.
+        // Remise à 'player' à chaque ouverture/fermeture (voir openDesktopPlayer()/closeDesktopPlayer()).
+        desktopPlayerView: 'player',
+
         // --- MISE À JOUR (popup admin) : vérifie une fois par vrai chargement de page (voir init()),
         // résultat mis en cache côté client (sessionStorage) en plus du cache serveur (1h) pour éviter
         // tout appel réseau superflu. Le "dismiss" (Plus tard) est aussi en sessionStorage : suspendu
@@ -336,6 +341,7 @@ const playCover = document.getElementById('player-cover');
 const playStatus = document.getElementById('play-status');
 const queueList = document.getElementById('queue-list');
 const queuePanel = document.getElementById('queue-panel');
+const dpQueueList = document.getElementById('dp-queue-list');
 
 let CURRENT_VIEW_DATA = [];
 let renderedCount = 0;
@@ -411,6 +417,7 @@ const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5
 
 const desktopVol = document.getElementById('desktop-vol');
 const settingsVol = document.getElementById('settings-vol');
+const dpVol = document.getElementById('dp-vol');
 
 // --- ADMIN PANEL : réinitialisation du mot de passe d'un utilisateur (admin uniquement) ---
 // Différent du changement self-service (onglet Compte des Paramètres) : pas besoin de l'ancien mot
@@ -457,15 +464,18 @@ function updateVolume(val) {
     audio.volume = val;
     if(desktopVol) desktopVol.value = val;
     if(settingsVol) settingsVol.value = val;
+    if(dpVol) dpVol.value = val;
     localStorage.setItem('purpleMusicVolume', val);
     const percentage = val * 100;
     const bgStyle = `linear-gradient(90deg, var(--accent) ${percentage}%, rgba(255,255,255,0.2) ${percentage}%)`;
     if(desktopVol) desktopVol.style.background = bgStyle;
     if(settingsVol) settingsVol.style.background = bgStyle;
+    if(dpVol) dpVol.style.background = bgStyle;
 }
 
 if(desktopVol) desktopVol.addEventListener('input', (e) => updateVolume(e.target.value));
 if(settingsVol) settingsVol.addEventListener('input', (e) => updateVolume(e.target.value));
+if(dpVol) dpVol.addEventListener('input', (e) => updateVolume(e.target.value));
 
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
@@ -644,6 +654,14 @@ function parseLRC(text) {
     return result;
 }
 
+// Clic sur une ligne de paroles synchronisées -> avance/recule la lecture jusqu'à ce timestamp, sans
+// changer l'état lecture/pause (comportement natif de <audio> quand on ne touche qu'à currentTime).
+// Utilisé par les 3 surfaces de rendu des paroles (mobile .fp-lyrics-view, #lyrics-panel desktop, et la
+// carte "paroles" du carrousel #desktop-player).
+function seekToLyricLine(time) {
+    if (audio && !isNaN(audio.duration)) audio.currentTime = time;
+}
+
 // Recherche par dichotomie de la dernière ligne dont le timestamp <= currentTime
 function findActiveLyricIndex(lines, currentTime) {
     let lo = 0, hi = lines.length - 1, ans = -1;
@@ -758,6 +776,15 @@ function openDesktopPlayer() {
         dp.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
+    // La mini-barre reste sinon visible/au-dessus du grand lecteur (aucun z-index ne l'en empêche) : on la
+    // masque tant que le grand lecteur est ouvert, restaurée dans closeDesktopPlayer().
+    const pb = document.getElementById('player-bar');
+    if (pb) pb.style.display = 'none';
+    if (window.Alpine) {
+        // Toujours rouvrir sur la carte lecteur, jamais coincé sur paroles/file d'attente d'une session précédente.
+        Alpine.store('ui').desktopPlayerView = 'player';
+        if (dpVol) dpVol.value = audio ? audio.volume : dpVol.value;
+    }
 }
 
 function closeDesktopPlayer() {
@@ -766,13 +793,40 @@ function closeDesktopPlayer() {
         dp.classList.remove('active');
         document.body.style.overflow = 'auto';
     }
+    const pb = document.getElementById('player-bar');
+    if (pb) pb.style.display = '';
+    // Fermer depuis n'importe quelle vue (croix, Échap, clic sur le fond) doit toujours réinitialiser le
+    // carrousel sur la carte lecteur pour la prochaine ouverture.
+    if (window.Alpine) Alpine.store('ui').desktopPlayerView = 'player';
 }
 
-function updateQueueUI() {
-    if (!queueList) return;
-    queueList.innerHTML = '';
+// --- Carrousel du lecteur desktop : bascule entre les 3 cartes (lecteur / paroles / file d'attente).
+// Le mapping des transforms (voir .dfp-card* dans style.css) est purement fonction de cet état, donc
+// "revenir au lecteur" depuis n'importe quelle sous-vue est juste backToDesktopPlayer().
+function showDesktopPlayerLyrics() {
+    if (!window.Alpine) return;
+    Alpine.store('ui').desktopPlayerView = 'lyrics';
+    loadLyricsForCurrentTrack();
+}
+
+function showDesktopPlayerQueue() {
+    if (!window.Alpine) return;
+    Alpine.store('ui').desktopPlayerView = 'queue';
+}
+
+function backToDesktopPlayer() {
+    if (!window.Alpine) return;
+    Alpine.store('ui').desktopPlayerView = 'player';
+}
+
+// Construit le rendu de la file d'attente dans un conteneur donné. Extrait de updateQueueUI() pour être
+// réutilisable : la file existe maintenant dans 2 endroits du DOM (#queue-list, panneau latéral existant ;
+// #dp-queue-list, carte "file d'attente" du carrousel #desktop-player) qui doivent rester synchronisés.
+function renderQueueListInto(container) {
+    if (!container) return;
+    container.innerHTML = '';
     if(queue.length === 0) {
-        queueList.innerHTML = `<p style="color:#666;">${T('queue_empty')}</p>`;
+        container.innerHTML = `<p style="color:#666;">${T('queue_empty')}</p>`;
         return;
     }
     queue.forEach((track, index) => {
@@ -790,8 +844,13 @@ function updateQueueUI() {
             ${index === currentIndex ? '<span style="color:var(--accent); font-size:1.5em;">•</span>' : ''}
         `;
         div.onclick = () => { currentIndex = index; loadTrack(true); };
-        queueList.appendChild(div);
+        container.appendChild(div);
     });
+}
+
+function updateQueueUI() {
+    renderQueueListInto(queueList);
+    renderQueueListInto(dpQueueList);
 }
 
 function playTrackById(id, autoPlay = true) {
@@ -965,7 +1024,7 @@ function loadTrack(autoPlay = true) {
     updateUrl();
     if (window.Alpine) {
         const s = Alpine.store('ui');
-        if (s.showLyricsInPlayer || s.lyricsPanelOpen) loadLyricsForCurrentTrack();
+        if (s.showLyricsInPlayer || s.lyricsPanelOpen || s.desktopPlayerView === 'lyrics') loadLyricsForCurrentTrack();
     }
     if (autoPlay) {
         audio.play().catch(e => console.error(e));
@@ -1015,7 +1074,7 @@ if (audio) {
 
         if (window.Alpine) {
             const store = Alpine.store('ui');
-            if ((store.showLyricsInPlayer || store.lyricsPanelOpen) && store.lyricsSynced && store.lyricsSynced.length > 0) {
+            if ((store.showLyricsInPlayer || store.lyricsPanelOpen || store.desktopPlayerView === 'lyrics') && store.lyricsSynced && store.lyricsSynced.length > 0) {
                 const idx = findActiveLyricIndex(store.lyricsSynced, audio.currentTime);
                 if (idx !== store.lyricsActiveIndex) store.lyricsActiveIndex = idx;
             }
