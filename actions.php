@@ -126,6 +126,9 @@ if ($user_id) {
 
     if (isset($_GET['delete_playlist'])) {
         if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die(t('err_csrf'));
+        $stmt = $db->prepare("SELECT cover FROM playlists WHERE id = ? AND (creator_id = ? OR ?)");
+        $stmt->execute([$_GET['delete_playlist'], $user_id, $is_admin ? 1 : 0]); $pl = $stmt->fetch();
+        if ($pl && !empty($pl['cover']) && file_exists(__DIR__ . '/covers/' . $pl['cover'])) unlink(__DIR__ . '/covers/' . $pl['cover']);
         $db->prepare("DELETE FROM playlists WHERE id = ? AND (creator_id = ? OR ?)")->execute([$_GET['delete_playlist'], $user_id, $is_admin ? 1 : 0]);
         header("Location: " . strtok($_SERVER["REQUEST_URI"], '?')); exit;
     }
@@ -135,10 +138,29 @@ if ($user_id) {
         $song_ids = implode(',', $cleanIds);
         $playlistName = sanitize_text($_POST['playlist_name'] ?? 'Playlist', 100);
         $playlistId = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+
+        // Couverture existante conservée par défaut (édition) ou NULL (création)
+        $coverName = null;
         if ($playlistId) {
-            $db->prepare("UPDATE playlists SET name = ?, song_ids = ? WHERE id = ? AND (creator_id = ? OR ?)")->execute([$playlistName, $song_ids, $playlistId, $user_id, $is_admin ? 1 : 0]);
+            $stmt = $db->prepare("SELECT cover FROM playlists WHERE id = ? AND (creator_id = ? OR ?)");
+            $stmt->execute([$playlistId, $user_id, $is_admin ? 1 : 0]);
+            $currPlaylist = $stmt->fetch();
+            if ($currPlaylist) $coverName = $currPlaylist['cover'];
+        }
+
+        if (!empty($_FILES['playlist_cover']['name'])) {
+            if ($_FILES['playlist_cover']['size'] > MAX_IMAGE_SIZE) { die(t('err_image_too_large')); }
+            $imgExt = strtolower(pathinfo($_FILES['playlist_cover']['name'], PATHINFO_EXTENSION));
+            if (in_array($imgExt, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
+                $coverName = bin2hex(random_bytes(8)) . '.webp';
+                optimizeImage($_FILES['playlist_cover']['tmp_name'], __DIR__ . '/covers/' . $coverName);
+            }
+        }
+
+        if ($playlistId) {
+            $db->prepare("UPDATE playlists SET name = ?, song_ids = ?, cover = ? WHERE id = ? AND (creator_id = ? OR ?)")->execute([$playlistName, $song_ids, $coverName, $playlistId, $user_id, $is_admin ? 1 : 0]);
         } else {
-            $db->prepare("INSERT INTO playlists (name, creator_id, song_ids) VALUES (?, ?, ?)")->execute([$playlistName, $user_id, $song_ids]);
+            $db->prepare("INSERT INTO playlists (name, creator_id, song_ids, cover) VALUES (?, ?, ?, ?)")->execute([$playlistName, $user_id, $song_ids, $coverName]);
         }
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;

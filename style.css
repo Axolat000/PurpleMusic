@@ -80,14 +80,23 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 .home-row-arrow-right { right: 4px; }
 .home-track-card { flex: 0 0 130px; width: 130px; cursor: pointer; background: var(--bg-panel); border: 1px solid rgba(61, 43, 86, 0.5); border-radius: 16px; padding: 10px; transition: transform 0.2s, border-color 0.2s; }
 .home-track-card:hover { transform: translateY(-3px); border-color: var(--primary); }
-.home-track-card img, .home-playlist-cover { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 10px; margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: block; }
-.home-playlist-cover { display: flex; align-items: center; justify-content: center; font-size: 2em; background: linear-gradient(135deg, var(--primary), var(--accent)); }
+.home-track-card > img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 10px; margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: block; }
 .home-track-card-title { font-weight: 700; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-track-card-sub { font-size: 0.75em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+/* Cover de playlist (image réelle si définie, sinon fallback dégradé + icône musicale) — réutilisée dans la
+   rangée d'accueil "Tes Mixs", la grille "Mixes" et l'en-tête du détail de playlist. */
+.playlist-cover { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 2em; background: linear-gradient(135deg, var(--primary), var(--accent)); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.playlist-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; box-shadow: none; }
+.home-track-card .playlist-cover { margin-bottom: 8px; }
 
 .playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 25px; }
 .playlist-card { background: var(--bg-panel); border-radius: 24px; padding: 25px; border: 1px solid rgba(61, 43, 86, 0.5); transition: transform 0.3s, box-shadow 0.3s; }
 .playlist-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); border-color: var(--primary); }
+.playlist-card .playlist-cover { border-radius: 18px; margin-bottom: 18px; font-size: 2.4em; }
+
+.playlist-detail-cover { width: 90px; height: 90px; flex-shrink: 0; border-radius: 16px; }
+.playlist-modal-cover-preview { width: 70px; height: 70px; flex-shrink: 0; border-radius: 14px; }
 
 #queue-panel { position: fixed; right: -360px; top: 70px; width: 340px; height: calc(100vh - 70px); background: rgba(27, 20, 41, 0.95); backdrop-filter: blur(20px); border-left: 1px solid rgba(255,255,255,0.1); z-index: 999; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 25px; padding-bottom: 120px; box-shadow: -10px 0 40px rgba(0,0,0,0.5); overflow-y: auto; }
 #queue-panel.open { right: 0; }

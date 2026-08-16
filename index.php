@@ -39,6 +39,15 @@ try {
     if (!$hasLyricsPlain) $db->exec("ALTER TABLE tracks ADD COLUMN lyrics_plain TEXT");
     if (!$hasLyricsCheckedAt) $db->exec("ALTER TABLE tracks ADD COLUMN lyrics_checked_at INTEGER");
 
+    // --- MIGRATION AUTOMATIQUE (COVER PLAYLIST) ---
+    // (miroir de la migration dans api.php, les deux scripts partagent music_app.db)
+    $playlistCols = $db->query("PRAGMA table_info(playlists)")->fetchAll(PDO::FETCH_ASSOC);
+    $hasPlaylistCover = false;
+    foreach ($playlistCols as $c) {
+        if ($c['name'] === 'cover') $hasPlaylistCover = true;
+    }
+    if (!$hasPlaylistCover) $db->exec("ALTER TABLE playlists ADD COLUMN cover TEXT");
+
     // Gestion de l'authentification
     require_once 'auth.php';
 
@@ -475,7 +484,7 @@ try {
                         <div class="home-row-scroll" x-ref="scrollEl" @scroll="onScroll">
                             <template x-for="p in $store.ui.playlistsPreview" :key="'pl-' + p.id">
                                 <div class="home-track-card" @click="openPlaylistDetail(p.id)">
-                                    <div class="home-playlist-cover">🎵</div>
+                                    <div class="playlist-cover">🎵<img x-show="p.cover" :src="'covers/' + p.cover" loading="lazy" @error="$event.target.remove()"></div>
                                     <div class="home-track-card-title" x-text="p.name"></div>
                                     <div class="home-track-card-sub" x-text="p.username"></div>
                                 </div>
@@ -498,6 +507,7 @@ try {
         <div class="playlist-grid">
             <?php foreach($all_playlists as $p): ?>
                 <div class="playlist-card" style="cursor:pointer;" onclick="openPlaylistDetail(<?php echo $p['id']; ?>)">
+                    <div class="playlist-cover">🎵<?php if (!empty($p['cover'])): ?><img src="covers/<?php echo htmlspecialchars($p['cover']); ?>" loading="lazy" onerror="this.remove()"><?php endif; ?></div>
                     <h3 style="margin-top:0; font-size:1.3em;"><?php echo htmlspecialchars($p['name']); ?></h3>
                     <p style="font-size:0.85em; color:var(--text-muted); margin-bottom:20px;"><?php echo t('created_by'); ?> <strong><?php echo htmlspecialchars($p['username']); ?></strong></p>
                     <button class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:15px;" onclick="event.stopPropagation(); openPlaylistDetail(<?php echo $p['id']; ?>)"><?php echo t('btn_view_mix'); ?></button>
@@ -517,9 +527,12 @@ try {
         <template x-if="$store.ui.playlistDetail">
             <div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:15px; margin-bottom:25px;">
-                    <div>
-                        <h2 class="section-title" style="margin-bottom:8px;" x-text="$store.ui.playlistDetail.name"></h2>
-                        <p style="color:var(--text-muted); font-size:0.9em; margin:0;"><?php echo t('created_by'); ?> <strong x-text="$store.ui.playlistDetail.username"></strong></p>
+                    <div style="display:flex; gap:18px; align-items:center;">
+                        <div class="playlist-cover playlist-detail-cover">🎵<img x-show="$store.ui.playlistDetail.cover" :src="'covers/' + $store.ui.playlistDetail.cover" loading="lazy" @error="$event.target.remove()"></div>
+                        <div>
+                            <h2 class="section-title" style="margin-bottom:8px;" x-text="$store.ui.playlistDetail.name"></h2>
+                            <p style="color:var(--text-muted); font-size:0.9em; margin:0;"><?php echo t('created_by'); ?> <strong x-text="$store.ui.playlistDetail.username"></strong></p>
+                        </div>
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-primary" onclick="playAllInPlaylistDetail()"><?php echo t('btn_play_all'); ?></button>
@@ -675,10 +688,15 @@ try {
 
     <div id="playlistModal" class="modal" x-show="$store.ui.activeModal === 'playlistModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('playlistModal')"><div class="modal-content">
         <h2 id="modal-playlist-title" style="margin-top:0;">Playlist</h2>
-        <form method="post" id="playlist-form">
+        <form method="post" id="playlist-form" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="playlist_id" id="form-playlist-id">
             <input type="text" name="playlist_name" id="form-playlist-name" placeholder="<?php echo htmlspecialchars(t('playlist_name_placeholder')); ?>" required>
+            <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('playlist_cover_label'); ?></label>
+            <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px;">
+                <div class="playlist-cover playlist-modal-cover-preview" id="playlist-cover-preview-box">🎵<img id="playlist-cover-preview-img" style="display:none;" loading="lazy"></div>
+                <input type="file" name="playlist_cover" id="form-playlist-cover" accept="image/png,image/jpeg,image/webp,image/gif" onchange="previewPlaylistCoverFile(this)" style="flex:1;">
+            </div>
             <input type="text" id="playlist-search" placeholder="<?php echo htmlspecialchars(t('playlist_search_placeholder')); ?>" onkeyup="filterPlaylistTracks()" style="margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; font-size:0.85em; color:var(--text-muted); margin-bottom:10px;">
                 <span><?php echo t('select_tracks_label'); ?></span>

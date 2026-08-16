@@ -62,6 +62,15 @@ try {
     }
     if(!$hasIsAdmin) $db->exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0");
 
+    // --- MIGRATIONS AUTOMATIQUES (COVER PLAYLIST) ---
+    // (miroir de la migration dans index.php, les deux scripts partagent music_app.db)
+    $colsPlaylists = $db->query("PRAGMA table_info(playlists)")->fetchAll(PDO::FETCH_ASSOC);
+    $hasPlaylistCover = false;
+    foreach($colsPlaylists as $c) {
+        if($c['name'] == 'cover') $hasPlaylistCover = true;
+    }
+    if(!$hasPlaylistCover) $db->exec("ALTER TABLE playlists ADD COLUMN cover TEXT");
+
 } catch (Exception $e) { die(json_encode(["status" => "error", "message" => "Erreur BDD"])); }
 
 $musicDir = __DIR__ . '/music';

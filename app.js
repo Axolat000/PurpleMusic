@@ -611,6 +611,7 @@ async function openPlaylistDetail(id) {
         username: playlist.username,
         creator_id: playlist.creator_id,
         song_ids: playlist.song_ids,
+        cover: playlist.cover,
         canEdit: canEdit,
         tracks: [],
         loading: true
@@ -917,6 +918,7 @@ function openCreateModal() {
     document.getElementById('form-playlist-name').value = "";
     const pSearch = document.getElementById('playlist-search');
     if (pSearch) pSearch.value = "";
+    resetPlaylistCoverPreview();
 
     document.querySelectorAll('.song-select-item').forEach(div => {
         div.classList.remove('selected');
@@ -934,6 +936,7 @@ function openEditModal(p) {
     document.getElementById('form-playlist-name').value = p.name;
     const pSearch = document.getElementById('playlist-search');
     if (pSearch) pSearch.value = "";
+    setPlaylistCoverPreview(p.cover);
 
     const ids = String(p.song_ids).split(',');
     document.querySelectorAll('.song-select-item').forEach(div => {
@@ -944,4 +947,29 @@ function openEditModal(p) {
     });
     updateSelectedCount();
     openModal('playlistModal');
+}
+
+// --- Aperçu en direct de la cover de playlist (modale création/édition) ---
+function resetPlaylistCoverPreview() {
+    const fileInput = document.getElementById('form-playlist-cover');
+    if (fileInput) fileInput.value = '';
+    const img = document.getElementById('playlist-cover-preview-img');
+    if (img) { img.removeAttribute('src'); img.style.display = 'none'; }
+}
+
+function setPlaylistCoverPreview(cover) {
+    const fileInput = document.getElementById('form-playlist-cover');
+    if (fileInput) fileInput.value = '';
+    const img = document.getElementById('playlist-cover-preview-img');
+    if (!img) return;
+    if (cover) { img.src = 'covers/' + cover; img.style.display = 'block'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; }
+}
+
+function previewPlaylistCoverFile(input) {
+    const img = document.getElementById('playlist-cover-preview-img');
+    if (!img) return;
+    const file = input.files && input.files[0];
+    if (file) { img.src = URL.createObjectURL(file); img.style.display = 'block'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; }
 }
