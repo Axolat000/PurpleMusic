@@ -809,7 +809,6 @@ function playTrackById(id, autoPlay = true) {
     }
     if (currentIndex === -1) currentIndex = 0;
     loadTrack(autoPlay);
-    if(autoPlay && window.innerWidth > 768 && queuePanel && !queuePanel.classList.contains('open')) toggleQueue();
 }
 
 async function playPlaylist(ids, pId = null) {
@@ -824,7 +823,6 @@ async function playPlaylist(ids, pId = null) {
         queue = isShuffle ? shuffleArray([...data]) : [...data];
         currentIndex = 0;
         loadTrack(true);
-        if(window.innerWidth > 768 && queuePanel && !queuePanel.classList.contains('open')) toggleQueue();
     } else if (window.Alpine) {
         Alpine.store('ui').showToast(T('toast_no_music'));
     } else {
@@ -885,7 +883,6 @@ function playTrackInPlaylistDetail(id) {
     currentIndex = queue.findIndex(t => t.id == id);
     if (currentIndex === -1) currentIndex = 0;
     loadTrack(true);
-    if (window.innerWidth > 768 && queuePanel && !queuePanel.classList.contains('open')) toggleQueue();
 }
 
 function backToPlaylists() {
