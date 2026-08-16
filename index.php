@@ -1002,9 +1002,11 @@ docker stop purplemusic && docker rm purplemusic</code>
             <button class="control-btn" id="lyricsBarBtn" onclick="openLyricsFromPlayerBar()" title="<?php echo htmlspecialchars(t('btn_lyrics')); ?>">
                 <svg viewBox="0 0 24 24"><path d="M14 17H4v2h10v-2zM20 9H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg>
             </button>
-            <div class="volume-container">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="#a196b4"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                <input type="range" id="desktop-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+            <div class="vol-hover-zone">
+                <div class="volume-container">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="#a196b4"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    <input type="range" id="desktop-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+                </div>
             </div>
         </div>
     </div>
@@ -1151,9 +1153,11 @@ docker stop purplemusic && docker rm purplemusic</code>
                             <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
                             <span><?php echo t('btn_queue'); ?></span>
                         </button>
-                        <div class="dfp-vol-row">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="#a196b4"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                            <input type="range" id="dp-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+                        <div class="vol-hover-zone">
+                            <div class="volume-container">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="#a196b4"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                                <input type="range" id="dp-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+                            </div>
                         </div>
                     </div>
                 </div>

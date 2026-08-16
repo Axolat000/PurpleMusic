@@ -90,10 +90,10 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 .playlist-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; box-shadow: none; }
 .home-track-card .playlist-cover { margin-bottom: 8px; }
 
-.playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 25px; }
-.playlist-card { background: var(--bg-panel); border-radius: 24px; padding: 25px; border: 1px solid rgba(61, 43, 86, 0.5); transition: transform 0.3s, box-shadow 0.3s; }
+.playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; }
+.playlist-card { background: var(--bg-panel); border-radius: 18px; padding: 14px; border: 1px solid rgba(61, 43, 86, 0.5); transition: transform 0.3s, box-shadow 0.3s; }
 .playlist-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); border-color: var(--primary); }
-.playlist-card .playlist-cover { border-radius: 18px; margin-bottom: 18px; font-size: 2.4em; }
+.playlist-card .playlist-cover { border-radius: 12px; margin-bottom: 12px; font-size: 1.6em; }
 
 .playlist-detail-cover { width: 90px; height: 90px; flex-shrink: 0; border-radius: 16px; }
 .playlist-modal-cover-preview { width: 70px; height: 70px; flex-shrink: 0; border-radius: 14px; }
@@ -139,9 +139,29 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 
 .volume-container { display: flex; align-items: center; gap: 8px; width: 110px; margin-left: 10px;}
 .settings-vol-row { width: 100%; margin: 0 0 25px 0; }
-input[type="range"].vol-slider { -webkit-appearance: none; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent) 100%, rgba(255,255,255,0.2) 100%); border-radius: 5px; outline: none; cursor: pointer; }
-input[type="range"].vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: #fff; border-radius: 50%; cursor: pointer; transition: 0.2s; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+/* Le curseur (::-webkit/-moz-slider-thumb) reste invisible tant qu'on n'interagit pas avec la barre —
+   seule la portion remplie (dégradé posé dynamiquement par updateVolume(), app.js) indique le niveau.
+   Avant : un rond blanc de 12px en permanence visible sur une piste de 4px ressortait comme une grosse
+   bulle disproportionnée au repos. */
+input[type="range"].vol-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent) 100%, rgba(255,255,255,0.2) 100%); border-radius: 5px; outline: none; cursor: pointer; }
+input[type="range"].vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: #fff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease; }
+input[type="range"].vol-slider:hover::-webkit-slider-thumb, input[type="range"].vol-slider:active::-webkit-slider-thumb, input[type="range"].vol-slider:focus::-webkit-slider-thumb { opacity: 1; }
 input[type="range"].vol-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+input[type="range"].vol-slider::-moz-range-thumb { width: 12px; height: 12px; background: #fff; border: none; border-radius: 50%; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease; }
+input[type="range"].vol-slider:hover::-moz-range-thumb, input[type="range"].vol-slider:active::-moz-range-thumb, input[type="range"].vol-slider:focus::-moz-range-thumb { opacity: 1; }
+input[type="range"].vol-slider::-moz-range-thumb:hover { transform: scale(1.3); }
+
+/* Contrôle de volume compact "icône, grossit au survol" — réutilisé par la barre de lecture (mini-player)
+   et la carte du grand lecteur desktop. .vol-hover-zone garde une taille FIXE égale à l'état déployé en
+   permanence : c'est ELLE qui capte :hover, jamais la pastille visible — sinon la pastille grossirait,
+   pousserait le curseur hors de sa propre zone, se rétrécirait, le curseur la retrouverait, etc. (boucle
+   de clignotement vécue avec la 1ère version qui animait la largeur de la pastille elle-même). */
+.vol-hover-zone { display: flex; align-items: center; width: 136px; height: 44px; flex-shrink: 0; }
+.vol-hover-zone .volume-container { width: 44px; height: 44px; gap: 8px; padding: 0 14px; margin-left: 0; background: rgba(255,255,255,0.08); border-radius: 999px; box-sizing: border-box; overflow: hidden; transition: width 0.25s ease, background 0.2s ease; }
+.vol-hover-zone:hover .volume-container, .vol-hover-zone .volume-container:focus-within { width: 136px; background: rgba(255,255,255,0.16); }
+.vol-hover-zone .volume-container svg { flex-shrink: 0; }
+.vol-hover-zone .volume-container .vol-slider { width: 0; opacity: 0; transition: width 0.2s ease, opacity 0.2s ease; }
+.vol-hover-zone:hover .volume-container .vol-slider, .vol-hover-zone .volume-container:focus-within .vol-slider { width: 70px; opacity: 1; }
 
 [x-cloak] { display: none !important; }
 .modal { position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
@@ -242,19 +262,10 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .dfp-master-play { background: #fff; border: none; width: 68px; height: 68px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(255,255,255,0.25); transition: transform 0.2s, box-shadow 0.2s; flex-shrink: 0; }
 .dfp-master-play:hover { transform: scale(1.06); box-shadow: 0 0 40px rgba(255,255,255,0.4); }
 
-/* Volume intégré à la carte lecteur : même composant visuel (.vol-slider) que la barre mini-player et la
-   modale Paramètres, mirroré via updateVolume() (app.js). Compact et aligné à droite des boutons
-   Lyrics/Queue plutôt qu'en pleine largeur — sinon il domine visuellement toute la carte. */
+/* Boutons Lyrics/Queue de la carte lecteur ; le volume est géré par .vol-hover-zone/.volume-container
+   partagé avec la mini-barre (voir plus haut, section volume). */
 .dfp-secondary-actions { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
-/* Largeur du slider réservée en permanence (jamais animée) : seule l'opacité/interactivité basculent au
-   survol. Sinon faire grandir la largeur au hover peut pousser le reste de la ligne et décaler la zone
-   sous le curseur, ce qui fait perdre le survol -> la barre se referme -> le curseur la retrouve -> boucle
-   de clignotement. Même habillage (fond, radius, padding) que .dfp-action-btn pour rester visuellement
-   cohérent avec les boutons Lyrics/Queue juste à côté, et une cible de survol plus généreuse (padding). */
-.dfp-vol-row { display: flex; align-items: center; gap: 8px; margin-left: 2px; padding: 11px 16px; background: rgba(255,255,255,0.08); border-radius: 999px; transition: background 0.2s; }
-.dfp-vol-row:hover, .dfp-vol-row:focus-within { background: rgba(255,255,255,0.16); }
-.dfp-vol-row .vol-slider { width: 90px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
-.dfp-vol-row:hover .vol-slider, .dfp-vol-row .vol-slider:focus { opacity: 1; pointer-events: auto; }
+.dfp-secondary-actions .vol-hover-zone { margin-left: 2px; }
 .dfp-action-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.75); padding: 11px 20px; border-radius: 999px; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
 .dfp-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
 .dfp-action-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
@@ -350,7 +361,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
     .controls { width: 100%; justify-content: space-between; gap: 0; padding: 0 10px; box-sizing: border-box; }
     .control-btn { padding: 5px; }
     #masterPlay { width: 45px; height: 45px; }
-    #player-bar .volume-container { display: none; }
+    #player-bar .vol-hover-zone { display: none; }
     /* Panneau latéral desktop uniquement — sur mobile les paroles passent par le lecteur plein écran. */
     #player-bar #lyricsBarBtn { display: none; }
     #queue-panel { width: 100%; right: -100%; top: 0; height: 100%; z-index: 2000; border-left: none; }

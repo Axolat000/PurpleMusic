@@ -791,7 +791,12 @@ function openDesktopPlayer() {
     // masque tant que le grand lecteur est ouvert, restaurée dans closeDesktopPlayer().
     const pb = document.getElementById('player-bar');
     if (pb) pb.style.display = 'none';
+    // Les panneaux latéraux paroles/file d'attente (header, barre de lecture) n'ont pas de raison de
+    // rester ouverts par-dessus le grand lecteur, qui a désormais ses propres cartes paroles/file
+    // d'attente dédiées (voir le carrousel #desktop-player) — sinon les deux se superposaient.
+    if (queuePanel) queuePanel.classList.remove('open');
     if (window.Alpine) {
+        Alpine.store('ui').lyricsPanelOpen = false;
         // Toujours rouvrir sur la carte lecteur, jamais coincé sur paroles/file d'attente d'une session précédente.
         Alpine.store('ui').desktopPlayerView = 'player';
         if (dpVol) dpVol.value = audio ? audio.volume : dpVol.value;
