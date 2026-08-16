@@ -220,6 +220,12 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .settings-grid input[type="checkbox"] { width: 18px; height: 18px; margin: 0; }
 .adm-genre-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(0,0,0,0.2); margin-bottom: 5px; border-radius: 8px; border: 1px solid var(--border-color); }
 
+/* Onglets de la modale Paramètres (Général / Bibliothèque / Compte) — même langage visuel pilule que .lang-switch-btn. */
+.settings-tabs { display: flex; gap: 6px; background: rgba(0,0,0,0.2); padding: 6px; border-radius: var(--radius-full); margin-bottom: 25px; border: 1px solid var(--border-color); }
+.settings-tab-btn { flex: 1; padding: 10px 12px; border-radius: var(--radius-full); border: none; background: transparent; color: var(--text-muted); font-weight: 700; font-size: 0.85em; cursor: pointer; transition: background 0.25s, color 0.25s; text-align: center; white-space: nowrap; }
+.settings-tab-btn:hover { color: var(--text); }
+.settings-tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3); }
+
 .settings-section-label { color: var(--text-muted); font-size: 0.9em; font-weight: 600; margin: 0 0 10px 0; }
 .theme-swatch-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 25px; }
 .theme-swatch-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }

@@ -107,6 +107,15 @@ $I18N = [
         'settings_hide_word' => 'masquer',
         'btn_close' => 'Fermer',
         'lang_switcher_label' => 'Langue',
+        'settings_tab_general' => 'Général',
+        'settings_tab_library' => 'Bibliothèque',
+        'settings_tab_account' => 'Compte',
+        'settings_change_password_title' => 'Changer le mot de passe',
+        'settings_current_password_placeholder' => 'Mot de passe actuel',
+        'settings_new_password_placeholder' => 'Nouveau mot de passe',
+        'settings_confirm_password_placeholder' => 'Confirmer le nouveau mot de passe',
+        'btn_change_password' => 'Changer le mot de passe',
+        'settings_password_changed' => 'Mot de passe changé avec succès.',
 
         // Modale upload
         'upload_title_placeholder' => 'Titre (Optionnel - sinon détecté auto)',
@@ -160,6 +169,11 @@ $I18N = [
         'err_not_authenticated' => 'Non authentifié',
         'err_invalid_track_id' => 'ID de piste invalide',
         'err_track_not_found' => 'Piste introuvable',
+        'err_current_password_invalid' => 'Mot de passe actuel incorrect.',
+        'err_password_mismatch' => 'Les mots de passe ne correspondent pas.',
+        'err_password_too_short' => 'Mot de passe trop court (6 caractères min).',
+        'err_password_too_long' => 'Mot de passe trop long.',
+        'err_password_change_network' => 'Erreur réseau, veuillez réessayer.',
     ],
 
     'en' => [
@@ -254,6 +268,15 @@ $I18N = [
         'settings_hide_word' => 'hide',
         'btn_close' => 'Close',
         'lang_switcher_label' => 'Language',
+        'settings_tab_general' => 'General',
+        'settings_tab_library' => 'Library',
+        'settings_tab_account' => 'Account',
+        'settings_change_password_title' => 'Change password',
+        'settings_current_password_placeholder' => 'Current password',
+        'settings_new_password_placeholder' => 'New password',
+        'settings_confirm_password_placeholder' => 'Confirm new password',
+        'btn_change_password' => 'Change password',
+        'settings_password_changed' => 'Password changed successfully.',
 
         'upload_title_placeholder' => 'Title (Optional — auto-detected otherwise)',
         'upload_artist_placeholder' => 'Artist (Optional — auto-detected otherwise)',
@@ -301,6 +324,11 @@ $I18N = [
         'err_not_authenticated' => 'Not authenticated',
         'err_invalid_track_id' => 'Invalid track ID',
         'err_track_not_found' => 'Track not found',
+        'err_current_password_invalid' => 'Incorrect current password.',
+        'err_password_mismatch' => 'Passwords do not match.',
+        'err_password_too_short' => 'Password too short (6 characters min).',
+        'err_password_too_long' => 'Password too long.',
+        'err_password_change_network' => 'Network error, please try again.',
     ],
 
     'es' => [
@@ -395,6 +423,15 @@ $I18N = [
         'settings_hide_word' => 'ocultar',
         'btn_close' => 'Cerrar',
         'lang_switcher_label' => 'Idioma',
+        'settings_tab_general' => 'General',
+        'settings_tab_library' => 'Biblioteca',
+        'settings_tab_account' => 'Cuenta',
+        'settings_change_password_title' => 'Cambiar contraseña',
+        'settings_current_password_placeholder' => 'Contraseña actual',
+        'settings_new_password_placeholder' => 'Nueva contraseña',
+        'settings_confirm_password_placeholder' => 'Confirmar nueva contraseña',
+        'btn_change_password' => 'Cambiar contraseña',
+        'settings_password_changed' => 'Contraseña cambiada con éxito.',
 
         'upload_title_placeholder' => 'Título (opcional; si no, se detecta automáticamente)',
         'upload_artist_placeholder' => 'Artista (opcional; si no, se detecta automáticamente)',
@@ -442,6 +479,11 @@ $I18N = [
         'err_not_authenticated' => 'No autenticado',
         'err_invalid_track_id' => 'ID de pista no válido',
         'err_track_not_found' => 'Pista no encontrada',
+        'err_current_password_invalid' => 'Contraseña actual incorrecta.',
+        'err_password_mismatch' => 'Las contraseñas no coinciden.',
+        'err_password_too_short' => 'Contraseña demasiado corta (mínimo 6 caracteres).',
+        'err_password_too_long' => 'Contraseña demasiado larga.',
+        'err_password_change_network' => 'Error de red, inténtalo de nuevo.',
     ],
 
     'de' => [
@@ -536,6 +578,15 @@ $I18N = [
         'settings_hide_word' => 'ausblenden möchtest',
         'btn_close' => 'Schließen',
         'lang_switcher_label' => 'Sprache',
+        'settings_tab_general' => 'Allgemein',
+        'settings_tab_library' => 'Bibliothek',
+        'settings_tab_account' => 'Konto',
+        'settings_change_password_title' => 'Passwort ändern',
+        'settings_current_password_placeholder' => 'Aktuelles Passwort',
+        'settings_new_password_placeholder' => 'Neues Passwort',
+        'settings_confirm_password_placeholder' => 'Neues Passwort bestätigen',
+        'btn_change_password' => 'Passwort ändern',
+        'settings_password_changed' => 'Passwort erfolgreich geändert.',
 
         'upload_title_placeholder' => 'Titel (optional – wird sonst automatisch erkannt)',
         'upload_artist_placeholder' => 'Interpret (optional – wird sonst automatisch erkannt)',
@@ -583,6 +634,11 @@ $I18N = [
         'err_not_authenticated' => 'Nicht authentifiziert',
         'err_invalid_track_id' => 'Ungültige Titel-ID',
         'err_track_not_found' => 'Titel nicht gefunden',
+        'err_current_password_invalid' => 'Aktuelles Passwort ist falsch.',
+        'err_password_mismatch' => 'Passwörter stimmen nicht überein.',
+        'err_password_too_short' => 'Passwort zu kurz (mind. 6 Zeichen).',
+        'err_password_too_long' => 'Passwort zu lang.',
+        'err_password_change_network' => 'Netzwerkfehler, bitte versuche es erneut.',
     ],
 ];
 
@@ -617,6 +673,7 @@ const I18N_CLIENT_KEYS = [
     'playlist_new_title',
     'playlist_edit_title',
     'selected_count',
+    'err_password_change_network',
 ];
 
 function i18n_client_table() {

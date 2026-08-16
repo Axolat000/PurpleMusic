@@ -87,6 +87,46 @@ document.addEventListener('alpine:init', () => {
         }
     }));
 
+    // --- Modale Paramètres : onglets (Général / Bibliothèque / Compte) + formulaire de changement
+    // de mot de passe (self-service). x-data posé sur .modal-content, donc l'état (onglet actif,
+    // champs du formulaire) survit à l'ouverture/fermeture de la modale et aux changements d'onglet
+    // (x-show masque juste le panneau, il ne détruit rien du DOM/composant).
+    Alpine.data('settingsModalForm', () => ({
+        activeTab: 'general',
+        pwCurrent: '',
+        pwNew: '',
+        pwConfirm: '',
+        pwError: '',
+        pwSubmitting: false,
+        async submitPasswordChange() {
+            this.pwError = '';
+            this.pwSubmitting = true;
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', CSRF_TOKEN);
+                fd.append('change_password', '1');
+                fd.append('current_password', this.pwCurrent);
+                fd.append('new_password', this.pwNew);
+                fd.append('confirm_password', this.pwConfirm);
+                const res = await fetch(window.location.pathname, { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    this.pwCurrent = '';
+                    this.pwNew = '';
+                    this.pwConfirm = '';
+                    Alpine.store('ui').showToast(data.message);
+                } else {
+                    this.pwError = data.message || T('err_password_change_network');
+                }
+            } catch (e) {
+                console.error(e);
+                this.pwError = T('err_password_change_network');
+            } finally {
+                this.pwSubmitting = false;
+            }
+        }
+    }));
+
     // --- Scroll des paroles synchronisées : suit la ligne en cours automatiquement, mais se
     // met en pause dès que l'utilisateur scrolle lui-même (wheel/touch — pas l'événement "scroll"
     // générique, qui se déclenche aussi pour le scrollIntoView() automatique et empêcherait de

@@ -587,55 +587,77 @@ try {
         </button>
     </div>
 
-    <div id="settingsModal" class="modal" x-show="$store.ui.activeModal === 'settingsModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('settingsModal')"><div class="modal-content">
+    <div id="settingsModal" class="modal" x-show="$store.ui.activeModal === 'settingsModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('settingsModal')"><div class="modal-content" x-data="settingsModalForm()">
         <h2 style="margin-top:0;"><?php echo t('settings_title'); ?></h2>
 
-        <p class="settings-section-label"><?php echo t('lang_switcher_label'); ?></p>
-        <div class="lang-switch-row">
-            <?php
-            $langOptions = ['fr' => 'Français', 'en' => 'English', 'es' => 'Español', 'de' => 'Deutsch'];
-            foreach ($langOptions as $lc => $label):
-            ?>
-                <button type="button" class="lang-switch-btn<?php echo $lang === $lc ? ' active' : ''; ?>" onclick="setLanguage('<?php echo $lc; ?>')"><?php echo $label; ?></button>
-            <?php endforeach; ?>
+        <div class="settings-tabs">
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'"><?php echo t('settings_tab_general'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'library' }" @click="activeTab = 'library'"><?php echo t('settings_tab_library'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'account' }" @click="activeTab = 'account'"><?php echo t('settings_tab_account'); ?></button>
         </div>
 
-        <p class="settings-section-label"><?php echo t('settings_theme_label'); ?></p>
-        <div class="theme-swatch-row">
-            <div class="theme-swatch-item">
-                <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'violet' }" style="--sw-primary:#8E44AD; --sw-accent:#BB86FC;" title="<?php echo htmlspecialchars(t('theme_violet_default')); ?>" @click="applyThemePreset('violet')"></button>
-                <span class="theme-swatch-label">Violet</span>
+        <div x-show="activeTab === 'general'" x-cloak>
+            <p class="settings-section-label"><?php echo t('lang_switcher_label'); ?></p>
+            <div class="lang-switch-row">
+                <?php
+                $langOptions = ['fr' => 'Français', 'en' => 'English', 'es' => 'Español', 'de' => 'Deutsch'];
+                foreach ($langOptions as $lc => $label):
+                ?>
+                    <button type="button" class="lang-switch-btn<?php echo $lang === $lc ? ' active' : ''; ?>" onclick="setLanguage('<?php echo $lc; ?>')"><?php echo $label; ?></button>
+                <?php endforeach; ?>
             </div>
-            <div class="theme-swatch-item">
-                <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'amoled' }" style="--sw-primary:#7B2CBF; --sw-accent:#B388FF;" title="Amoled" @click="applyThemePreset('amoled')"></button>
-                <span class="theme-swatch-label">Amoled</span>
+
+            <p class="settings-section-label"><?php echo t('settings_theme_label'); ?></p>
+            <div class="theme-swatch-row">
+                <div class="theme-swatch-item">
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'violet' }" style="--sw-primary:#8E44AD; --sw-accent:#BB86FC;" title="<?php echo htmlspecialchars(t('theme_violet_default')); ?>" @click="applyThemePreset('violet')"></button>
+                    <span class="theme-swatch-label">Violet</span>
+                </div>
+                <div class="theme-swatch-item">
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'amoled' }" style="--sw-primary:#7B2CBF; --sw-accent:#B388FF;" title="Amoled" @click="applyThemePreset('amoled')"></button>
+                    <span class="theme-swatch-label">Amoled</span>
+                </div>
+                <div class="theme-swatch-item">
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'midnight' }" style="--sw-primary:#3B5BDB; --sw-accent:#7C9BFF;" title="Midnight" @click="applyThemePreset('midnight')"></button>
+                    <span class="theme-swatch-label">Midnight</span>
+                </div>
+                <div class="theme-swatch-item">
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'forest' }" style="--sw-primary:#2E7D4F; --sw-accent:#6FCF97;" title="Forest" @click="applyThemePreset('forest')"></button>
+                    <span class="theme-swatch-label">Forest</span>
+                </div>
+                <div class="theme-swatch-item">
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'crimson' }" style="--sw-primary:#B33A3A; --sw-accent:#FF6B6B;" title="Crimson" @click="applyThemePreset('crimson')"></button>
+                    <span class="theme-swatch-label">Crimson</span>
+                </div>
             </div>
-            <div class="theme-swatch-item">
-                <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'midnight' }" style="--sw-primary:#3B5BDB; --sw-accent:#7C9BFF;" title="Midnight" @click="applyThemePreset('midnight')"></button>
-                <span class="theme-swatch-label">Midnight</span>
-            </div>
-            <div class="theme-swatch-item">
-                <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'forest' }" style="--sw-primary:#2E7D4F; --sw-accent:#6FCF97;" title="Forest" @click="applyThemePreset('forest')"></button>
-                <span class="theme-swatch-label">Forest</span>
-            </div>
-            <div class="theme-swatch-item">
-                <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'crimson' }" style="--sw-primary:#B33A3A; --sw-accent:#FF6B6B;" title="Crimson" @click="applyThemePreset('crimson')"></button>
-                <span class="theme-swatch-label">Crimson</span>
+
+            <p class="settings-section-label"><?php echo t('settings_volume_label'); ?></p>
+            <div class="volume-container settings-vol-row">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                <input type="range" id="settings-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
             </div>
         </div>
 
-        <p class="settings-section-label"><?php echo t('settings_volume_label'); ?></p>
-        <div class="volume-container settings-vol-row">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-            <input type="range" id="settings-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+        <div x-show="activeTab === 'library'" x-cloak>
+            <p style="color:var(--text-muted); font-size:0.9em; margin-bottom: 20px;"><?php echo t('settings_hide_intro_pre'); ?> <strong style="color:var(--danger);"><?php echo t('settings_hide_word'); ?></strong> :</p>
+            <div class="settings-grid">
+                <?php foreach($genresList as $g): ?>
+                    <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>', this.checked)"> <?php echo htmlspecialchars($g); ?></label>
+                <?php endforeach; ?>
+            </div>
         </div>
 
-        <p style="color:var(--text-muted); font-size:0.9em; margin-bottom: 20px;"><?php echo t('settings_hide_intro_pre'); ?> <strong style="color:var(--danger);"><?php echo t('settings_hide_word'); ?></strong> :</p>
-        <div class="settings-grid">
-            <?php foreach($genresList as $g): ?>
-                <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>', this.checked)"> <?php echo htmlspecialchars($g); ?></label>
-            <?php endforeach; ?>
+        <div x-show="activeTab === 'account'" x-cloak>
+            <p class="settings-section-label"><?php echo t('settings_change_password_title'); ?></p>
+            <form @submit.prevent="submitPasswordChange()">
+                <input type="password" placeholder="<?php echo htmlspecialchars(t('settings_current_password_placeholder')); ?>" x-model="pwCurrent" autocomplete="current-password" required>
+                <input type="password" placeholder="<?php echo htmlspecialchars(t('settings_new_password_placeholder')); ?>" x-model="pwNew" autocomplete="new-password" required>
+                <input type="password" placeholder="<?php echo htmlspecialchars(t('settings_confirm_password_placeholder')); ?>" x-model="pwConfirm" autocomplete="new-password" required>
+                <p x-show="pwError" x-cloak style="color:var(--danger); font-size:0.85em; margin:-10px 0 15px;" x-text="pwError"></p>
+                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;" :disabled="pwSubmitting"><?php echo t('btn_change_password'); ?></button>
+            </form>
         </div>
+
         <div style="display:flex; gap:15px; margin-top:30px;">
             <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" onclick="closeModal('settingsModal')"><?php echo t('btn_close'); ?></button>
         </div>

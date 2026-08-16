@@ -8,6 +8,42 @@ if ($user_id) {
         }
     }
 
+    // CHANGEMENT DE MOT DE PASSE (self-service, requête AJAX depuis l'onglet "Compte" des Paramètres)
+    if (isset($_POST['change_password'])) {
+        header('Content-Type: application/json');
+
+        $currentPassword = (string)($_POST['current_password'] ?? '');
+        $newPassword = (string)($_POST['new_password'] ?? '');
+        $confirmPassword = (string)($_POST['confirm_password'] ?? '');
+
+        // On revérifie le hash actuel en base (jamais confiance dans une valeur envoyée par le client pour l'identité).
+        $stmt = $db->prepare("SELECT password FROM users WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $u = $stmt->fetch();
+
+        if (!$u || !password_verify($currentPassword, $u['password'])) {
+            echo json_encode(['status' => 'error', 'message' => t('err_current_password_invalid')]);
+            exit;
+        }
+        if ($newPassword !== $confirmPassword) {
+            echo json_encode(['status' => 'error', 'message' => t('err_password_mismatch')]);
+            exit;
+        }
+        if (mb_strlen($newPassword) < 6) {
+            echo json_encode(['status' => 'error', 'message' => t('err_password_too_short')]);
+            exit;
+        }
+        if (mb_strlen($newPassword) > 200) {
+            echo json_encode(['status' => 'error', 'message' => t('err_password_too_long')]);
+            exit;
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $db->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$newHash, $user_id]);
+        echo json_encode(['status' => 'success', 'message' => t('settings_password_changed')]);
+        exit;
+    }
+
     // Sauvegarde de configuration étendue Admin
     if ($is_admin && isset($_POST['save_admin_settings'])) {
         $stmtUpdate = $db->prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
