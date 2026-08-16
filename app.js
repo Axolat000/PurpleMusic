@@ -290,10 +290,21 @@ document.addEventListener('alpine:init', () => {
     // met en pause dès que l'utilisateur scrolle lui-même (wheel/touch — pas l'événement "scroll"
     // générique, qui se déclenche aussi pour le scrollIntoView() automatique et empêcherait de
     // distinguer scroll manuel et scroll programmatique). Reprend après 10s d'inactivité ou au clic
-    // sur "Revenir au direct". Utilisé sur #lyrics-panel (desktop) et .fp-lyrics-view (mobile).
-    Alpine.data('lyricsScroller', () => ({
+    // sur "Revenir au direct". Utilisé sur #lyrics-panel (desktop), .fp-lyrics-view (mobile) et la
+    // carte "paroles" du carrousel desktop (#desktop-player).
+    //
+    // isActiveFn (optionnel) : les 3 surfaces ci-dessus ne sont pas toujours retirées du DOM quand
+    // elles ne sont pas affichées (la carte du carrousel reste montée en permanence, juste déplacée
+    // hors-écran via transform) — donc son minuteur de reprise continue de tourner même quand on est
+    // passé sur un autre onglet. Sans garde, il finissait par déclencher $el.scrollIntoView() sur une
+    // ligne techniquement toujours dans le DOM mais visuellement hors-écran, ce qui faisait sauter le
+    // scroll de la page entière (vécu en prod : "grosse merde" en changeant d'onglet en pleine pause
+    // de scroll manuel). isActiveFn permet à chaque point de montage de dire si SA vue est bien celle
+    // actuellement affichée ; sans lui, le composant se comporte comme avant (toujours actif).
+    Alpine.data('lyricsScroller', (isActiveFn) => ({
         manualScroll: false,
         resumeTimer: null,
+        get isActive() { return typeof isActiveFn === 'function' ? !!isActiveFn() : true; },
         userInteracted() {
             this.manualScroll = true;
             clearTimeout(this.resumeTimer);
