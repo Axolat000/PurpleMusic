@@ -10,6 +10,13 @@ if (!is_dir($dataDir)) @mkdir($dataDir, 0755, true);
 $configFile = $dataDir . '/config.php';
 $isInstalled = file_exists($configFile);
 
+// Cache-busting pour app.js/style.css/alpine : sans ça, un CDN (Cloudflare, etc.) devant l'app
+// continue de servir les anciens fichiers pendant toute sa durée de cache après une mise à jour
+// (vécu en prod : app.js resté servi 4h après un déploiement, page cassée entre-temps). On réutilise
+// le SHA baké au build (APP_COMMIT_SHA) qui change à chaque nouvelle image ; en dev local (absent),
+// on retombe sur filemtime() de ce fichier.
+$assetVersion = getenv('APP_COMMIT_SHA') ?: (string) filemtime(__FILE__);
+
 // --- 1. MODE INSTALLATION ---
 if (!$isInstalled) {
     include 'install.php';
@@ -309,7 +316,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?php echo htmlspecialchars($site_name); ?></title>
     <link rel="icon" href="<?php echo htmlspecialchars($favicon_file); ?>?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?php echo urlencode($assetVersion); ?>">
     <style>
         /* Variables dynamiques injectées depuis la BDD */
         :root {
@@ -1111,7 +1118,7 @@ docker stop purplemusic && docker rm purplemusic</code>
             window.location.reload();
         }
     </script>
-    <script defer src="app.js"></script>
+    <script defer src="app.js?v=<?php echo urlencode($assetVersion); ?>"></script>
     <script defer src="vendor/alpine.min.js"></script>
 </body>
 </html>
