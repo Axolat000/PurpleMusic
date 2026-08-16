@@ -246,8 +246,9 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
    modale Paramètres, mirroré via updateVolume() (app.js). Compact et aligné à droite des boutons
    Lyrics/Queue plutôt qu'en pleine largeur — sinon il domine visuellement toute la carte. */
 .dfp-secondary-actions { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
-.dfp-vol-row { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.dfp-vol-row .vol-slider { width: 90px; }
+.dfp-vol-row { display: flex; align-items: center; gap: 0; margin-left: auto; padding: 8px; }
+.dfp-vol-row .vol-slider { width: 0; opacity: 0; margin-left: 0; overflow: hidden; transition: width 0.25s ease, opacity 0.2s ease, margin-left 0.25s ease; }
+.dfp-vol-row:hover .vol-slider, .dfp-vol-row .vol-slider:focus { width: 90px; opacity: 1; margin-left: 8px; }
 .dfp-action-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.75); padding: 11px 20px; border-radius: 999px; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
 .dfp-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
 .dfp-action-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
@@ -261,9 +262,9 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 
 .dfp-lyrics-body { flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
 .dfp-lyrics-body::-webkit-scrollbar { display: none; }
-.dfp-lyrics-body .lyrics-line { cursor: pointer; text-align: left; padding: 8px 6px; }
-.dfp-lyrics-body .lyrics-plain-text { text-align: left; }
-.dfp-lyrics-body .fp-lyrics-status { text-align: left; padding-left: 6px; }
+.dfp-lyrics-body .lyrics-line { cursor: pointer; text-align: center; padding: 8px 6px; }
+.dfp-lyrics-body .lyrics-plain-text { text-align: center; }
+.dfp-lyrics-body .fp-lyrics-status { text-align: center; }
 
 .dfp-queue-body { flex: 1; overflow-y: auto; }
 
