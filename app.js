@@ -124,8 +124,14 @@ document.addEventListener('alpine:init', () => {
                     if (data.manual) this.updateCheck.watchtowerConfigured = false;
                 }
             } catch (e) {
-                this.updateTriggerState = 'error';
-                this.updateTriggerError = T('err_update_trigger_failed');
+                // Watchtower ne répond qu'une fois le remplacement du conteneur terminé (stop+pull+start) —
+                // or c'est justement CE conteneur (celui qui exécute cette requête PHP) qui se fait arrêter
+                // en plein milieu. Le fetch() échoue quasi systématiquement (connexion coupée) même quand
+                // le déclenchement a parfaitement réussi : un échec réseau ici veut donc dire "probablement
+                // en train de mettre à jour", pas "échec" — on suit le même chemin que le succès plutôt que
+                // d'afficher une fausse erreur.
+                this.updateTriggerState = 'updating';
+                this.attemptReloadAfterUpdate();
             } finally {
                 this.updateTriggering = false;
             }

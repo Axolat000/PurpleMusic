@@ -189,15 +189,18 @@ if ($user_id) {
             exit;
         }
 
-        // L'API HTTP de Watchtower attend une requête GET (pas POST) sur /v1/update, authentifiée par
-        // "Authorization: Bearer <token>". Timeout court : cet appel ne fait que déclencher la mise à jour
-        // en tâche de fond côté Watchtower, il n'attend pas qu'elle se termine (pull + recreate du
-        // conteneur peut prendre bien plus longtemps que ce timeout).
+        // L'API HTTP de Watchtower attend une requête POST sur /v1/update, authentifiée par
+        // "Authorization: Bearer <token>" (une requête GET y répond 405 Method Not Allowed — vérifié
+        // en prod). Timeout court : cet appel ne fait que déclencher la mise à jour en tâche de fond
+        // côté Watchtower, il n'attend pas qu'elle se termine (pull + recreate du conteneur peut prendre
+        // bien plus longtemps que ce timeout).
         $ch = curl_init($watchtowerUrl);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 5,
             CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => '',
             CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $watchtowerToken],
         ]);
         $response = curl_exec($ch);
