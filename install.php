@@ -82,8 +82,8 @@ if (isset($_POST['install'])) {
             $stmt->execute([$admin_user, $hash]);
             $adminId = $db->lastInsertId();
 
-            file_put_contents(__DIR__ . '/music/.htaccess', "RemoveHandler .php .phtml .phps\nDisableEDM\nOptions -ExecCGI\n<Files *>\nSetHandler default-handler\n</Files>");
-            file_put_contents(__DIR__ . '/covers/.htaccess', "RemoveHandler .php .phtml .phps\nDisableEDM\nOptions -ExecCGI\n<Files *>\nSetHandler default-handler\n</Files>");
+            file_put_contents(__DIR__ . '/music/.htaccess', "RemoveHandler .php .phtml .phps\nOptions -ExecCGI\n<Files *>\nSetHandler default-handler\n</Files>");
+            file_put_contents(__DIR__ . '/covers/.htaccess', "RemoveHandler .php .phtml .phps\nOptions -ExecCGI\n<Files *>\nSetHandler default-handler\n</Files>");
 
             $_SESSION['user_id'] = $adminId;
             $_SESSION['username'] = $admin_user;
