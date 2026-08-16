@@ -64,6 +64,7 @@ $I18N = [
         'lyrics_loading' => 'Chargement des paroles...',
         'lyrics_prompt' => 'Lancez une musique pour voir ses paroles.',
         'lyrics_not_found' => 'Paroles introuvables pour ce titre.',
+        'lyrics_back_to_live' => '↓ Revenir au direct',
 
         // Bibliothèque / accueil
         'section_all_tracks' => 'Toutes les pistes',
@@ -214,6 +215,7 @@ $I18N = [
         'lyrics_loading' => 'Loading lyrics...',
         'lyrics_prompt' => 'Play a track to see its lyrics.',
         'lyrics_not_found' => 'No lyrics found for this track.',
+        'lyrics_back_to_live' => '↓ Back to live',
 
         'section_all_tracks' => 'All Tracks',
         'search_placeholder' => 'Search title, artist...',
@@ -353,6 +355,7 @@ $I18N = [
         'lyrics_loading' => 'Cargando la letra...',
         'lyrics_prompt' => 'Reproduce una canción para ver su letra.',
         'lyrics_not_found' => 'No se encontró la letra de esta canción.',
+        'lyrics_back_to_live' => '↓ Volver al directo',
 
         'section_all_tracks' => 'Todas las pistas',
         'search_placeholder' => 'Buscar título, artista...',
@@ -492,6 +495,7 @@ $I18N = [
         'lyrics_loading' => 'Songtext wird geladen...',
         'lyrics_prompt' => 'Starte einen Song, um den Songtext zu sehen.',
         'lyrics_not_found' => 'Kein Songtext für diesen Titel gefunden.',
+        'lyrics_back_to_live' => '↓ Zurück zum Live-Text',
 
         'section_all_tracks' => 'Alle Titel',
         'search_placeholder' => 'Titel, Interpret suchen...',

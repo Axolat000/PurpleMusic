@@ -171,6 +171,19 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 
 /* Paroles à la place de la pochette, dans le lecteur plein écran (mobile & réutilisé pour desktop) */
 .fp-lyrics-view { width: 100%; max-width: 480px; max-height: 45vh; overflow-y: auto; overflow-x: hidden; padding: 6px; box-sizing: border-box; }
+
+/* Scroll fonctionnel mais scrollbar invisible sur les vues de paroles (mobile plein écran + panneau desktop). */
+.fp-lyrics-view, #lyrics-panel { scrollbar-width: none; -ms-overflow-style: none; }
+.fp-lyrics-view::-webkit-scrollbar, #lyrics-panel::-webkit-scrollbar { display: none; }
+
+/* Bouton "revenir au direct" affiché quand l'utilisateur a scrollé manuellement dans les paroles. */
+.lyrics-back-to-live {
+    display: block; margin: 0 auto 12px; padding: 8px 16px; border-radius: 999px; border: none;
+    background: var(--primary); color: #fff; font-size: 0.8em; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+.fp-lyrics-view .lyrics-back-to-live { position: sticky; top: 0; z-index: 2; }
+.lyrics-back-to-live:hover { filter: brightness(1.1); }
 .fp-lyrics-status { color: rgba(255,255,255,0.6); text-align: center; padding: 40px 10px; font-size: 0.95em; }
 .fp-info-area { text-align: left; margin-bottom: 30px; padding: 0 10px; overflow: hidden; }
 #fp-title { font-size: 1.8em; font-weight: 800; margin-bottom: 5px; white-space: nowrap; overflow: hidden; width: 100%; position: relative; mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%); }

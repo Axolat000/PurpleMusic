@@ -86,6 +86,30 @@ document.addEventListener('alpine:init', () => {
             el.scrollBy({ left: dir * 300, behavior: 'smooth' });
         }
     }));
+
+    // --- Scroll des paroles synchronisées : suit la ligne en cours automatiquement, mais se
+    // met en pause dès que l'utilisateur scrolle lui-même (wheel/touch — pas l'événement "scroll"
+    // générique, qui se déclenche aussi pour le scrollIntoView() automatique et empêcherait de
+    // distinguer scroll manuel et scroll programmatique). Reprend après 10s d'inactivité ou au clic
+    // sur "Revenir au direct". Utilisé sur #lyrics-panel (desktop) et .fp-lyrics-view (mobile).
+    Alpine.data('lyricsScroller', () => ({
+        manualScroll: false,
+        resumeTimer: null,
+        userInteracted() {
+            this.manualScroll = true;
+            clearTimeout(this.resumeTimer);
+            this.resumeTimer = setTimeout(() => { this.manualScroll = false; }, 10000);
+        },
+        backToLive() {
+            clearTimeout(this.resumeTimer);
+            this.manualScroll = false;
+            this.$nextTick(() => {
+                const activeEl = this.$el.querySelector('.lyrics-line.active');
+                if (activeEl) activeEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            });
+        },
+        destroy() { clearTimeout(this.resumeTimer); }
+    }));
 });
 
 // --- I18N (JS) : traduit les chaînes générées dynamiquement (rendu côté client) ---
@@ -468,11 +492,14 @@ function toggleLyricsInPlayer() {
 function openLyricsFromPlayerBar() {
     if (!window.Alpine) return;
     const store = Alpine.store('ui');
-    loadLyricsForCurrentTrack();
     if (window.innerWidth > 768) {
+        // Toggle : un 2e clic referme le panneau au lieu de le laisser coincé ouvert.
+        if (store.lyricsPanelOpen) { store.lyricsPanelOpen = false; return; }
         if (queuePanel) queuePanel.classList.remove('open');
         store.lyricsPanelOpen = true;
+        loadLyricsForCurrentTrack();
     } else {
+        loadLyricsForCurrentTrack();
         store.showLyricsInPlayer = true;
         const fp = document.getElementById('full-player');
         if (fp) {
