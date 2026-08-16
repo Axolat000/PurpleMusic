@@ -2,19 +2,19 @@
 
 ## Option A — image prête à l'emploi (style MeTube, recommandé)
 
-Une fois l'image publiée sur GHCR (voir plus bas), une seule commande suffit — aucun clonage du repo, aucun build local :
+Une seule commande suffit — aucun clonage du repo, aucun build local :
 
 ```bash
 docker run -d \
   --name purplemusic \
-  -p 8081:80 \
-  -v $(pwd)/purplemusic-data:/var/www/html/data \
+  -p 51837:80 \
+  -v $(pwd)/purplemusic-data:/var/www/purplemusic-data \
   -v $(pwd)/purplemusic-music:/var/www/html/music \
   -v $(pwd)/purplemusic-covers:/var/www/html/covers \
   ghcr.io/axolat000/purplemusic:latest
 ```
 
-Puis ouvrir `http://localhost:8081` — l'assistant d'installation (nom du site, compte admin, thème) se lance automatiquement au premier accès.
+Puis ouvrir `http://localhost:51837` — l'assistant d'installation (nom du site, compte admin, thème) se lance automatiquement au premier accès.
 
 Trois dossiers apparaissent à côté de la commande (`purplemusic-data`, `purplemusic-music`, `purplemusic-covers`) : c'est là que tout est stocké, faciles à sauvegarder ou déplacer.
 
@@ -26,13 +26,13 @@ Si tu préfères builder toi-même à partir du code source :
 docker compose up -d
 ```
 
-Puis `http://localhost:8080` (port différent de l'option A pour éviter tout conflit si les deux tournent en même temps — modifiable dans `docker-compose.yml`).
+Puis `http://localhost:51837`.
 
 ## Ce qui est persistant
 
-- `.../data` → `config.php` généré à l'installation + la base SQLite
-- `.../music` → les fichiers audio uploadés
-- `.../covers` → les pochettes
+- `.../data` → `config.php` généré à l'installation + la base SQLite (contient les mots de passe hashés des comptes — **volontairement stocké hors du dossier servi par le serveur web**, jamais accessible en HTTP même en cas d'erreur de configuration)
+- `.../music` → les fichiers audio uploadés (servis directement, par design)
+- `.../covers` → les pochettes (servies directement, par design)
 
 Le code applicatif (PHP/JS/CSS), lui, vit dans l'image — pour mettre à jour :
 ```bash

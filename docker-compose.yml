@@ -5,13 +5,11 @@ services:
     container_name: purplemusic
     restart: unless-stopped
     ports:
-      - "8080:80"
-    environment:
-      - PURPLEMUSIC_DATA_DIR=/var/www/html/data
+      - "51837:80"
     volumes:
-      - purplemusic_data:/var/www/html/data     # config.php + base SQLite
-      - purplemusic_music:/var/www/html/music    # fichiers audio uploadés
-      - purplemusic_covers:/var/www/html/covers  # pochettes
+      - purplemusic_data:/var/www/purplemusic-data  # config.php + base SQLite (hors du DocumentRoot, jamais servi en HTTP)
+      - purplemusic_music:/var/www/html/music         # fichiers audio uploadés
+      - purplemusic_covers:/var/www/html/covers        # pochettes
 
 volumes:
   purplemusic_data:

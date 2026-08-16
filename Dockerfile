@@ -22,12 +22,16 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /var/www/html
 COPY . /var/www/html/
 
-# Les données persistantes (config.php généré à l'installation + la base SQLite)
-# vivent hors du code applicatif pour survivre aux mises à jour d'image.
-ENV PURPLEMUSIC_DATA_DIR=/var/www/html/data
+# Les données persistantes (config.php généré à l'installation + la base SQLite) vivent
+# HORS du DocumentRoot Apache (/var/www/html) — pas juste dans un sous-dossier bloqué par
+# .htaccess. La base SQLite contient les hash de mots de passe de tous les utilisateurs ;
+# la sortir physiquement du docroot évite qu'elle soit jamais servable en HTTP, quelle que
+# soit la config du serveur (AllowOverride oublié, mauvais module chargé, etc.) — pas de
+# single point of failure sur une seule règle .htaccess.
+ENV PURPLEMUSIC_DATA_DIR=/var/www/purplemusic-data
 
-RUN mkdir -p /var/www/html/data /var/www/html/music /var/www/html/covers \
-    && chown -R www-data:www-data /var/www/html
+RUN mkdir -p /var/www/purplemusic-data /var/www/html/music /var/www/html/covers \
+    && chown -R www-data:www-data /var/www/purplemusic-data /var/www/html
 
 EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
