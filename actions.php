@@ -51,8 +51,8 @@ if ($user_id) {
     if ($is_admin && isset($_POST['admin_reset_password'])) {
         header('Content-Type: application/json');
 
-        $targetId = filter_var($_POST['target_user_id'] ?? 0, FILTER_VALIDATE_INT);
-        if (!$targetId) {
+        $targetId = filter_var($_POST['target_user_id'] ?? '', FILTER_VALIDATE_INT);
+        if ($targetId === false) {
             echo json_encode(['status' => 'error', 'message' => t('err_user_not_found')]);
             exit;
         }
@@ -126,7 +126,8 @@ if ($user_id) {
         if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die(t('err_csrf'));
         $targetId = filter_var($_GET['toggle_admin'], FILTER_VALIDATE_INT);
         // Anti-verrouillage : un admin ne peut pas se retirer ses propres droits via cette UI (vérifié ici, pas seulement caché côté client).
-        if ($targetId && $targetId != $user_id) {
+        // $targetId !== false (pas juste truthy) car FILTER_VALIDATE_INT renvoie 0 pour un id 0 valide, et 0 est falsy en PHP.
+        if ($targetId !== false && $targetId != $user_id) {
             $stmt = $db->prepare("SELECT is_admin FROM users WHERE id = ?");
             $stmt->execute([$targetId]);
             $curr = $stmt->fetchColumn();
@@ -146,7 +147,8 @@ if ($user_id) {
         if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die(t('err_csrf'));
         $targetId = filter_var($_GET['delete_user'], FILTER_VALIDATE_INT);
         // Anti-verrouillage : un admin ne peut pas supprimer son propre compte via cette UI (vérifié ici, pas seulement caché côté client).
-        if ($targetId && $targetId != $user_id) {
+        // $targetId !== false (pas juste truthy) car FILTER_VALIDATE_INT renvoie 0 pour un id 0 valide, et 0 est falsy en PHP.
+        if ($targetId !== false && $targetId != $user_id) {
             $stmt = $db->prepare("SELECT filename, cover FROM tracks WHERE uploader_id = ?");
             $stmt->execute([$targetId]);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
