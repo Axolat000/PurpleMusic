@@ -17,6 +17,10 @@ document.addEventListener('alpine:init', () => {
         // --- THÈME VISUEL (preset par utilisateur, stocké en localStorage) ---
         themePreset: 'violet',
 
+        // --- ADMIN PANEL (page dédiée) : mot de passe temporaire généré par "Réinitialiser" sur un
+        // utilisateur, affiché une seule fois via #adminResetPasswordModal (voir adminResetPassword() plus bas). ---
+        adminGeneratedPassword: { username: '', password: '' },
+
         // --- PAROLES (lrclib.net) : dans le lecteur plein écran (mobile, à la place de la pochette)
         // ou dans un panneau latéral droit (desktop, comme la file d'attente) ---
         showLyricsInPlayer: false,
@@ -123,6 +127,52 @@ document.addEventListener('alpine:init', () => {
                 this.pwError = T('err_password_change_network');
             } finally {
                 this.pwSubmitting = false;
+            }
+        }
+    }));
+
+    // --- Admin Panel (page dédiée, x-data posé sur <main id="admin">) : gère uniquement l'onglet actif
+    // (Général / Thème / Médias / Genres / Utilisateurs). initialTab vient d'index.php (paramètre d'URL
+    // ?admin_tab=..., utilisé pour rester sur le même onglet après un redirect suite à une action utilisateur).
+    Alpine.data('adminPageForm', (initialTab) => ({
+        activeTab: initialTab || 'general'
+    }));
+
+    // --- Page de connexion / inscription (x-data posé sur .auth-page) : bascule entre les deux modes via
+    // les onglets .settings-tabs (au lieu de l'ancien second bouton "Créer un compte" en bas du formulaire,
+    // facilement confondu avec un bouton secondaire) + validation client avant envoi. Le formulaire reste un
+    // vrai POST classique vers auth.php (pas de fetch) : on ne bloque la soumission native que si la
+    // validation échoue, sinon le flux serveur existant (redirect / rendu de l'erreur pleine page) est
+    // inchangé. initialMode/initialUsername viennent d'index.php : après un échec côté serveur, on rouvre sur
+    // le même mode que la tentative avec le nom d'utilisateur repré-rempli (jamais le mot de passe).
+    Alpine.data('authForm', (initialMode, initialUsername) => ({
+        mode: initialMode || 'login',
+        username: initialUsername || '',
+        password: '',
+        confirmPassword: '',
+        clientError: '',
+        showServerError: true, // masqué dès qu'on change de mode : une erreur de connexion n'a plus de sens une fois basculé sur inscription (et inversement)
+        switchMode(m) {
+            this.mode = m;
+            this.clientError = '';
+            this.showServerError = false;
+        },
+        onSubmit(event) {
+            this.clientError = '';
+            if (this.mode !== 'register') return; // le mode connexion n'a pas de validation client à faire
+            if (this.username.trim() === '') {
+                this.clientError = T('err_username_required');
+                event.preventDefault();
+                return;
+            }
+            if (this.password.length < 6) {
+                this.clientError = T('err_password_too_short');
+                event.preventDefault();
+                return;
+            }
+            if (this.password !== this.confirmPassword) {
+                this.clientError = T('err_password_mismatch');
+                event.preventDefault();
             }
         }
     }));
@@ -258,20 +308,43 @@ const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5
 const desktopVol = document.getElementById('desktop-vol');
 const settingsVol = document.getElementById('settings-vol');
 
-// --- ACCORDÉON LOGIQUE ---
-function toggleAccordion(header) {
-    const item = header.parentElement;
-    const content = item.querySelector('.adm-accordion-content');
-    const isOpen = item.classList.contains('open');
-
-    document.querySelectorAll('.adm-accordion-item').forEach(el => {
-        el.classList.remove('open');
-        el.querySelector('.adm-accordion-content').style.display = 'none';
+// --- ADMIN PANEL : réinitialisation du mot de passe d'un utilisateur (admin uniquement) ---
+// Différent du changement self-service (onglet Compte des Paramètres) : pas besoin de l'ancien mot
+// de passe, génère un mot de passe temporaire aléatoire côté serveur et l'affiche une seule fois.
+function adminResetPassword(userId, username) {
+    Alpine.store('ui').confirmAction(T('confirm_reset_password', { username: username }), () => {
+        doAdminResetPassword(userId, username);
     });
+}
 
-    if (!isOpen) {
-        item.classList.add('open');
-        content.style.display = 'block';
+// Copie le mot de passe temporaire affiché dans #adminResetPasswordModal. navigator.clipboard.writeText()
+// peut être refusé (permissions, contexte non sécurisé, etc.) : on l'attrape pour ne pas planter avec une
+// promesse rejetée non gérée — l'input readonly (onclick="this.select()") reste le filet de sécurité manuel.
+function copyAdminGeneratedPassword() {
+    const pwd = Alpine.store('ui').adminGeneratedPassword.password;
+    if (!navigator.clipboard || !pwd) return;
+    navigator.clipboard.writeText(pwd)
+        .then(() => Alpine.store('ui').showToast(T('admin_users_password_copied')))
+        .catch(() => {});
+}
+
+async function doAdminResetPassword(userId, username) {
+    try {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        fd.append('admin_reset_password', '1');
+        fd.append('target_user_id', userId);
+        const res = await fetch(window.location.pathname, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status === 'success') {
+            Alpine.store('ui').adminGeneratedPassword = { username: username, password: data.password };
+            openModal('adminResetPasswordModal');
+        } else {
+            Alpine.store('ui').showToast(data.message || T('err_password_change_network'));
+        }
+    } catch (e) {
+        console.error(e);
+        Alpine.store('ui').showToast(T('err_password_change_network'));
     }
 }
 

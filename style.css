@@ -151,14 +151,6 @@ input[type="range"].vol-slider::-webkit-slider-thumb:hover { transform: scale(1.
 input[type="text"], input[type="password"], input[type="file"], select { width:100%; padding:14px; margin:10px 0 20px 0; background:#140f1f; border:1px solid var(--border-color); color:#fff; border-radius: 12px; outline:none; transition: 0.3s; }
 input[type="text"]:focus, input[type="password"]:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(142, 68, 173, 0.2); }
 
-/* --- SYSTÈME D'ACCORDÉON DE RUBRIQUES DÉROULANTES --- */
-.adm-accordion-item { border: 1px solid var(--border-color); border-radius: 14px; margin-bottom: 12px; background: rgba(0,0,0,0.15); overflow: hidden; }
-.adm-accordion-header { background: rgba(255,255,255,0.02); padding: 16px 20px; font-weight: bold; font-size: 1.05em; color: var(--accent); cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: background 0.2s; }
-.adm-accordion-header:hover { background: rgba(255,255,255,0.05); }
-.adm-accordion-header::after { content: '▼'; font-size: 0.8em; opacity: 0.7; transition: transform 0.3s ease; }
-.adm-accordion-item.open .adm-accordion-header::after { transform: rotate(-180deg); color: white; }
-.adm-accordion-content { padding: 20px; display: none; border-top: 1px solid rgba(255,255,255,0.05); }
-
 /* --- CORRECTION ET ENRICHISSEMENT DE LA GRILLE DE COULEURS ADM --- */
 .extended-color-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 10px; }
 .extended-color-item { background: #140f1f; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -226,6 +218,24 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .settings-tab-btn:hover { color: var(--text); }
 .settings-tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3); }
 
+/* Admin Panel (page dédiée) : réutilise .settings-tabs/.settings-tab-btn (modale Paramètres), avec un
+   wrap sur plusieurs lignes car cette page a plus d'onglets (5) que la modale (3) et n'a pas de largeur contrainte. */
+.admin-page-tabs { flex-wrap: wrap; }
+.admin-page-tabs .settings-tab-btn { flex: 1 1 auto; min-width: 110px; }
+
+/* --- Admin Panel : tableau de gestion des utilisateurs --- */
+.admin-user-table-wrap { overflow-x: auto; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 20px; }
+.admin-user-table { width: 100%; border-collapse: collapse; min-width: 480px; }
+.admin-user-table th { text-align: left; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
+.admin-user-table td { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+.admin-user-table tr:last-child td { border-bottom: none; }
+.admin-user-you-badge { color: var(--accent); font-size: 0.85em; margin-left: 4px; }
+.admin-user-role-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 0.75em; font-weight: 700; background: rgba(255,255,255,0.06); color: var(--text-muted); }
+.admin-user-role-badge.admin-user-role-admin { background: rgba(230, 126, 34, 0.15); color: #e67e22; }
+.admin-user-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-user-action-btn { padding: 6px 14px; font-size: 0.78em; }
+.admin-user-self-note { color: var(--text-muted); font-size: 0.85em; font-style: italic; }
+
 .settings-section-label { color: var(--text-muted); font-size: 0.9em; font-weight: 600; margin: 0 0 10px 0; }
 .theme-swatch-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 25px; }
 .theme-swatch-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -239,6 +249,16 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .lang-switch-btn { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.15); color: var(--text-muted); font-size: 0.85em; font-weight: 600; cursor: pointer; transition: transform 0.2s, border-color 0.2s, color 0.2s, background 0.2s; }
 .lang-switch-btn:hover { transform: scale(1.05); color: var(--text); }
 .lang-switch-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.06); }
+
+/* Page de connexion / inscription : carte "verre" avec la même identité visuelle que les modales
+   (.modal-content) et l'onglet de bascule mode réutilise .settings-tabs/.settings-tab-btn tel quel. */
+.auth-page { max-width: 380px; width: 90%; margin: 90px auto; animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.auth-subtitle { text-align: center; color: var(--text-muted); font-size: 0.9em; margin: 0 0 25px; }
+.auth-card { background: #1e162e; border-radius: 28px; padding: 30px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 80px rgba(0,0,0,0.5); }
+.auth-mode-tabs { margin-bottom: 20px; }
+.auth-server-error { color: var(--danger); font-size: 0.9em; background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); border-radius: 12px; padding: 10px 14px; margin: 0 0 15px; }
+.auth-client-error { color: var(--danger); font-size: 0.85em; margin: -10px 0 15px; }
+.auth-submit-btn { width: 100%; justify-content: center; margin-top: 10px; padding: 15px; }
 
 @media (max-width: 768px) {
     body { padding-bottom: 240px; }

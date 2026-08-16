@@ -211,6 +211,13 @@ try {
     $all_tracks = $db->query("SELECT tracks.*, users.username as uploader_name FROM tracks JOIN users ON tracks.uploader_id = users.id ORDER BY play_count DESC, id DESC")->fetchAll(PDO::FETCH_ASSOC);
     $all_playlists = $db->query("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id")->fetchAll(PDO::FETCH_ASSOC);
 
+    // Liste des comptes, pour l'onglet "Utilisateurs" de l'Admin Panel (page dédiée, admin uniquement).
+    $all_users = $is_admin ? $db->query("SELECT id, username, is_admin FROM users ORDER BY username COLLATE NOCASE ASC")->fetchAll(PDO::FETCH_ASSOC) : [];
+
+    // Onglet initial de l'Admin Panel (préservé après un redirect POST/GET depuis une action de cette page, ex: ?admin_tab=users).
+    $adminTabOptions = ['general', 'theme', 'media', 'genres', 'users'];
+    $initialAdminTab = in_array($_GET['admin_tab'] ?? '', $adminTabOptions, true) ? $_GET['admin_tab'] : 'general';
+
 } catch (Exception $e) { die(t('err_db_prefix') . $e->getMessage()); }
 ?>
 <!DOCTYPE html>
@@ -243,16 +250,44 @@ try {
 <body x-data>
 
 <?php if (!$user_id): ?>
-    <div style="max-width:350px; width: 90%; margin:100px auto; text-align:center;">
-        <div class="logo" style="font-size:3em; margin-bottom:30px;"><?php echo htmlspecialchars($site_name); ?></div>
-        <form method="post">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-            <?php if(isset($error)) echo "<p style='color:var(--danger);'>$error</p>"; ?>
-            <input type="text" name="username" placeholder="<?php echo htmlspecialchars(t('login_username_placeholder')); ?>" required style="padding:15px; border-radius:12px;">
-            <input type="password" name="password" placeholder="<?php echo htmlspecialchars(t('login_password_placeholder')); ?>" required style="padding:15px; border-radius:12px;">
-            <button type="submit" name="login" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:10px; padding:15px;"><?php echo t('login_btn'); ?></button>
-            <button type="submit" name="register" class="btn btn-outline" style="width:100%; justify-content:center; margin-top:15px; padding:15px;"><?php echo t('login_register_btn'); ?></button>
-        </form>
+    <?php
+        // Après un échec de soumission (identifiants invalides, mot de passe trop court, nom déjà pris...), on
+        // rouvre la page sur le même mode (connexion/inscription) que la tentative, et on repré-remplit le nom
+        // d'utilisateur (jamais le mot de passe) — sinon l'utilisateur perd tout son contexte à chaque rechargement.
+        $authInitialMode = (isset($error) && isset($_POST['register'])) ? 'register' : 'login';
+        $authPrefillUsername = (isset($error) && isset($_POST['username'])) ? (string)$_POST['username'] : '';
+    ?>
+    <div class="auth-page" x-data="authForm('<?php echo $authInitialMode; ?>', '<?php echo htmlspecialchars(addslashes($authPrefillUsername)); ?>')">
+        <div class="logo" style="font-size:3em; text-align:center; margin-bottom:8px;"><?php echo htmlspecialchars($site_name); ?></div>
+        <p class="auth-subtitle"><?php echo t('login_page_subtitle'); ?></p>
+
+        <div class="auth-card">
+            <!-- Bascule connexion / inscription : deux onglets clairement distincts (même langage visuel pilule
+                 que .settings-tabs), plutôt que l'ancien second bouton "Créer un compte" en bas de formulaire
+                 qui se confondait facilement avec un simple bouton secondaire. -->
+            <div class="settings-tabs auth-mode-tabs">
+                <button type="button" class="settings-tab-btn" :class="{ active: mode === 'login' }" @click="switchMode('login')"><?php echo t('login_btn'); ?></button>
+                <button type="button" class="settings-tab-btn" :class="{ active: mode === 'register' }" @click="switchMode('register')"><?php echo t('login_register_btn'); ?></button>
+            </div>
+
+            <?php if (isset($error)): ?>
+                <p class="auth-server-error" x-show="showServerError" x-cloak><?php echo $error; ?></p>
+            <?php endif; ?>
+
+            <form method="post" @submit="onSubmit($event)">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                <input type="text" name="username" x-model="username" placeholder="<?php echo htmlspecialchars(t('login_username_placeholder')); ?>" autocomplete="username" required>
+                <input type="password" name="password" x-model="password" placeholder="<?php echo htmlspecialchars(t('login_password_placeholder')); ?>" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" required>
+                <!-- Champ de confirmation : uniquement en mode inscription (absent du mode connexion, qui n'a jamais
+                     besoin de le poser). :required suit x-show pour ne pas bloquer la validation native HTML quand
+                     le champ est masqué. -->
+                <div x-show="mode === 'register'" x-cloak>
+                    <input type="password" name="confirm_password" x-model="confirmPassword" placeholder="<?php echo htmlspecialchars(t('login_confirm_password_placeholder')); ?>" autocomplete="new-password" :required="mode === 'register'">
+                </div>
+                <p x-show="clientError" x-cloak class="auth-client-error" x-text="clientError"></p>
+                <button type="submit" :name="mode" class="btn btn-primary auth-submit-btn" x-text="mode === 'login' ? T('login_btn') : T('login_register_btn')"><?php echo $authInitialMode === 'login' ? t('login_btn') : t('login_register_btn'); ?></button>
+            </form>
+        </div>
     </div>
 <?php else: ?>
 
@@ -262,7 +297,7 @@ try {
             <span id="nav-accueil" class="active" onclick="showSection('accueil')"><?php echo t('nav_library'); ?></span>
             <span id="nav-playlists" onclick="showSection('playlists')"><?php echo t('nav_playlists'); ?></span>
             <?php if($is_admin): ?>
-                <span class="admin-nav-btn" style="cursor:pointer;" onclick="openModal('adminPanelModal')"><?php echo t('nav_admin_panel'); ?></span>
+                <span id="nav-admin" class="admin-nav-btn" style="cursor:pointer;" onclick="showSection('admin')"><?php echo t('nav_admin_panel'); ?></span>
             <?php endif; ?>
         </nav>
         <div class="header-actions">
@@ -284,84 +319,6 @@ try {
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.4 13c.0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6l-2.1-1.7zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
         </button>
     </header>
-
-    <?php if($is_admin): ?>
-    <div id="adminPanelModal" class="modal" x-show="$store.ui.activeModal === 'adminPanelModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('adminPanelModal')"><div class="modal-content">
-        <h2 style="margin-top:0; color:#e67e22;"><?php echo t('admin_panel_title'); ?></h2>
-        <form method="post" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-
-            <div class="adm-accordion-item open">
-                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo t('admin_section_general'); ?></div>
-                <div class="adm-accordion-content" style="display: block;">
-                    <label><?php echo t('admin_app_name_label'); ?></label>
-                    <input type="text" name="adm_site_name" value="<?php echo htmlspecialchars($site_name); ?>" required>
-                </div>
-            </div>
-
-            <div class="adm-accordion-item">
-                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo t('admin_section_theme'); ?></div>
-                <div class="adm-accordion-content">
-                    <div class="extended-color-grid">
-                        <div class="extended-color-item"><span><?php echo t('admin_color_bg'); ?></span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_panel'); ?></span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_primary'); ?></span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_accent'); ?></span><input type="color" name="adm_color_accent" value="<?php echo $color_accent; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_text'); ?></span><input type="color" name="adm_color_text" value="<?php echo $color_text; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_text_muted'); ?></span><input type="color" name="adm_color_text_muted" value="<?php echo $color_text_muted; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_border'); ?></span><input type="color" name="adm_color_border" value="<?php echo $color_border; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_search_bg'); ?></span><input type="color" name="adm_color_search_bg" value="<?php echo $color_search_bg; ?>"></div>
-
-                        <div class="extended-color-item"><span><?php echo t('admin_color_fp_gradient_1'); ?></span><input type="color" name="adm_color_fp_gradient_1" value="<?php echo $color_fp_gradient_1; ?>"></div>
-                        <div class="extended-color-item"><span><?php echo t('admin_color_fp_gradient_2'); ?></span><input type="color" name="adm_color_fp_gradient_2" value="<?php echo $color_fp_gradient_2; ?>"></div>
-                    </div>
-
-                    <label style="margin-top: 12px; display: block;"><?php echo t('admin_header_bg_label'); ?></label>
-                    <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>" placeholder="rgba(27, 20, 41, 0.85)">
-
-                    <label style="margin-top: 10px; display: block;"><?php echo t('admin_player_bg_label'); ?></label>
-                    <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>" placeholder="rgba(30, 24, 45, 0.85)">
-
-                    <label style="margin-top: 10px; display: block;"><?php echo t('admin_mobnav_bg_label'); ?></label>
-                    <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>" placeholder="rgba(21, 16, 32, 0.95)">
-                </div>
-            </div>
-
-            <div class="adm-accordion-item">
-                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo t('admin_section_media'); ?></div>
-                <div class="adm-accordion-content">
-                    <label><?php echo t('admin_favicon_label'); ?></label>
-                    <input type="file" name="adm_favicon" accept="image/png, image/x-icon">
-                    <label><?php echo t('admin_default_cover_label'); ?></label>
-                    <input type="file" name="adm_default_cover" accept="image/png">
-                </div>
-            </div>
-
-            <div class="adm-accordion-item">
-                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo t('admin_section_genres'); ?></div>
-                <div class="adm-accordion-content">
-                    <label><?php echo t('admin_new_genre_label'); ?></label>
-                    <input type="text" name="adm_new_genre" placeholder="<?php echo htmlspecialchars(t('admin_new_genre_placeholder')); ?>">
-
-                    <label style="font-weight:bold; display:block; margin-bottom:5px;"><?php echo t('admin_active_genres_label'); ?></label>
-                    <div style="max-height:160px; overflow-y:auto; border:1px solid var(--border-color); padding:10px; border-radius:10px;">
-                        <?php foreach($genresList as $g): ?>
-                            <div class="adm-genre-item">
-                                <span><?php echo htmlspecialchars($g); ?></span>
-                                <a href="?delete_genre=<?php echo urlencode($g); ?>&csrf_token=<?php echo $csrf_token; ?>" style="color:var(--danger); text-decoration:none; font-weight:bold;" onclick="return confirmDelete('<?php echo t('confirm_delete_genre'); ?>', '?delete_genre=<?php echo urlencode($g); ?>&csrf_token=<?php echo $csrf_token; ?>')">✕</a>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            </div>
-
-            <div style="display:flex; gap:15px; margin-top: 25px;">
-                <button type="button" class="btn" style="flex:1; border:1px solid rgba(255,255,255,0.1);" onclick="closeModal('adminPanelModal')"><?php echo t('btn_cancel'); ?></button>
-                <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1;"><?php echo t('btn_save'); ?></button>
-            </div>
-        </form>
-    </div></div>
-    <?php endif; ?>
 
     <div id="queue-panel">
         <button class="close-queue-mobile" onclick="toggleQueue()"><?php echo t('queue_close'); ?></button>
@@ -567,6 +524,120 @@ try {
         </template>
     </main>
 
+    <?php if($is_admin): ?>
+    <main id="admin" x-show="$store.ui.section === 'admin'" x-cloak x-data="adminPageForm('<?php echo $initialAdminTab; ?>')">
+        <h2 class="section-title" style="margin-bottom:25px;"><?php echo t('admin_panel_title'); ?></h2>
+
+        <div class="settings-tabs admin-page-tabs">
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'"><?php echo t('admin_section_general'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'theme' }" @click="activeTab = 'theme'"><?php echo t('admin_section_theme'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'media' }" @click="activeTab = 'media'"><?php echo t('admin_section_media'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'genres' }" @click="activeTab = 'genres'"><?php echo t('admin_section_genres'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'"><?php echo t('admin_section_users'); ?></button>
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+
+            <div x-show="activeTab === 'general'" x-cloak>
+                <label><?php echo t('admin_app_name_label'); ?></label>
+                <input type="text" name="adm_site_name" value="<?php echo htmlspecialchars($site_name); ?>" required>
+            </div>
+
+            <div x-show="activeTab === 'theme'" x-cloak>
+                <div class="extended-color-grid">
+                    <div class="extended-color-item"><span><?php echo t('admin_color_bg'); ?></span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_panel'); ?></span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_primary'); ?></span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_accent'); ?></span><input type="color" name="adm_color_accent" value="<?php echo $color_accent; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_text'); ?></span><input type="color" name="adm_color_text" value="<?php echo $color_text; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_text_muted'); ?></span><input type="color" name="adm_color_text_muted" value="<?php echo $color_text_muted; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_border'); ?></span><input type="color" name="adm_color_border" value="<?php echo $color_border; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_search_bg'); ?></span><input type="color" name="adm_color_search_bg" value="<?php echo $color_search_bg; ?>"></div>
+
+                    <div class="extended-color-item"><span><?php echo t('admin_color_fp_gradient_1'); ?></span><input type="color" name="adm_color_fp_gradient_1" value="<?php echo $color_fp_gradient_1; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo t('admin_color_fp_gradient_2'); ?></span><input type="color" name="adm_color_fp_gradient_2" value="<?php echo $color_fp_gradient_2; ?>"></div>
+                </div>
+
+                <label style="margin-top: 12px; display: block;"><?php echo t('admin_header_bg_label'); ?></label>
+                <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>" placeholder="rgba(27, 20, 41, 0.85)">
+
+                <label style="margin-top: 10px; display: block;"><?php echo t('admin_player_bg_label'); ?></label>
+                <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>" placeholder="rgba(30, 24, 45, 0.85)">
+
+                <label style="margin-top: 10px; display: block;"><?php echo t('admin_mobnav_bg_label'); ?></label>
+                <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>" placeholder="rgba(21, 16, 32, 0.95)">
+            </div>
+
+            <div x-show="activeTab === 'media'" x-cloak>
+                <label><?php echo t('admin_favicon_label'); ?></label>
+                <input type="file" name="adm_favicon" accept="image/png, image/x-icon">
+                <label><?php echo t('admin_default_cover_label'); ?></label>
+                <input type="file" name="adm_default_cover" accept="image/png">
+            </div>
+
+            <div x-show="activeTab === 'genres'" x-cloak>
+                <label><?php echo t('admin_new_genre_label'); ?></label>
+                <input type="text" name="adm_new_genre" placeholder="<?php echo htmlspecialchars(t('admin_new_genre_placeholder')); ?>">
+
+                <label style="font-weight:bold; display:block; margin-bottom:5px;"><?php echo t('admin_active_genres_label'); ?></label>
+                <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); padding:10px; border-radius:10px;">
+                    <?php foreach($genresList as $g): ?>
+                        <div class="adm-genre-item">
+                            <span><?php echo htmlspecialchars($g); ?></span>
+                            <a href="?delete_genre=<?php echo urlencode($g); ?>&admin_tab=genres&csrf_token=<?php echo $csrf_token; ?>" style="color:var(--danger); text-decoration:none; font-weight:bold;" onclick="return confirmDelete('<?php echo t('confirm_delete_genre'); ?>', '?delete_genre=<?php echo urlencode($g); ?>&admin_tab=genres&csrf_token=<?php echo $csrf_token; ?>')">✕</a>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users'" x-cloak>
+                <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
+            </div>
+        </form>
+
+        <div x-show="activeTab === 'users'" x-cloak>
+            <div class="admin-user-table-wrap">
+                <table class="admin-user-table">
+                    <thead>
+                        <tr>
+                            <th><?php echo t('admin_users_table_username'); ?></th>
+                            <th><?php echo t('admin_users_table_role'); ?></th>
+                            <th><?php echo t('admin_users_table_actions'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($all_users as $u): ?>
+                            <tr>
+                                <td>
+                                    <?php echo htmlspecialchars($u['username']); ?>
+                                    <?php if ($u['id'] == $user_id): ?><span class="admin-user-you-badge">(<?php echo t('admin_users_you'); ?>)</span><?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($u['is_admin']): ?>
+                                        <span class="admin-user-role-badge admin-user-role-admin"><?php echo t('admin_badge'); ?></span>
+                                    <?php else: ?>
+                                        <span class="admin-user-role-badge"><?php echo t('admin_users_role_member'); ?></span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="admin-user-actions">
+                                    <?php if ($u['id'] == $user_id): ?>
+                                        <span class="admin-user-self-note"><?php echo t('admin_users_self_note'); ?></span>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-outline admin-user-action-btn" onclick="adminResetPassword(<?php echo (int)$u['id']; ?>, '<?php echo htmlspecialchars(addslashes($u['username'])); ?>')"><?php echo t('admin_users_reset_password'); ?></button>
+                                        <a href="?toggle_admin=<?php echo (int)$u['id']; ?>&admin_tab=users&csrf_token=<?php echo $csrf_token; ?>" class="btn btn-outline admin-user-action-btn"><?php echo $u['is_admin'] ? t('admin_users_demote') : t('admin_users_promote'); ?></a>
+                                        <a href="?delete_user=<?php echo (int)$u['id']; ?>&admin_tab=users&csrf_token=<?php echo $csrf_token; ?>" class="btn btn-danger admin-user-action-btn" onclick="return confirmDelete('<?php echo t('confirm_delete_user'); ?>', '?delete_user=<?php echo (int)$u['id']; ?>&admin_tab=users&csrf_token=<?php echo $csrf_token; ?>')"><?php echo t('btn_delete_short'); ?></a>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    <?php endif; ?>
+
     <div id="mobile-bottom-nav">
         <button class="mob-nav-item active" id="mob-nav-accueil" onclick="showSection('accueil')">
             <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><?php echo t('mob_nav_library'); ?>
@@ -575,7 +646,7 @@ try {
             <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><?php echo t('mob_nav_mixes'); ?>
         </button>
         <?php if($is_admin): ?>
-            <button class="mob-nav-item" onclick="openModal('adminPanelModal')" style="color:#e67e22;">
+            <button class="mob-nav-item" id="mob-nav-admin" onclick="showSection('admin')" style="color:#e67e22;">
                 <svg viewBox="0 0 24 24"><path d="M19.4 13c.0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6l-2.1-1.7zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg><?php echo t('mob_nav_admin'); ?>
             </button>
         <?php endif; ?>
@@ -660,6 +731,18 @@ try {
 
         <div style="display:flex; gap:15px; margin-top:30px;">
             <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" onclick="closeModal('settingsModal')"><?php echo t('btn_close'); ?></button>
+        </div>
+    </div></div>
+
+    <!-- Révélation du mot de passe temporaire généré par un admin (Admin Panel > Utilisateurs > Réinitialiser).
+         Reste affiché jusqu'à fermeture manuelle (pas de toast auto-dismiss) pour laisser le temps de le copier. -->
+    <div id="adminResetPasswordModal" class="modal" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('adminResetPasswordModal')"><div class="modal-content" style="max-width:420px;">
+        <h2 style="margin-top:0;"><?php echo t('admin_users_reset_password_title'); ?></h2>
+        <p style="color:var(--text-muted); font-size:0.9em; margin-bottom:15px;" x-text="T('admin_users_reset_password_intro', { username: $store.ui.adminGeneratedPassword.username })"></p>
+        <input type="text" readonly x-model="$store.ui.adminGeneratedPassword.password" onclick="this.select()" style="font-family:monospace; font-weight:700; text-align:center; letter-spacing:1px; margin-bottom:0;">
+        <div style="display:flex; gap:15px; margin-top:20px;">
+            <button type="button" class="btn btn-outline" style="flex:1; justify-content:center;" onclick="copyAdminGeneratedPassword()"><?php echo t('admin_users_copy_password'); ?></button>
+            <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" onclick="closeModal('adminResetPasswordModal')"><?php echo t('btn_close'); ?></button>
         </div>
     </div></div>
 
@@ -879,8 +962,13 @@ try {
          style="position:fixed; bottom:110px; left:50%; transform:translateX(-50%); background:#1e162e; color:#fff; padding:14px 26px; border-radius:14px; border:1px solid var(--border-color); box-shadow:0 15px 40px rgba(0,0,0,0.5); z-index:6000; font-size:0.9em; font-weight:600; max-width:90%; text-align:center;">
     </div>
 
+<?php endif; ?>
+
     <script>
-        // Passage des variables PHP au JavaScript
+        <?php // Passage des variables PHP au JavaScript. Émis pour les deux états (connecté / déconnecté) : Alpine.js
+              // (store 'ui', T(), authForm()...) doit être disponible sur la page de connexion aussi, sinon le
+              // x-data posé sur <body> y reste inerte. $all_tracks/$all_playlists sont chargés en base plus haut
+              // dans tous les cas, donc aucun coût à les exposer même quand déconnecté (simplement inutilisés). ?>
         const ALL_MUSIC_DATA = <?php echo json_encode($all_tracks, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
         const ALL_PLAYLISTS_DATA = <?php echo json_encode($all_playlists, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
         const CURRENT_USER_ID = <?php echo json_encode($user_id); ?>;
@@ -900,6 +988,5 @@ try {
     </script>
     <script defer src="app.js"></script>
     <script defer src="vendor/alpine.min.js"></script>
-<?php endif; ?>
 </body>
 </html>

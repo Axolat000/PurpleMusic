@@ -44,6 +44,37 @@ if ($user_id) {
         exit;
     }
 
+    // RÉINITIALISATION DE MOT DE PASSE PAR UN ADMIN (Admin Panel > Utilisateurs) : différent du
+    // changement self-service ci-dessus (ne requiert pas l'ancien mot de passe). Génère un mot de
+    // passe temporaire aléatoire, le hash en base, et le renvoie EN CLAIR une seule fois au client
+    // (jamais loggué/stocké en clair) pour que l'admin le communique à l'utilisateur hors-bande.
+    if ($is_admin && isset($_POST['admin_reset_password'])) {
+        header('Content-Type: application/json');
+
+        $targetId = filter_var($_POST['target_user_id'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$targetId) {
+            echo json_encode(['status' => 'error', 'message' => t('err_user_not_found')]);
+            exit;
+        }
+        // Anti-verrouillage : un admin ne peut pas réinitialiser son propre mot de passe via cette UI.
+        if ($targetId == $user_id) {
+            echo json_encode(['status' => 'error', 'message' => t('err_cannot_modify_self')]);
+            exit;
+        }
+        $stmt = $db->prepare("SELECT id FROM users WHERE id = ?");
+        $stmt->execute([$targetId]);
+        if (!$stmt->fetch()) {
+            echo json_encode(['status' => 'error', 'message' => t('err_user_not_found')]);
+            exit;
+        }
+
+        $newPassword = bin2hex(random_bytes(6)); // mot de passe temporaire lisible (12 car. hexa)
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $db->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$newHash, $targetId]);
+        echo json_encode(['status' => 'success', 'password' => $newPassword]);
+        exit;
+    }
+
     // Sauvegarde de configuration étendue Admin
     if ($is_admin && isset($_POST['save_admin_settings'])) {
         $stmtUpdate = $db->prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
@@ -87,6 +118,52 @@ if ($user_id) {
         if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die(t('err_csrf'));
         $db->prepare("DELETE FROM genres WHERE name = ?")->execute([$_GET['delete_genre']]);
         header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+
+    // PROMOTION / RÉTROGRADATION ADMIN (Admin Panel > Utilisateurs)
+    if ($is_admin && isset($_GET['toggle_admin'])) {
+        if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die(t('err_csrf'));
+        $targetId = filter_var($_GET['toggle_admin'], FILTER_VALIDATE_INT);
+        // Anti-verrouillage : un admin ne peut pas se retirer ses propres droits via cette UI (vérifié ici, pas seulement caché côté client).
+        if ($targetId && $targetId != $user_id) {
+            $stmt = $db->prepare("SELECT is_admin FROM users WHERE id = ?");
+            $stmt->execute([$targetId]);
+            $curr = $stmt->fetchColumn();
+            if ($curr !== false) {
+                $db->prepare("UPDATE users SET is_admin = ? WHERE id = ?")->execute([$curr == 1 ? 0 : 1, $targetId]);
+            }
+        }
+        header("Location: " . $_SERVER['PHP_SELF'] . '?page=admin&admin_tab=users');
+        exit;
+    }
+
+    // SUPPRESSION D'UTILISATEUR (Admin Panel > Utilisateurs) : cascade sur ses pistes et playlists.
+    // Nécessaire car la liste des pistes (index.php) utilise un INNER JOIN sur users : sans ce nettoyage,
+    // les pistes de l'utilisateur supprimé disparaîtraient silencieusement de tous les listings au lieu
+    // de simplement devenir orphelines (elles ne remonteraient plus jamais dans aucune requête).
+    if ($is_admin && isset($_GET['delete_user'])) {
+        if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die(t('err_csrf'));
+        $targetId = filter_var($_GET['delete_user'], FILTER_VALIDATE_INT);
+        // Anti-verrouillage : un admin ne peut pas supprimer son propre compte via cette UI (vérifié ici, pas seulement caché côté client).
+        if ($targetId && $targetId != $user_id) {
+            $stmt = $db->prepare("SELECT filename, cover FROM tracks WHERE uploader_id = ?");
+            $stmt->execute([$targetId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                unlinkTrackFiles($t['filename'], $t['cover']);
+            }
+            $db->prepare("DELETE FROM tracks WHERE uploader_id = ?")->execute([$targetId]);
+
+            $stmt = $db->prepare("SELECT cover FROM playlists WHERE creator_id = ?");
+            $stmt->execute([$targetId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $pl) {
+                unlinkPlaylistCover($pl['cover']);
+            }
+            $db->prepare("DELETE FROM playlists WHERE creator_id = ?")->execute([$targetId]);
+
+            $db->prepare("DELETE FROM users WHERE id = ?")->execute([$targetId]);
+        }
+        header("Location: " . $_SERVER['PHP_SELF'] . '?page=admin&admin_tab=users');
         exit;
     }
 
@@ -153,8 +230,7 @@ if ($user_id) {
         $stmt = $db->prepare("SELECT filename, cover FROM tracks WHERE id = ? AND (uploader_id = ? OR ?)");
         $stmt->execute([$_GET['delete_track'], $user_id, $is_admin ? 1 : 0]); $t = $stmt->fetch();
         if ($t) {
-            if(file_exists(__DIR__ . '/music/' . $t['filename'])) unlink(__DIR__ . '/music/' . $t['filename']);
-            if($t['cover'] != 'default.png' && file_exists(__DIR__ . '/covers/' . $t['cover'])) unlink(__DIR__ . '/covers/' . $t['cover']);
+            unlinkTrackFiles($t['filename'], $t['cover']);
             $db->prepare("DELETE FROM tracks WHERE id = ?")->execute([$_GET['delete_track']]);
         }
         header("Location: " . strtok($_SERVER["REQUEST_URI"], '?')); exit;
@@ -164,7 +240,7 @@ if ($user_id) {
         if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die(t('err_csrf'));
         $stmt = $db->prepare("SELECT cover FROM playlists WHERE id = ? AND (creator_id = ? OR ?)");
         $stmt->execute([$_GET['delete_playlist'], $user_id, $is_admin ? 1 : 0]); $pl = $stmt->fetch();
-        if ($pl && !empty($pl['cover']) && file_exists(__DIR__ . '/covers/' . $pl['cover'])) unlink(__DIR__ . '/covers/' . $pl['cover']);
+        if ($pl) unlinkPlaylistCover($pl['cover']);
         $db->prepare("DELETE FROM playlists WHERE id = ? AND (creator_id = ? OR ?)")->execute([$_GET['delete_playlist'], $user_id, $is_admin ? 1 : 0]);
         header("Location: " . strtok($_SERVER["REQUEST_URI"], '?')); exit;
     }

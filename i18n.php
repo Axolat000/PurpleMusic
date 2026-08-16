@@ -7,8 +7,10 @@
 $I18N = [
     'fr' => [
         // Connexion / inscription
+        'login_page_subtitle' => 'Connecte-toi ou crée un compte pour continuer.',
         'login_username_placeholder' => 'Utilisateur',
         'login_password_placeholder' => 'Mot de passe',
+        'login_confirm_password_placeholder' => 'Confirmer le mot de passe',
         'login_btn' => 'Connexion',
         'login_register_btn' => 'Créer un compte',
 
@@ -52,6 +54,26 @@ $I18N = [
         'confirm_delete_genre' => 'Détruire ce genre musical ?',
         'btn_cancel' => 'Annuler',
         'btn_save' => 'Enregistrer',
+
+        // Panel admin — onglets & gestion des utilisateurs
+        'admin_section_users' => 'Utilisateurs',
+        'admin_users_table_username' => 'Utilisateur',
+        'admin_users_table_role' => 'Rôle',
+        'admin_users_table_actions' => 'Actions',
+        'admin_users_you' => 'vous',
+        'admin_users_role_member' => 'Membre',
+        'admin_users_self_note' => 'Compte actuellement connecté',
+        'admin_users_promote' => 'Promouvoir',
+        'admin_users_demote' => 'Rétrograder',
+        'admin_users_reset_password' => 'Réinitialiser',
+        'admin_users_reset_password_title' => 'Mot de passe temporaire généré',
+        'admin_users_reset_password_intro' => 'Nouveau mot de passe pour {username}. Communiquez-le à l\'utilisateur, il ne sera plus jamais affiché :',
+        'admin_users_copy_password' => 'Copier',
+        'admin_users_password_copied' => 'Mot de passe copié dans le presse-papiers.',
+        'confirm_delete_user' => 'Supprimer définitivement cet utilisateur ? Ses musiques et playlists seront aussi supprimées.',
+        'confirm_reset_password' => 'Générer un nouveau mot de passe temporaire pour {username} ?',
+        'err_user_not_found' => 'Utilisateur introuvable.',
+        'err_cannot_modify_self' => 'Vous ne pouvez pas effectuer cette action sur votre propre compte.',
 
         // File d'attente
         'queue_waiting_empty' => 'Aucune musique en attente...',
@@ -165,6 +187,7 @@ $I18N = [
         'err_please_wait' => 'Veuillez patienter.',
         'err_username_taken' => 'Nom déjà pris.',
         'err_invalid_credentials' => 'Identifiants incorrects.',
+        'err_username_required' => "Nom d'utilisateur requis.",
         'err_db_prefix' => 'Erreur BDD : ',
         'err_not_authenticated' => 'Non authentifié',
         'err_invalid_track_id' => 'ID de piste invalide',
@@ -177,8 +200,10 @@ $I18N = [
     ],
 
     'en' => [
+        'login_page_subtitle' => 'Log in or create an account to continue.',
         'login_username_placeholder' => 'Username',
         'login_password_placeholder' => 'Password',
+        'login_confirm_password_placeholder' => 'Confirm password',
         'login_btn' => 'Log In',
         'login_register_btn' => 'Create an account',
 
@@ -220,6 +245,25 @@ $I18N = [
         'confirm_delete_genre' => 'Delete this genre?',
         'btn_cancel' => 'Cancel',
         'btn_save' => 'Save',
+
+        'admin_section_users' => 'Users',
+        'admin_users_table_username' => 'User',
+        'admin_users_table_role' => 'Role',
+        'admin_users_table_actions' => 'Actions',
+        'admin_users_you' => 'you',
+        'admin_users_role_member' => 'Member',
+        'admin_users_self_note' => 'Currently logged-in account',
+        'admin_users_promote' => 'Promote',
+        'admin_users_demote' => 'Demote',
+        'admin_users_reset_password' => 'Reset password',
+        'admin_users_reset_password_title' => 'Temporary password generated',
+        'admin_users_reset_password_intro' => 'New password for {username}. Relay it to the user — it will never be shown again:',
+        'admin_users_copy_password' => 'Copy',
+        'admin_users_password_copied' => 'Password copied to clipboard.',
+        'confirm_delete_user' => 'Permanently delete this user? Their tracks and playlists will also be deleted.',
+        'confirm_reset_password' => 'Generate a new temporary password for {username}?',
+        'err_user_not_found' => 'User not found.',
+        'err_cannot_modify_self' => 'You cannot perform this action on your own account.',
 
         'queue_waiting_empty' => 'No tracks queued...',
         'queue_title' => 'Up Next',
@@ -320,6 +364,7 @@ $I18N = [
         'err_please_wait' => 'Please wait.',
         'err_username_taken' => 'Username already taken.',
         'err_invalid_credentials' => 'Incorrect credentials.',
+        'err_username_required' => 'Username is required.',
         'err_db_prefix' => 'Database error: ',
         'err_not_authenticated' => 'Not authenticated',
         'err_invalid_track_id' => 'Invalid track ID',
@@ -332,8 +377,10 @@ $I18N = [
     ],
 
     'es' => [
+        'login_page_subtitle' => 'Inicia sesión o crea una cuenta para continuar.',
         'login_username_placeholder' => 'Usuario',
         'login_password_placeholder' => 'Contraseña',
+        'login_confirm_password_placeholder' => 'Confirmar contraseña',
         'login_btn' => 'Iniciar sesión',
         'login_register_btn' => 'Crear una cuenta',
 
@@ -375,6 +422,25 @@ $I18N = [
         'confirm_delete_genre' => '¿Eliminar este género?',
         'btn_cancel' => 'Cancelar',
         'btn_save' => 'Guardar',
+
+        'admin_section_users' => 'Usuarios',
+        'admin_users_table_username' => 'Usuario',
+        'admin_users_table_role' => 'Rol',
+        'admin_users_table_actions' => 'Acciones',
+        'admin_users_you' => 'tú',
+        'admin_users_role_member' => 'Miembro',
+        'admin_users_self_note' => 'Cuenta actualmente conectada',
+        'admin_users_promote' => 'Promover',
+        'admin_users_demote' => 'Degradar',
+        'admin_users_reset_password' => 'Restablecer',
+        'admin_users_reset_password_title' => 'Contraseña temporal generada',
+        'admin_users_reset_password_intro' => 'Nueva contraseña para {username}. Compártela con el usuario, no volverá a mostrarse:',
+        'admin_users_copy_password' => 'Copiar',
+        'admin_users_password_copied' => 'Contraseña copiada al portapapeles.',
+        'confirm_delete_user' => '¿Eliminar definitivamente este usuario? Sus pistas y playlists también se eliminarán.',
+        'confirm_reset_password' => '¿Generar una nueva contraseña temporal para {username}?',
+        'err_user_not_found' => 'Usuario no encontrado.',
+        'err_cannot_modify_self' => 'No puedes realizar esta acción en tu propia cuenta.',
 
         'queue_waiting_empty' => 'No hay música en espera...',
         'queue_title' => 'A continuación',
@@ -475,6 +541,7 @@ $I18N = [
         'err_please_wait' => 'Por favor, espera.',
         'err_username_taken' => 'Nombre de usuario ya en uso.',
         'err_invalid_credentials' => 'Credenciales incorrectas.',
+        'err_username_required' => 'El nombre de usuario es obligatorio.',
         'err_db_prefix' => 'Error de base de datos: ',
         'err_not_authenticated' => 'No autenticado',
         'err_invalid_track_id' => 'ID de pista no válido',
@@ -487,8 +554,10 @@ $I18N = [
     ],
 
     'de' => [
+        'login_page_subtitle' => 'Melde dich an oder erstelle ein Konto, um fortzufahren.',
         'login_username_placeholder' => 'Benutzername',
         'login_password_placeholder' => 'Passwort',
+        'login_confirm_password_placeholder' => 'Passwort bestätigen',
         'login_btn' => 'Anmelden',
         'login_register_btn' => 'Konto erstellen',
 
@@ -530,6 +599,25 @@ $I18N = [
         'confirm_delete_genre' => 'Dieses Genre löschen?',
         'btn_cancel' => 'Abbrechen',
         'btn_save' => 'Speichern',
+
+        'admin_section_users' => 'Benutzer',
+        'admin_users_table_username' => 'Benutzer',
+        'admin_users_table_role' => 'Rolle',
+        'admin_users_table_actions' => 'Aktionen',
+        'admin_users_you' => 'du',
+        'admin_users_role_member' => 'Mitglied',
+        'admin_users_self_note' => 'Aktuell angemeldetes Konto',
+        'admin_users_promote' => 'Befördern',
+        'admin_users_demote' => 'Zurückstufen',
+        'admin_users_reset_password' => 'Zurücksetzen',
+        'admin_users_reset_password_title' => 'Temporäres Passwort erstellt',
+        'admin_users_reset_password_intro' => 'Neues Passwort für {username}. Gib es dem Benutzer weiter, es wird nie wieder angezeigt:',
+        'admin_users_copy_password' => 'Kopieren',
+        'admin_users_password_copied' => 'Passwort in die Zwischenablage kopiert.',
+        'confirm_delete_user' => 'Diesen Benutzer endgültig löschen? Seine Titel und Playlists werden ebenfalls gelöscht.',
+        'confirm_reset_password' => 'Neues temporäres Passwort für {username} erstellen?',
+        'err_user_not_found' => 'Benutzer nicht gefunden.',
+        'err_cannot_modify_self' => 'Diese Aktion kann nicht für dein eigenes Konto ausgeführt werden.',
 
         'queue_waiting_empty' => 'Keine Musik in der Warteschlange...',
         'queue_title' => 'Als Nächstes',
@@ -630,6 +718,7 @@ $I18N = [
         'err_please_wait' => 'Bitte warten.',
         'err_username_taken' => 'Benutzername bereits vergeben.',
         'err_invalid_credentials' => 'Falsche Anmeldedaten.',
+        'err_username_required' => 'Benutzername ist erforderlich.',
         'err_db_prefix' => 'Datenbankfehler: ',
         'err_not_authenticated' => 'Nicht authentifiziert',
         'err_invalid_track_id' => 'Ungültige Titel-ID',
@@ -674,6 +763,16 @@ const I18N_CLIENT_KEYS = [
     'playlist_edit_title',
     'selected_count',
     'err_password_change_network',
+    'confirm_delete_user',
+    'confirm_reset_password',
+    'admin_users_reset_password_intro',
+    'admin_users_password_copied',
+    // Formulaire de connexion/inscription (validation client + libellé du bouton, dépendants du mode actif)
+    'login_btn',
+    'login_register_btn',
+    'err_username_required',
+    'err_password_mismatch',
+    'err_password_too_short',
 ];
 
 function i18n_client_table() {

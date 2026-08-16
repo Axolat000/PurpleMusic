@@ -5,12 +5,28 @@ if (isset($_POST['register'])) {
     if (!checkRateLimit('register', 30)) {
         $error = t('err_please_wait');
     } else {
-        $hash = password_hash($_POST['password'], PASSWORD_DEFAULT);
-        $stmt = $db->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
-        try {
-            $stmt->execute([$_POST['username'], $hash]);
-        } catch (Exception $e) {
-            $error = t('err_username_taken');
+        $regUsername = (string)($_POST['username'] ?? '');
+        $regPassword = (string)($_POST['password'] ?? '');
+        // confirm_password n'existe que depuis le formulaire web (voir index.php / authForm() dans app.js) : on ne
+        // l'exige donc que si envoyé, pour rester rétro-compatible avec tout appelant qui ne le fournirait pas.
+        $regConfirmPassword = array_key_exists('confirm_password', $_POST) ? (string)$_POST['confirm_password'] : null;
+
+        if (trim($regUsername) === '') {
+            $error = t('err_username_required');
+        } elseif ($regConfirmPassword !== null && $regConfirmPassword !== $regPassword) {
+            $error = t('err_password_mismatch');
+        } elseif (mb_strlen($regPassword) < 6) {
+            $error = t('err_password_too_short');
+        } elseif (mb_strlen($regPassword) > 200) {
+            $error = t('err_password_too_long');
+        } else {
+            $hash = password_hash($regPassword, PASSWORD_DEFAULT);
+            $stmt = $db->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+            try {
+                $stmt->execute([$regUsername, $hash]);
+            } catch (Exception $e) {
+                $error = t('err_username_taken');
+            }
         }
     }
 }

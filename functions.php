@@ -159,6 +159,16 @@ function optimizeImage($sourcePath, $destinationPath, $mime = null) {
     return true;
 }
 
+// --- SUPPRESSION DE FICHIERS (musique / covers) : réutilisé par delete_track, delete_playlist
+// (actions.php) et par la cascade de suppression utilisateur (Admin Panel > Utilisateurs). ---
+function unlinkTrackFiles($filename, $cover) {
+    if ($filename && file_exists(__DIR__ . '/music/' . $filename)) unlink(__DIR__ . '/music/' . $filename);
+    if ($cover && $cover !== 'default.png' && file_exists(__DIR__ . '/covers/' . $cover)) unlink(__DIR__ . '/covers/' . $cover);
+}
+function unlinkPlaylistCover($cover) {
+    if (!empty($cover) && file_exists(__DIR__ . '/covers/' . $cover)) unlink(__DIR__ . '/covers/' . $cover);
+}
+
 function checkRateLimit($action, $limitSeconds) {
     $key = 'last_' . $action . '_time';
     if (isset($_SESSION[$key]) && (time() - $_SESSION[$key]) < $limitSeconds) {
