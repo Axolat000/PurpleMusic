@@ -248,7 +248,14 @@ try {
         }
 
         $remoteSha = null;
-        $cacheIsFresh = $cached !== null && isset($cached['checked_at'], $cached['remote_sha']) && (time() - $cached['checked_at']) < $cacheTtl;
+        // Le cache est écrit dans PURPLEMUSIC_DATA_DIR, qui survit à un redéploiement — mais APP_COMMIT_SHA,
+        // lui, change à chaque nouvelle image. Sans le comparateur local_sha ci-dessous, un cache "frais" (TTL)
+        // écrit juste avant un déploiement continuait de dire "mise à jour disponible" juste après, même une
+        // fois l'admin déjà à jour (vécu en prod : popup affiché à tort pendant jusqu'à 1h après un déploiement).
+        $cacheIsFresh = $cached !== null
+            && isset($cached['checked_at'], $cached['remote_sha'], $cached['local_sha'])
+            && $cached['local_sha'] === $localSha
+            && (time() - $cached['checked_at']) < $cacheTtl;
 
         if ($cacheIsFresh) {
             $remoteSha = $cached['remote_sha'];
@@ -275,7 +282,7 @@ try {
             }
 
             if ($remoteSha !== null) {
-                @file_put_contents($cacheFile, json_encode(['checked_at' => time(), 'remote_sha' => $remoteSha]));
+                @file_put_contents($cacheFile, json_encode(['checked_at' => time(), 'remote_sha' => $remoteSha, 'local_sha' => $localSha]));
             } elseif ($cached !== null && isset($cached['remote_sha'])) {
                 // GitHub injoignable/rate-limité : on retombe sur le dernier résultat connu plutôt que rien,
                 // sans réécrire le cache (pour retenter une vraie requête au prochain appel après le TTL).
