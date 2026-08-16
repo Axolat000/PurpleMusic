@@ -3,11 +3,13 @@ config.php
 php.ini
 cacert.pem
 run-local.bat
+.env
 
 # Données locales (SQLite, samples de test)
 music_app.db
 amusic_app.db
 *.db
+update_check_cache.json
 music/*
 covers/*
 !covers/default.png

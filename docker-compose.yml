@@ -10,6 +10,35 @@ services:
       - purplemusic_data:/var/www/purplemusic-data  # config.php + base SQLite (hors du DocumentRoot, jamais servi en HTTP)
       - purplemusic_music:/var/www/html/music         # fichiers audio uploadés
       - purplemusic_covers:/var/www/html/covers        # pochettes
+    environment:
+      # Mise à jour en un clic (popup admin) : appelle l'API HTTP du sidecar Watchtower ci-dessous au lieu
+      # de donner à ce conteneur un accès au socket Docker (voir le commentaire sur le service watchtower).
+      # Optionnel : si WATCHTOWER_TOKEN n'est pas défini dans .env, l'app affiche quand même la notification
+      # de mise à jour disponible, avec des instructions manuelles à la place du bouton "Mettre à jour".
+      - WATCHTOWER_API_URL=http://watchtower:8080/v1/update
+      - WATCHTOWER_API_TOKEN=${WATCHTOWER_TOKEN}
+    labels:
+      # Scope Watchtower à CE conteneur uniquement (--label-enable côté watchtower) : les autres conteneurs
+      # qui tournent éventuellement sur le même hôte ne sont jamais touchés par un déclenchement de mise à jour.
+      - "com.centurylinklabs.watchtower.enable=true"
+    depends_on:
+      - watchtower
+
+  # Sidecar dédié à la mise à jour : c'est LUI qui a accès au socket Docker, jamais l'app PHP (purplemusic).
+  # Une faille RCE côté PHP (upload, etc.) ne peut donc jamais escalader jusqu'à un accès Docker/root sur
+  # l'hôte — au pire, un attaquant qui contrôle déjà le PHP peut appeler trigger_update via l'app elle-même,
+  # ce qui ne fait que mettre à jour purplemusic vers la dernière image publiée sur GHCR (pas un accès arbitraire
+  # au démon Docker). --http-api-update désactive le polling automatique : Watchtower reste passif tant que
+  # PHP ne l'appelle pas explicitement (déclenché par l'admin depuis la popup de mise à jour).
+  watchtower:
+    image: nickfedor/watchtower:latest  # fork actif — containrrr/watchtower est archivé depuis déc. 2025, flags/API identiques
+    container_name: purplemusic-watchtower
+    restart: unless-stopped
+    command: --http-api-update --http-api-token ${WATCHTOWER_TOKEN} --label-enable --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Pas de "ports:" : l'API HTTP de Watchtower n'a pas besoin d'être exposée sur l'hôte, seulement
+    # accessible depuis le conteneur purplemusic via le réseau interne docker-compose (nom de service "watchtower").
 
 volumes:
   purplemusic_data:

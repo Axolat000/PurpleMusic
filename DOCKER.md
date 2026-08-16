@@ -51,6 +51,26 @@ Un workflow GitHub Actions (`.github/workflows/docker-publish.yml`) build et pub
 
 Après le tout premier build, le package est privé par défaut : pour que `docker run ghcr.io/axolat000/purplemusic` fonctionne pour n'importe qui (comme MeTube), il faut le rendre public une fois dans GitHub → onglet **Packages** du profil/repo → `purplemusic` → **Package settings** → **Change visibility** → **Public**.
 
+## Mise à jour en un clic (admin, option B uniquement)
+
+Avec `docker compose`, un sidecar [Watchtower](https://github.com/nickfedor/watchtower) optionnel permet aux
+admins de mettre à jour l'app en un clic depuis une popup dans l'interface, sans jamais donner à l'app PHP
+elle-même accès au socket Docker (le sidecar est le seul conteneur à le monter, restreint via label à ne
+gérer que `purplemusic`).
+
+Pour l'activer :
+```bash
+cp .env.example .env
+# éditer .env et remplacer WATCHTOWER_TOKEN par un jeton aléatoire, ex :
+openssl rand -hex 32
+docker compose up -d
+```
+
+Sans `.env`/`WATCHTOWER_TOKEN`, tout continue de fonctionner normalement : les admins reçoivent quand même la
+notification de mise à jour disponible, avec les commandes ci-dessus à copier-coller à la place du bouton
+"Mettre à jour". Idem pour l'option A (`docker run` simple) : pas de mise à jour automatique possible, mais la
+notification s'affiche toujours pour prévenir qu'une nouvelle version existe.
+
 ## Sauvegardes
 
 ```bash

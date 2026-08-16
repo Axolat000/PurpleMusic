@@ -22,6 +22,14 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /var/www/html
 COPY . /var/www/html/
 
+# SHA du commit buildé, injecté par le workflow GitHub Actions (build-args) — permet à l'app de
+# savoir avec quel code elle tourne et de le comparer au HEAD de main sur GitHub pour détecter
+# une mise à jour disponible (voir action check_update dans index.php). "unknown" par défaut :
+# un build local (docker compose build sans build-arg) ou hors Docker n'a pas de SHA fiable, donc
+# pas de vérification de mise à jour dans ce cas (évite les faux positifs).
+ARG APP_COMMIT_SHA=unknown
+ENV APP_COMMIT_SHA=$APP_COMMIT_SHA
+
 # Les données persistantes (config.php généré à l'installation + la base SQLite) vivent
 # HORS du DocumentRoot Apache (/var/www/html) — pas juste dans un sous-dossier bloqué par
 # .htaccess. La base SQLite contient les hash de mots de passe de tous les utilisateurs ;

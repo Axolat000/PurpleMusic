@@ -63,6 +63,11 @@ git pull
 
 Your data (accounts, tracks, playlists) is untouched either way.
 
+Admins also get an in-app notification when a new version is published. With `docker compose` and an optional
+Watchtower sidecar enabled (see [`DOCKER.md`](DOCKER.md)), that notification comes with a one-click "Update now"
+button — the app never gets direct Docker socket access itself, only the dedicated sidecar does. Without it
+(or with the plain `docker run` setup above), the same notification shows the manual commands instead.
+
 ## License
 
 MIT — see [LICENSE.md](LICENSE.md).

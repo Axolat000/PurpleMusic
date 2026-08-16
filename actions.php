@@ -167,6 +167,52 @@ if ($user_id) {
         exit;
     }
 
+    // DÉCLENCHEMENT DE MISE À JOUR (popup admin) : ne touche JAMAIS au socket Docker depuis PHP.
+    // Passe par l'API HTTP du sidecar Watchtower (docker-compose.yml), scopé au conteneur purplemusic
+    // via son label "com.centurylinklabs.watchtower.enable" -> même en cas de RCE côté PHP, l'attaquant
+    // n'obtient au pire qu'un déclenchement de mise à jour de CE conteneur, jamais un accès Docker.
+    if ($is_admin && isset($_POST['trigger_update'])) {
+        header('Content-Type: application/json');
+
+        $watchtowerUrl = (string) getenv('WATCHTOWER_API_URL');
+        $watchtowerToken = (string) getenv('WATCHTOWER_API_TOKEN');
+
+        if ($watchtowerUrl === '' || $watchtowerToken === '') {
+            // Install docker-compose sans Watchtower configuré, ou install "docker run" simple (README) :
+            // le frontend bascule alors sur les instructions de mise à jour manuelle (flag "manual").
+            echo json_encode(['status' => 'error', 'message' => t('err_update_watchtower_not_configured'), 'manual' => true]);
+            exit;
+        }
+
+        if (!function_exists('curl_init')) {
+            echo json_encode(['status' => 'error', 'message' => t('err_update_trigger_failed'), 'manual' => true]);
+            exit;
+        }
+
+        // L'API HTTP de Watchtower attend une requête GET (pas POST) sur /v1/update, authentifiée par
+        // "Authorization: Bearer <token>". Timeout court : cet appel ne fait que déclencher la mise à jour
+        // en tâche de fond côté Watchtower, il n'attend pas qu'elle se termine (pull + recreate du
+        // conteneur peut prendre bien plus longtemps que ce timeout).
+        $ch = curl_init($watchtowerUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $watchtowerToken],
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrNo = curl_errno($ch);
+        curl_close($ch);
+
+        if ($curlErrNo === 0 && $httpCode >= 200 && $httpCode < 300) {
+            echo json_encode(['status' => 'success', 'message' => t('update_triggered_message')]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => t('err_update_trigger_failed'), 'manual' => true]);
+        }
+        exit;
+    }
+
     // UPLOAD
     if (isset($_POST['upload']) && isset($_FILES['music'])) {
         if (!checkRateLimit('upload', 15)) { die(t('err_rate_limit_upload')); }

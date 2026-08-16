@@ -32,6 +32,16 @@ document.addEventListener('alpine:init', () => {
         lyricsPlain: '',
         lyricsActiveIndex: -1,
 
+        // --- MISE À JOUR (popup admin) : vérifie une fois par vrai chargement de page (voir init()),
+        // résultat mis en cache côté client (sessionStorage) en plus du cache serveur (1h) pour éviter
+        // tout appel réseau superflu. Le "dismiss" (Plus tard) est aussi en sessionStorage : suspendu
+        // pour la session du navigateur en cours, pas pour toujours (voir dismissUpdateNotice()).
+        updateCheck: { checked: false, available: false, watchtowerConfigured: false },
+        updateDismissedThisSession: false,
+        updateTriggering: false,
+        updateTriggerState: null, // null | 'updating' | 'error'
+        updateTriggerError: '',
+
         init() {
             if (typeof ALL_MUSIC_DATA !== 'undefined') {
                 this.recentTracks = [...ALL_MUSIC_DATA].sort((a, b) => b.id - a.id).slice(0, 10);
@@ -44,6 +54,94 @@ document.addEventListener('alpine:init', () => {
                 this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 10);
             }
             this.themePreset = localStorage.getItem('purpleMusicTheme') || 'violet';
+
+            // Vérif de mise à jour : uniquement pour un admin connecté (IS_ADMIN/CURRENT_USER_ID sont
+            // injectés par index.php, absents/false sur la page de connexion). init() ne tourne qu'une
+            // fois par vrai chargement de page (pas de routing client dans cette app), donc pas besoin
+            // de protection supplémentaire contre un refire lors des changements de section.
+            if (typeof IS_ADMIN !== 'undefined' && IS_ADMIN && typeof CURRENT_USER_ID !== 'undefined' && CURRENT_USER_ID) {
+                if (sessionStorage.getItem('pmUpdateDismissed') === '1') this.updateDismissedThisSession = true;
+                this.checkForUpdate();
+            }
+        },
+
+        async checkForUpdate() {
+            try {
+                const cachedRaw = sessionStorage.getItem('pmUpdateCheckResult');
+                if (cachedRaw) {
+                    const cached = JSON.parse(cachedRaw);
+                    if (cached && typeof cached.ts === 'number' && (Date.now() - cached.ts) < 10 * 60 * 1000) {
+                        this.applyUpdateCheckResult(cached.data);
+                        return;
+                    }
+                }
+            } catch (e) { /* cache client corrompu : on ignore et on retente une vraie requête */ }
+
+            try {
+                const res = await fetch('?check_update=1');
+                const data = await res.json();
+                sessionStorage.setItem('pmUpdateCheckResult', JSON.stringify({ ts: Date.now(), data }));
+                this.applyUpdateCheckResult(data);
+            } catch (e) {
+                // Échec réseau/API : jamais d'erreur visible pour un simple check en arrière-plan.
+                console.error('Update check failed', e);
+            }
+        },
+
+        applyUpdateCheckResult(data) {
+            this.updateCheck = {
+                checked: !!(data && data.checked),
+                available: !!(data && data.update_available),
+                watchtowerConfigured: !!(data && data.watchtower_configured),
+            };
+            if (this.updateCheck.available && !this.updateDismissedThisSession) {
+                this.openModal('updateAvailableModal');
+            }
+        },
+
+        dismissUpdateNotice() {
+            this.updateDismissedThisSession = true;
+            sessionStorage.setItem('pmUpdateDismissed', '1');
+            this.closeModal('updateAvailableModal');
+        },
+
+        async triggerUpdate() {
+            this.updateTriggering = true;
+            this.updateTriggerState = null;
+            this.updateTriggerError = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', CSRF_TOKEN);
+                fd.append('trigger_update', '1');
+                const res = await fetch(window.location.pathname, { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    this.updateTriggerState = 'updating';
+                    this.attemptReloadAfterUpdate();
+                } else {
+                    this.updateTriggerState = 'error';
+                    this.updateTriggerError = data.message || T('err_update_trigger_failed');
+                    if (data.manual) this.updateCheck.watchtowerConfigured = false;
+                }
+            } catch (e) {
+                this.updateTriggerState = 'error';
+                this.updateTriggerError = T('err_update_trigger_failed');
+            } finally {
+                this.updateTriggering = false;
+            }
+        },
+
+        // Le conteneur redémarre après le déclenchement Watchtower : on attend avant de recharger, avec
+        // plusieurs tentatives à intervalle croissant (le serveur peut être brièvement injoignable pendant
+        // le pull + la recréation du conteneur) plutôt qu'un simple reload() qui tomberait sur une erreur.
+        attemptReloadAfterUpdate(attempt = 0) {
+            const delays = [5000, 5000, 8000, 8000, 10000, 10000];
+            if (attempt >= delays.length) { window.location.reload(); return; }
+            setTimeout(() => {
+                fetch(window.location.pathname, { method: 'HEAD', cache: 'no-store' })
+                    .then(() => window.location.reload())
+                    .catch(() => this.attemptReloadAfterUpdate(attempt + 1));
+            }, delays[attempt]);
         },
 
         openModal(id) { this.activeModal = id; },

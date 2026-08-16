@@ -208,6 +208,88 @@ try {
         exit;
     }
 
+    // Ajax : Vérifier si une nouvelle version de l'app est disponible (admin uniquement, lecture seule
+    // -> pas de CSRF nécessaire, même logique que get_lyrics/get_playlist_tracks ci-dessus). Compare le
+    // SHA du commit avec lequel l'image Docker a été buildée (APP_COMMIT_SHA, injecté au build par le
+    // workflow GitHub Actions) au HEAD actuel de la branche main sur GitHub. Résultat mis en cache
+    // (fichier dans PURPLEMUSIC_DATA_DIR, 1h de TTL) pour ne pas taper l'API GitHub non-authentifiée
+    // (60 req/h/IP) à chaque rechargement de page par un admin.
+    if (isset($_GET['check_update'])) {
+        header('Content-Type: application/json');
+
+        if (!$is_admin) {
+            http_response_code(403);
+            echo json_encode(['error' => t('err_not_authenticated')]);
+            exit;
+        }
+
+        $localSha = (string) getenv('APP_COMMIT_SHA');
+        if ($localSha === '' || $localSha === 'unknown') {
+            // Pas d'image Docker versionnée (dev local, install manuelle, build sans build-arg...) :
+            // aucune base de comparaison fiable, on ne vérifie pas (évite un faux positif permanent).
+            echo json_encode(['checked' => false, 'update_available' => false]);
+            exit;
+        }
+
+        $cacheFile = $dataDir . '/update_check_cache.json';
+        $cacheTtl = 3600;
+        $cached = null;
+        if (file_exists($cacheFile)) {
+            $rawCache = @file_get_contents($cacheFile);
+            $decoded = $rawCache !== false ? json_decode($rawCache, true) : null;
+            if (is_array($decoded)) $cached = $decoded;
+        }
+
+        $remoteSha = null;
+        $cacheIsFresh = $cached !== null && isset($cached['checked_at'], $cached['remote_sha']) && (time() - $cached['checked_at']) < $cacheTtl;
+
+        if ($cacheIsFresh) {
+            $remoteSha = $cached['remote_sha'];
+        } elseif (function_exists('curl_init')) {
+            $ch = curl_init('https://api.github.com/repos/Axolat000/PurpleMusic/commits/main');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                // GitHub renvoie 403 sans User-Agent sur toutes les requêtes API.
+                CURLOPT_USERAGENT => 'PurpleMusic-UpdateChecker',
+                CURLOPT_HTTPHEADER => ['Accept: application/vnd.github+json'],
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErrNo = curl_errno($ch);
+            curl_close($ch);
+
+            if ($curlErrNo === 0 && $response !== false && $httpCode === 200) {
+                $data = json_decode($response, true);
+                if (is_array($data) && !empty($data['sha']) && is_string($data['sha'])) {
+                    $remoteSha = $data['sha'];
+                }
+            }
+
+            if ($remoteSha !== null) {
+                @file_put_contents($cacheFile, json_encode(['checked_at' => time(), 'remote_sha' => $remoteSha]));
+            } elseif ($cached !== null && isset($cached['remote_sha'])) {
+                // GitHub injoignable/rate-limité : on retombe sur le dernier résultat connu plutôt que rien,
+                // sans réécrire le cache (pour retenter une vraie requête au prochain appel après le TTL).
+                $remoteSha = $cached['remote_sha'];
+            }
+        }
+
+        if ($remoteSha === null) {
+            // Échec réseau et rien en cache : jamais d'erreur fatale, juste "pas d'info de mise à jour".
+            echo json_encode(['checked' => false, 'update_available' => false]);
+            exit;
+        }
+
+        echo json_encode([
+            'checked' => true,
+            'update_available' => ($remoteSha !== $localSha),
+            'watchtower_configured' => (getenv('WATCHTOWER_API_URL') ?: '') !== '' && (getenv('WATCHTOWER_API_TOKEN') ?: '') !== '',
+        ]);
+        exit;
+    }
+
     $all_tracks = $db->query("SELECT tracks.*, users.username as uploader_name FROM tracks JOIN users ON tracks.uploader_id = users.id ORDER BY play_count DESC, id DESC")->fetchAll(PDO::FETCH_ASSOC);
     $all_playlists = $db->query("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -745,6 +827,49 @@ try {
             <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" onclick="closeModal('adminResetPasswordModal')"><?php echo t('btn_close'); ?></button>
         </div>
     </div></div>
+
+    <!-- Popup de mise à jour (admin uniquement) : ouverte automatiquement par $store.ui.checkForUpdate()
+         (voir app.js init()) quand une nouvelle version est détectée. Deux états selon que Watchtower est
+         configuré côté serveur (bouton "Mettre à jour") ou non (install docker-compose sans sidecar /
+         install "docker run" simple -> instructions manuelles, voir DOCKER.md/README.md). -->
+    <?php if ($is_admin): ?>
+    <div id="updateAvailableModal" class="modal" x-show="$store.ui.activeModal === 'updateAvailableModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.dismissUpdateNotice()"><div class="modal-content" style="max-width:480px;">
+        <h2 style="margin-top:0;"><?php echo t('update_available_title'); ?></h2>
+
+        <template x-if="$store.ui.updateTriggerState !== 'updating'">
+            <div>
+                <p style="color:var(--text-muted); font-size:0.9em; margin-bottom:15px;"><?php echo t('update_available_message'); ?></p>
+
+                <template x-if="$store.ui.updateCheck.watchtowerConfigured">
+                    <button type="button" class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:12px;" :disabled="$store.ui.updateTriggering" @click="$store.ui.triggerUpdate()">
+                        <span x-show="!$store.ui.updateTriggering"><?php echo t('btn_update_now'); ?></span>
+                        <span x-show="$store.ui.updateTriggering" x-cloak><?php echo t('update_triggering'); ?></span>
+                    </button>
+                </template>
+                <template x-if="!$store.ui.updateCheck.watchtowerConfigured">
+                    <div>
+                        <p style="color:var(--text-muted); font-size:0.85em; margin-bottom:8px;"><?php echo t('update_manual_intro'); ?></p>
+                        <code style="display:block; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:10px; padding:10px 14px; font-size:0.8em; margin-bottom:10px; white-space:pre-wrap; word-break:break-all;">docker compose pull && docker compose up -d</code>
+                        <p style="color:var(--text-muted); font-size:0.75em; margin-bottom:8px;"><?php echo t('update_manual_or_run'); ?></p>
+                        <code style="display:block; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:10px; padding:10px 14px; font-size:0.8em; white-space:pre-wrap; word-break:break-all;">docker pull ghcr.io/axolat000/purplemusic:latest
+docker stop purplemusic && docker rm purplemusic</code>
+                        <p style="color:var(--text-muted); font-size:0.75em; margin-top:8px;"><?php echo t('update_manual_rerun_note'); ?></p>
+                    </div>
+                </template>
+
+                <p x-show="$store.ui.updateTriggerState === 'error'" x-cloak style="color:var(--danger); font-size:0.85em; margin-top:12px;" x-text="$store.ui.updateTriggerError"></p>
+
+                <div style="display:flex; gap:15px; margin-top:20px;">
+                    <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" @click="$store.ui.dismissUpdateNotice()"><?php echo t('btn_later'); ?></button>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="$store.ui.updateTriggerState === 'updating'">
+            <p style="color:var(--text-muted); font-size:0.95em;"><?php echo t('update_updating_message'); ?></p>
+        </template>
+    </div></div>
+    <?php endif; ?>
 
     <div id="uploadModal" class="modal" x-show="$store.ui.activeModal === 'uploadModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('uploadModal')"><div class="modal-content">
         <h2 style="margin-top:0;"><?php echo t('btn_upload'); ?></h2>

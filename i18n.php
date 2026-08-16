@@ -197,6 +197,20 @@ $I18N = [
         'err_password_too_short' => 'Mot de passe trop court (6 caractères min).',
         'err_password_too_long' => 'Mot de passe trop long.',
         'err_password_change_network' => 'Erreur réseau, veuillez réessayer.',
+
+        // Popup de mise à jour (admin uniquement)
+        'update_available_title' => 'Mise à jour disponible',
+        'update_available_message' => 'Une nouvelle version de Purple Music est disponible.',
+        'btn_update_now' => 'Mettre à jour maintenant',
+        'update_triggering' => 'Lancement...',
+        'update_updating_message' => "Mise à jour en cours — l'application va redémarrer dans quelques instants.",
+        'update_manual_intro' => 'Mets à jour manuellement en exécutant :',
+        'update_manual_or_run' => 'Ou, si tu utilises la commande docker run directe :',
+        'update_manual_rerun_note' => 'Puis relance la commande docker run habituelle.',
+        'btn_later' => 'Plus tard',
+        'err_update_watchtower_not_configured' => 'Mise à jour automatique non configurée sur ce serveur — utilise les instructions manuelles ci-dessous.',
+        'err_update_trigger_failed' => 'Échec du déclenchement de la mise à jour. Réessaie ou mets à jour manuellement.',
+        'update_triggered_message' => 'Mise à jour déclenchée.',
     ],
 
     'en' => [
@@ -374,6 +388,20 @@ $I18N = [
         'err_password_too_short' => 'Password too short (6 characters min).',
         'err_password_too_long' => 'Password too long.',
         'err_password_change_network' => 'Network error, please try again.',
+
+        // Update popup (admin only)
+        'update_available_title' => 'Update available',
+        'update_available_message' => 'A new version of Purple Music is available.',
+        'btn_update_now' => 'Update now',
+        'update_triggering' => 'Starting...',
+        'update_updating_message' => 'Update in progress — the app will restart shortly.',
+        'update_manual_intro' => 'Update manually by running:',
+        'update_manual_or_run' => 'Or, if you use the plain docker run command:',
+        'update_manual_rerun_note' => 'Then re-run your usual docker run command.',
+        'btn_later' => 'Later',
+        'err_update_watchtower_not_configured' => 'Automatic update is not configured on this server — use the manual instructions below.',
+        'err_update_trigger_failed' => 'Failed to trigger the update. Try again or update manually.',
+        'update_triggered_message' => 'Update triggered.',
     ],
 
     'es' => [
@@ -551,6 +579,20 @@ $I18N = [
         'err_password_too_short' => 'Contraseña demasiado corta (mínimo 6 caracteres).',
         'err_password_too_long' => 'Contraseña demasiado larga.',
         'err_password_change_network' => 'Error de red, inténtalo de nuevo.',
+
+        // Popup de actualización (solo admin)
+        'update_available_title' => 'Actualización disponible',
+        'update_available_message' => 'Hay una nueva versión de Purple Music disponible.',
+        'btn_update_now' => 'Actualizar ahora',
+        'update_triggering' => 'Iniciando...',
+        'update_updating_message' => 'Actualización en curso — la aplicación se reiniciará en breve.',
+        'update_manual_intro' => 'Actualiza manualmente ejecutando:',
+        'update_manual_or_run' => 'O, si usas el comando docker run directo:',
+        'update_manual_rerun_note' => 'Luego vuelve a ejecutar tu comando docker run habitual.',
+        'btn_later' => 'Más tarde',
+        'err_update_watchtower_not_configured' => 'La actualización automática no está configurada en este servidor — usa las instrucciones manuales de abajo.',
+        'err_update_trigger_failed' => 'Error al iniciar la actualización. Inténtalo de nuevo o actualiza manualmente.',
+        'update_triggered_message' => 'Actualización iniciada.',
     ],
 
     'de' => [
@@ -728,6 +770,20 @@ $I18N = [
         'err_password_too_short' => 'Passwort zu kurz (mind. 6 Zeichen).',
         'err_password_too_long' => 'Passwort zu lang.',
         'err_password_change_network' => 'Netzwerkfehler, bitte versuche es erneut.',
+
+        // Update-Popup (nur Admin)
+        'update_available_title' => 'Update verfügbar',
+        'update_available_message' => 'Eine neue Version von Purple Music ist verfügbar.',
+        'btn_update_now' => 'Jetzt aktualisieren',
+        'update_triggering' => 'Wird gestartet...',
+        'update_updating_message' => 'Update läuft — die App wird in Kürze neu starten.',
+        'update_manual_intro' => 'Manuell aktualisieren mit:',
+        'update_manual_or_run' => 'Oder, falls du den direkten docker-run-Befehl verwendest:',
+        'update_manual_rerun_note' => 'Führe danach deinen üblichen docker-run-Befehl erneut aus.',
+        'btn_later' => 'Später',
+        'err_update_watchtower_not_configured' => 'Automatisches Update ist auf diesem Server nicht konfiguriert — verwende die manuelle Anleitung unten.',
+        'err_update_trigger_failed' => 'Update konnte nicht gestartet werden. Versuche es erneut oder aktualisiere manuell.',
+        'update_triggered_message' => 'Update gestartet.',
     ],
 ];
 
@@ -763,6 +819,7 @@ const I18N_CLIENT_KEYS = [
     'playlist_edit_title',
     'selected_count',
     'err_password_change_network',
+    'err_update_trigger_failed',
     'confirm_delete_user',
     'confirm_reset_password',
     'admin_users_reset_password_intro',
