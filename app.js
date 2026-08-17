@@ -426,6 +426,10 @@ setThemeVars(localStorage.getItem('purpleMusicTheme') || 'violet');
 const playIcon = '<svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg>';
 const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
 
+// Tracé du haut-parleur "actif"/"muet" pour le bouton-icône du volume (mini-barre + grand lecteur desktop).
+const volumeIconPath = 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z';
+const mutedVolumeIconPath = 'M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.8L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z';
+
 const desktopVol = document.getElementById('desktop-vol');
 const settingsVol = document.getElementById('settings-vol');
 const dpVol = document.getElementById('dp-vol');
@@ -472,6 +476,9 @@ async function doAdminResetPassword(userId, username) {
 
 function updateVolume(val) {
     if (!audio) return;
+    // Remonter le volume à la main (au-dessus de 0) alors qu'on était en muet redonne le son, comme sur
+    // la plupart des lecteurs — plus intuitif que de laisser le curseur sans effet audible.
+    if (audio.muted && val > 0) audio.muted = false;
     audio.volume = val;
     if(desktopVol) desktopVol.value = val;
     if(settingsVol) settingsVol.value = val;
@@ -482,6 +489,29 @@ function updateVolume(val) {
     if(desktopVol) desktopVol.style.background = bgStyle;
     if(settingsVol) settingsVol.style.background = bgStyle;
     if(dpVol) dpVol.style.background = bgStyle;
+    refreshVolumeIcon();
+}
+
+// Bouton-icône (mini-barre + grand lecteur desktop) : coupe/rétablit le son via audio.muted plutôt qu'en
+// mémorisant/écrasant audio.volume, pour que le volume réglé soit automatiquement restauré tel quel au
+// dé-mute sans logique de sauvegarde séparée.
+function toggleMute() {
+    if (!audio) return;
+    audio.muted = !audio.muted;
+    refreshVolumeIcon();
+}
+
+// Reflète l'état muet/silencieux sur les deux icônes (mini-barre #vol-icon-desktop-vol, grand lecteur
+// #vol-icon-dp-vol) — muet explicite (audio.muted) OU volume à 0 (curseur descendu au minimum) affichent
+// tous les deux l'icône barrée, même si seul le premier cas mémorise vraiment un état "muet" togglable.
+function refreshVolumeIcon() {
+    if (!audio) return;
+    const muted = audio.muted || audio.volume <= 0;
+    const path = muted ? mutedVolumeIconPath : volumeIconPath;
+    ['vol-icon-desktop-vol', 'vol-icon-dp-vol'].forEach(id => {
+        const svg = document.getElementById(id);
+        if (svg) svg.innerHTML = `<path d="${path}"/>`;
+    });
 }
 
 if(desktopVol) desktopVol.addEventListener('input', (e) => updateVolume(e.target.value));

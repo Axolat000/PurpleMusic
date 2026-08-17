@@ -171,6 +171,7 @@ $I18N = [
         'tooltip_play' => 'Lecture',
         'tooltip_next' => 'Suivant',
         'tooltip_loop' => 'Boucle',
+        'tooltip_mute' => 'Muet',
         'now_playing_label' => 'LECTURE EN COURS',
 
         // Confirmation / toast
@@ -364,6 +365,7 @@ $I18N = [
         'tooltip_play' => 'Play',
         'tooltip_next' => 'Next',
         'tooltip_loop' => 'Repeat',
+        'tooltip_mute' => 'Mute',
         'now_playing_label' => 'NOW PLAYING',
 
         'btn_confirm' => 'Confirm',
@@ -555,6 +557,7 @@ $I18N = [
         'tooltip_play' => 'Reproducir',
         'tooltip_next' => 'Siguiente',
         'tooltip_loop' => 'Repetir',
+        'tooltip_mute' => 'Silenciar',
         'now_playing_label' => 'REPRODUCIENDO',
 
         'btn_confirm' => 'Confirmar',
@@ -746,6 +749,7 @@ $I18N = [
         'tooltip_play' => 'Abspielen',
         'tooltip_next' => 'Weiter',
         'tooltip_loop' => 'Wiederholen',
+        'tooltip_mute' => 'Stumm',
         'now_playing_label' => 'WIRD ABGESPIELT',
 
         'btn_confirm' => 'Bestätigen',

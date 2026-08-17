@@ -90,7 +90,10 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 .playlist-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; box-shadow: none; }
 .home-track-card .playlist-cover { margin-bottom: 8px; }
 
-.playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; }
+/* align-items: start (pas le stretch par défaut d'une grille) : sinon chaque carte est étirée à la hauteur
+   de la plus haute ligne, ce qui laisse un vide sous le bouton "Voir le mix" des cartes dont le titre tient
+   sur moins de lignes que sa voisine — vécu en prod avec des titres de longueurs très différentes. */
+.playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; align-items: start; }
 .playlist-card { background: var(--bg-panel); border-radius: 18px; padding: 14px; border: 1px solid rgba(61, 43, 86, 0.5); transition: transform 0.3s, box-shadow 0.3s; }
 .playlist-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); border-color: var(--primary); }
 .playlist-card .playlist-cover { border-radius: 12px; margin-bottom: 12px; font-size: 1.6em; }
@@ -151,17 +154,35 @@ input[type="range"].vol-slider::-moz-range-thumb { width: 12px; height: 12px; ba
 input[type="range"].vol-slider:hover::-moz-range-thumb, input[type="range"].vol-slider:active::-moz-range-thumb, input[type="range"].vol-slider:focus::-moz-range-thumb { opacity: 1; }
 input[type="range"].vol-slider::-moz-range-thumb:hover { transform: scale(1.3); }
 
-/* Contrôle de volume compact "icône, grossit au survol" — réutilisé par la barre de lecture (mini-player)
-   et la carte du grand lecteur desktop. .vol-hover-zone garde une taille FIXE égale à l'état déployé en
-   permanence : c'est ELLE qui capte :hover, jamais la pastille visible — sinon la pastille grossirait,
-   pousserait le curseur hors de sa propre zone, se rétrécirait, le curseur la retrouverait, etc. (boucle
-   de clignotement vécue avec la 1ère version qui animait la largeur de la pastille elle-même). */
+/* Bouton-icône du volume (mute toggle) : reset des styles natifs de <button>, l'icône reste le seul
+   élément visible — partagé par les deux variantes ci-dessous. */
+.vol-icon-btn { background: none; border: none; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+
+/* Volume du grand lecteur desktop (carte carrousel) : "icône, grossit au survol", pastille visible au
+   repos (bordure/fond assumés dans ce contexte — carte déjà mise en avant). .vol-hover-zone garde une
+   taille FIXE égale à l'état déployé en permanence : c'est ELLE qui capte :hover, jamais la pastille
+   visible — sinon la pastille grossirait, pousserait le curseur hors de sa propre zone, se rétrécirait,
+   le curseur la retrouverait, etc. (boucle de clignotement vécue avec la 1ère version qui animait la
+   largeur de la pastille elle-même). */
 .vol-hover-zone { display: flex; align-items: center; width: 136px; height: 44px; flex-shrink: 0; }
 .vol-hover-zone .volume-container { width: 44px; height: 44px; gap: 8px; padding: 0 14px; margin-left: 0; background: rgba(255,255,255,0.08); border-radius: 999px; box-sizing: border-box; overflow: hidden; transition: width 0.25s ease, background 0.2s ease; }
 .vol-hover-zone:hover .volume-container, .vol-hover-zone .volume-container:focus-within { width: 136px; background: rgba(255,255,255,0.16); }
 .vol-hover-zone .volume-container svg { flex-shrink: 0; }
 .vol-hover-zone .volume-container .vol-slider { width: 0; opacity: 0; transition: width 0.2s ease, opacity 0.2s ease; }
 .vol-hover-zone:hover .volume-container .vol-slider, .vol-hover-zone .volume-container:focus-within .vol-slider { width: 70px; opacity: 1; }
+
+/* Volume de la mini-barre (#player-bar) : contrairement à .vol-hover-zone ci-dessus, ne réserve AUCUN
+   espace dans la ligne de contrôles au repos (pas de fond/bordure visible non plus), et grossit sans
+   pousser les boutons voisins. La pastille (.volume-container) est positionnée en absolu, ancrée sur le
+   bord droit de .vol-flyout-anchor (qui, lui, garde une taille fixe et discrète dans le flux normal) —
+   elle grossit donc vers la GAUCHE en s'étendant par-dessus le bouton Paroles voisin pendant le survol,
+   sans jamais déplacer le bord droit (donc l'icône) sous le curseur : le survol reste stable du début à
+   la fin de l'animation, sans avoir besoin de réserver de largeur à vide comme la variante desktop. */
+.vol-flyout-anchor { position: relative; width: 40px; height: 40px; flex-shrink: 0; }
+.vol-flyout-anchor .volume-container { position: absolute; top: 0; right: 0; z-index: 5; width: 40px; height: 40px; gap: 8px; padding: 0 10px; justify-content: flex-end; margin-left: 0; background: transparent; border-radius: 999px; box-sizing: border-box; overflow: hidden; transition: width 0.25s ease, background 0.2s ease; }
+.vol-flyout-anchor .volume-container:hover, .vol-flyout-anchor .volume-container:focus-within { width: 160px; background: rgba(255,255,255,0.12); }
+.vol-flyout-anchor .volume-container .vol-slider { width: 0; opacity: 0; transition: width 0.2s ease, opacity 0.2s ease; }
+.vol-flyout-anchor .volume-container:hover .vol-slider, .vol-flyout-anchor .volume-container:focus-within .vol-slider { width: 90px; opacity: 1; }
 
 [x-cloak] { display: none !important; }
 .modal { position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
@@ -361,7 +382,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
     .controls { width: 100%; justify-content: space-between; gap: 0; padding: 0 10px; box-sizing: border-box; }
     .control-btn { padding: 5px; }
     #masterPlay { width: 45px; height: 45px; }
-    #player-bar .vol-hover-zone { display: none; }
+    #player-bar .vol-flyout-anchor { display: none; }
     /* Panneau latéral desktop uniquement — sur mobile les paroles passent par le lecteur plein écran. */
     #player-bar #lyricsBarBtn { display: none; }
     #queue-panel { width: 100%; right: -100%; top: 0; height: 100%; z-index: 2000; border-left: none; }
