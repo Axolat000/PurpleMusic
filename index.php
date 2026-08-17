@@ -561,7 +561,7 @@ try {
             <?php foreach($all_playlists as $p): ?>
                 <div class="playlist-card" style="cursor:pointer;" onclick="openPlaylistDetail(<?php echo $p['id']; ?>)">
                     <div class="playlist-cover">🎵<?php if (!empty($p['cover'])): ?><img src="covers/<?php echo htmlspecialchars($p['cover']); ?>" loading="lazy" onerror="this.remove()"><?php endif; ?></div>
-                    <h3 style="margin-top:0; font-size:1.3em;"><?php echo htmlspecialchars($p['name']); ?></h3>
+                    <h3 class="marquee-wrap playlist-card-title" style="margin-top:0; font-size:1.3em;"><span><?php echo htmlspecialchars($p['name']); ?></span></h3>
                     <p style="font-size:0.85em; color:var(--text-muted); margin-bottom:20px;"><?php echo t('created_by'); ?> <strong><?php echo htmlspecialchars($p['username']); ?></strong></p>
                     <button class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:15px;" onclick="event.stopPropagation(); openPlaylistDetail(<?php echo $p['id']; ?>)"><?php echo t('btn_view_mix'); ?></button>
                     <?php if($p['creator_id'] == $user_id || $is_admin): ?>

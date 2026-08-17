@@ -183,6 +183,11 @@ input[type="range"].vol-slider::-moz-range-thumb:hover { transform: scale(1.3); 
 .vol-flyout-anchor .volume-container:hover, .vol-flyout-anchor .volume-container:focus-within { width: 160px; background: rgba(255,255,255,0.12); }
 .vol-flyout-anchor .volume-container .vol-slider { width: 0; opacity: 0; transition: width 0.2s ease, opacity 0.2s ease; }
 .vol-flyout-anchor .volume-container:hover .vol-slider, .vol-flyout-anchor .volume-container:focus-within .vol-slider { width: 90px; opacity: 1; }
+/* La pastille grandit par-dessus le contenu de la page en dessous (bar en position:fixed) — sans ça,
+   elle avait l'air de "flotter" au-dessus de la liste de pistes plutôt que de faire partie de la barre.
+   Le fond/blur de la barre elle-même s'étend donc en même temps pour l'englober visuellement. */
+#player-bar:has(.vol-flyout-anchor .volume-container:hover),
+#player-bar:has(.vol-flyout-anchor .volume-container:focus-within) { padding-right: 170px; }
 
 [x-cloak] { display: none !important; }
 .modal { position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
@@ -232,6 +237,14 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 #fp-title span { display: inline-block; padding-left: 0; }
 .scrolling-active { padding-left: 100%; animation: marquee 12s linear infinite; }
 @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
+
+/* Titre sur une seule ligne, défilement (même mécanisme que #fp-title ci-dessus) uniquement si trop long
+   pour tenir — évite le vrai bug derrière l'irrégularité de hauteur des cartes playlist/pistes : un titre
+   qui passe sur 2-3 lignes fait varier la hauteur de la carte, contrairement à une ligne unique qui
+   tronque/défile sans jamais changer la hauteur. applyMarqueeIfOverflowing() (app.js) ajoute
+   .scrolling-active seulement quand le texte dépasse réellement. */
+.marquee-wrap { white-space: nowrap; overflow: hidden; width: 100%; position: relative; mask-image: linear-gradient(to right, black 90%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%); }
+.marquee-wrap span { display: inline-block; padding-left: 0; }
 
 .fp-controls { display: flex; justify-content: space-between; align-items: center; padding: 0 10px 20px 10px; width: 100%; box-sizing: border-box; }
 

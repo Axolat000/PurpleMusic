@@ -582,7 +582,7 @@ function renderTracksChunk() {
         div.innerHTML = `
             <img src="covers/${safeCover}" loading="lazy" class="mini-cover" onerror="this.src='covers/default.png'">
             <div style="overflow:hidden;">
-                <div style="font-weight:700; font-size:1.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px;">${safeTitle}</div>
+                <div class="marquee-wrap" style="font-weight:700; font-size:1.05em; margin-bottom:3px;"><span>${safeTitle}</span></div>
                 <div style="font-size:0.85em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                     ${safeArtist} <span style="opacity:0.6;font-size:0.9em;">• ${safeGenre} • ▶ ${t.play_count || 0}</span>
                 </div>
@@ -593,6 +593,9 @@ function renderTracksChunk() {
     });
     listContainer.appendChild(fragment);
     renderedCount += chunk.length;
+    // Synchrone (comme le fait déjà loadTrack() pour #fp-title) : le fragment vient d'être inséré dans le
+    // DOM réel, donc immédiatement mesurable — pas besoin d'attendre un repaint.
+    listContainer.querySelectorAll('.marquee-wrap').forEach(applyMarqueeIfOverflowing);
 }
 
 function filterAndSortTracks() {
@@ -1263,6 +1266,28 @@ function showSection(id, doUpdateUrl = true) {
     window.scrollTo(0,0);
     currentSection = id;
     if (doUpdateUrl) updateUrl();
+
+    // Les titres de la page Playlists sont rendus côté PHP au chargement, pendant que la section est
+    // encore cachée par x-show (clientWidth = 0 tant qu'elle n'est pas affichée) — le test de dépassement
+    // ne peut donc se faire qu'ici, une fois la section réellement visible, pas au chargement de la page.
+    if (id === 'playlists' && window.Alpine) {
+        // Alpine.nextTick (pas requestAnimationFrame) : x-show retire le display:none sur la section via
+        // une micro-tâche Alpine, pas au prochain repaint — mesurer avant que ce changement soit appliqué
+        // donnerait clientWidth = 0 partout et ne détecterait jamais de dépassement.
+        Alpine.nextTick(() => {
+            document.querySelectorAll('#playlists .marquee-wrap').forEach(applyMarqueeIfOverflowing);
+        });
+    }
+}
+
+// Ajoute .scrolling-active (voir style.css, réutilise l'animation déjà en place pour #fp-title) sur le
+// <span> interne d'un conteneur .marquee-wrap seulement si le texte dépasse réellement la largeur
+// disponible — jamais pour un titre qui tient déjà sur une ligne.
+function applyMarqueeIfOverflowing(wrapperEl) {
+    const span = wrapperEl.querySelector('span');
+    if (!span) return;
+    span.classList.remove('scrolling-active');
+    if (span.scrollWidth > wrapperEl.clientWidth) span.classList.add('scrolling-active');
 }
 
 function openModal(id) {
