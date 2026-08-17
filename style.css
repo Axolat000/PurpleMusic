@@ -174,12 +174,15 @@ input[type="range"].vol-slider::-moz-range-thumb:hover { transform: scale(1.3); 
 /* Volume de la mini-barre (#player-bar) : contrairement à .vol-hover-zone ci-dessus, ne réserve AUCUN
    espace dans la ligne de contrôles au repos (pas de fond/bordure visible non plus), et grossit sans
    pousser les boutons voisins. La pastille (.volume-container) est positionnée en absolu, ancrée sur le
-   bord droit de .vol-flyout-anchor (qui, lui, garde une taille fixe et discrète dans le flux normal) —
-   elle grossit donc vers la GAUCHE en s'étendant par-dessus le bouton Paroles voisin pendant le survol,
-   sans jamais déplacer le bord droit (donc l'icône) sous le curseur : le survol reste stable du début à
-   la fin de l'animation, sans avoir besoin de réserver de largeur à vide comme la variante desktop. */
+   bord GAUCHE de .vol-flyout-anchor (qui, lui, garde une taille fixe et discrète dans le flux normal,
+   dernier élément de .controls) -- elle grossit donc vers la DROITE, dans l'espace que #player-bar
+   libère lui-même via padding-right ci-dessous, jamais vers la gauche par-dessus les boutons Boucle/
+   Paroles voisins. (Bug vécu en prod : ancrée à droite au lieu de la gauche, elle grossissait dans le
+   mauvais sens et recouvrait complètement ces deux boutons.) Le bord gauche (donc l'icône) ne bouge
+   jamais sous le curseur pendant la transition : le survol reste stable sans réserver de largeur à vide
+   comme la variante desktop. */
 .vol-flyout-anchor { position: relative; width: 40px; height: 40px; flex-shrink: 0; }
-.vol-flyout-anchor .volume-container { position: absolute; top: 0; right: 0; z-index: 5; width: 40px; height: 40px; gap: 8px; padding: 0 10px; justify-content: flex-end; margin-left: 0; background: transparent; border-radius: 999px; box-sizing: border-box; overflow: hidden; transition: width 0.25s ease, background 0.2s ease; }
+.vol-flyout-anchor .volume-container { position: absolute; top: 0; left: 0; z-index: 5; width: 40px; height: 40px; gap: 8px; padding: 0 10px; justify-content: flex-start; margin-left: 0; background: transparent; border-radius: 999px; box-sizing: border-box; overflow: hidden; transition: width 0.25s ease, background 0.2s ease; }
 .vol-flyout-anchor .volume-container:hover, .vol-flyout-anchor .volume-container:focus-within { width: 160px; background: rgba(255,255,255,0.12); }
 .vol-flyout-anchor .volume-container .vol-slider { width: 0; opacity: 0; transition: width 0.2s ease, opacity 0.2s ease; }
 .vol-flyout-anchor .volume-container:hover .vol-slider, .vol-flyout-anchor .volume-container:focus-within .vol-slider { width: 90px; opacity: 1; }
@@ -213,8 +216,15 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .fp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .fp-btn { background: none; border: none; cursor: pointer; padding: 10px; border-radius:50%; }
 .fp-btn:active { background: rgba(255,255,255,0.1); }
-.fp-art-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 20px 0; max-height: 45vh; }
+.fp-art-container { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 20px 0; max-height: 45vh; }
 #fp-cover { width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); max-width: 350px; }
+
+/* Visualiseur audio (Web Audio AnalyserNode, voir startVisualizer() dans app.js) : superposé EN
+   TRANSPARENCE par-dessus la pochette (qui reste affichée) plutôt que de la remplacer -- fond
+   transparent, position absolute+inset+margin:auto pour se centrer exactement sur la même zone que
+   #fp-cover (tailles/contraintes identiques). pointer-events:none pour ne pas intercepter de clics
+   destinés à la pochette/zone en dessous. */
+.fp-visualizer-canvas { position: absolute; inset: 0; margin: auto; width: 100%; height: auto; aspect-ratio: 1/1; max-width: 350px; max-height: 100%; border-radius: 20px; background: transparent; display: block; pointer-events: none; }
 
 /* Paroles à la place de la pochette, dans le lecteur plein écran (mobile & réutilisé pour desktop) */
 .fp-lyrics-view { width: 100%; max-width: 480px; max-height: 45vh; overflow-y: auto; overflow-x: hidden; padding: 6px; box-sizing: border-box; }
@@ -248,11 +258,27 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 
 .fp-controls { display: flex; justify-content: space-between; align-items: center; padding: 0 10px 20px 10px; width: 100%; box-sizing: border-box; }
 
-.fp-lyrics-toggle-row { display: flex; justify-content: center; padding: 0 10px; }
+/* flex-wrap : avec 3 boutons (Paroles/Visualiseur/Minuteur de sommeil) la rangée ne tient plus sur une
+   seule ligne aux largeurs mobile étroites (ex: 375px) -- sans wrap le 3e bouton débordait hors écran au
+   lieu de passer à la ligne. */
+.fp-lyrics-toggle-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 12px; padding: 0 10px; }
 .fp-lyrics-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.7); padding: 10px 22px; border-radius: 999px; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
 .fp-lyrics-btn svg { width: 18px; height: 18px; fill: currentColor; }
 .fp-lyrics-btn.active { background: var(--primary); color: white; }
 .fp-lyrics-btn:active { transform: scale(0.96); }
+
+/* Minuteur de sommeil : popover de préréglages ancré sous son bouton déclencheur (mobile #full-player
+   ET desktop #desktop-player, même markup dupliqué -- voir index.php). Même fond "verre" que
+   #queue-panel/#lyrics-panel/.modal-content, mais volontairement plus léger qu'une vraie modale pour une
+   simple liste de 7 options, vit uniquement dans Paramètres > Général désormais (plus de bouton/popover
+   dans les lecteurs) -- rangée de pilules, même langage visuel que .lang-switch-btn. */
+.sleep-timer-settings-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
+.sleep-timer-option-settings { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.15); color: var(--text-muted); font-size: 0.85em; font-weight: 600; cursor: pointer; transition: transform 0.2s, border-color 0.2s, color 0.2s, background 0.2s; }
+.sleep-timer-option-settings:hover { transform: scale(1.05); color: var(--text); }
+.sleep-timer-option-settings.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.06); }
+/* Dernier préréglage choisi (localStorage) : simple repère visuel supplémentaire quand il n'est pas déjà
+   la sélection active elle-même. */
+.sleep-timer-option-recent:not(.active) { color: var(--accent); }
 
 /* --- LECTEUR DESKTOP "GRAND ÉCRAN" (#desktop-player) : distinct du lecteur plein écran mobile
    (#full-player, non modifié) -- carte centrée à deux colonnes plutôt qu'une pile verticale plein
@@ -283,8 +309,11 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .dfp-card-queue { transform: translateY(-100%); flex-direction: column; padding: 36px 48px; }
 .dfp-card-queue.dfp-card-in { transform: translateY(0); }
 
-.dfp-art-col { flex: 0 0 380px; display: flex; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; }
+.dfp-art-col { position: relative; flex: 0 0 380px; display: flex; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; }
 .dfp-cover { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); }
+/* Visualiseur audio desktop : superposé en transparence par-dessus .dfp-cover (qui reste affichée), voir
+   le commentaire équivalent sur .fp-visualizer-canvas plus haut pour le détail. */
+.dfp-visualizer-canvas { position: absolute; inset: 0; margin: auto; width: calc(100% - 80px); aspect-ratio: 1/1; max-height: calc(100% - 80px); border-radius: 20px; background: transparent; display: block; pointer-events: none; }
 .dfp-info-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 40px 56px 40px 10px; box-sizing: border-box; }
 .dfp-eyebrow { font-size: 0.78em; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
 .dfp-title { font-size: 2em; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -12px; }
@@ -303,6 +332,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .dfp-action-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.75); padding: 11px 20px; border-radius: 999px; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
 .dfp-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
 .dfp-action-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+.dfp-action-btn.active { background: var(--primary); color: #fff; }
 
 /* En-tête des cartes "paroles"/"file d'attente" du carrousel : flèche de retour vers la carte lecteur + titre. */
 .dfp-subcard-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-shrink: 0; }
@@ -363,11 +393,35 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus { border-co
 .theme-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 4px 10px rgba(0,0,0,0.4); }
 .theme-swatch.active::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 .theme-swatch-label { font-size: 0.7em; color: var(--text-muted); }
+/* Swatch "Personnalisé" : pas de --sw-primary/--sw-accent fixes (contrairement aux presets statiques,
+   ses couleurs sont définies par l'utilisateur) -- roue chromatique en conic-gradient pour signaler
+   "construis ton propre thème" plutôt qu'un dégradé à deux couleurs figées. */
+.theme-swatch-custom { background: conic-gradient(from 180deg, #ff5f6d, #ffc371, #4dd8d0, #3b5bdb, #c2478d, #ff5f6d); }
 
 .lang-switch-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
 .lang-switch-btn { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.15); color: var(--text-muted); font-size: 0.85em; font-weight: 600; cursor: pointer; transition: transform 0.2s, border-color 0.2s, color 0.2s, background 0.2s; }
 .lang-switch-btn:hover { transform: scale(1.05); color: var(--text); }
 .lang-switch-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.06); }
+
+/* Interrupteur à bascule générique (pilule + pastille) -- pas de pattern existant ailleurs dans l'appli,
+   introduit pour l'activation/désactivation de l'égaliseur (onglet "Égaliseur" de la modale Paramètres)
+   mais volontairement générique (.switch-toggle) pour être réutilisable ailleurs. */
+.switch-toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; flex-shrink: 0; }
+.switch-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-toggle-track { width: 44px; height: 24px; background: rgba(255,255,255,0.15); border-radius: 999px; transition: background 0.2s ease; position: relative; }
+.switch-toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+.switch-toggle input:checked + .switch-toggle-track { background: var(--primary); }
+.switch-toggle input:checked + .switch-toggle-track .switch-toggle-thumb { transform: translateX(20px); }
+.switch-toggle input:focus-visible + .switch-toggle-track { box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+
+/* Onglet Égaliseur (modale Paramètres) : 5 curseurs .vol-slider réutilisés tels quels (identité visuelle
+   partagée avec le volume) sur une plage bipolaire -12..+12 dB, gain 0 = position centrale. */
+.eq-enable-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
+.eq-bands { display: flex; flex-direction: column; gap: 18px; transition: opacity 0.2s ease; }
+.eq-bands.eq-disabled { opacity: 0.45; pointer-events: none; }
+.eq-band-row { display: grid; grid-template-columns: 56px 1fr 62px; align-items: center; gap: 14px; }
+.eq-band-freq { font-size: 0.8em; color: var(--text-muted); font-weight: 600; }
+.eq-band-val { font-size: 0.8em; color: var(--text); font-weight: 600; font-family: monospace; text-align: right; }
 
 /* Page de connexion / inscription : carte "verre" avec la même identité visuelle que les modales
    (.modal-content) et l'onglet de bascule mode réutilise .settings-tabs/.settings-tab-btn tel quel. */
