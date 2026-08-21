@@ -11,6 +11,9 @@ if (isset($_POST['register'])) {
         // l'exige donc que si envoyé, pour rester rétro-compatible avec tout appelant qui ne le fournirait pas.
         $regConfirmPassword = array_key_exists('confirm_password', $_POST) ? (string)$_POST['confirm_password'] : null;
 
+        // accept_terms n'existe que depuis le formulaire web (case à cocher, voir index.php / authForm()
+        // dans app.js) -- absent = pas d'acceptation, refusé, même règle que côté API pour Android
+        // (voir case 'register' dans api/auth.php, qui exige le même champ).
         if (trim($regUsername) === '') {
             $error = t('err_username_required');
         } elseif ($regConfirmPassword !== null && $regConfirmPassword !== $regPassword) {
@@ -19,11 +22,13 @@ if (isset($_POST['register'])) {
             $error = t('err_password_too_short');
         } elseif (mb_strlen($regPassword) > 200) {
             $error = t('err_password_too_long');
+        } elseif (empty($_POST['accept_terms'])) {
+            $error = t('err_must_accept_terms');
         } else {
             $hash = password_hash($regPassword, PASSWORD_DEFAULT);
-            $stmt = $db->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+            $stmt = $db->prepare("INSERT INTO users (username, password, terms_accepted_at) VALUES (?, ?, ?)");
             try {
-                $stmt->execute([$regUsername, $hash]);
+                $stmt->execute([$regUsername, $hash, time()]);
             } catch (Exception $e) {
                 $error = t('err_username_taken');
             }

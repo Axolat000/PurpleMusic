@@ -16,6 +16,10 @@
             <div x-show="activeTab === 'general'" x-cloak>
                 <label><?php echo t('admin_app_name_label'); ?></label>
                 <input type="text" name="adm_site_name" value="<?php echo htmlspecialchars($site_name); ?>" required>
+
+                <label style="margin-top:15px;"><?php echo t('admin_legal_email_label'); ?></label>
+                <input type="email" name="adm_legal_contact_email" value="<?php echo htmlspecialchars($legal_contact_email === '[email]' ? '' : $legal_contact_email); ?>" placeholder="<?php echo htmlspecialchars(t('admin_legal_email_placeholder')); ?>">
+                <p style="font-size:0.8em; color:var(--text-muted); margin:-8px 0 15px;"><?php echo t('admin_legal_email_hint'); ?></p>
             </div>
 
             <div x-show="activeTab === 'theme'" x-cloak>

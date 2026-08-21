@@ -58,6 +58,10 @@
 .auth-server-error { color: var(--danger); font-size: 0.9em; background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); border-radius: 12px; padding: 10px 14px; margin: 0 0 15px; }
 .auth-client-error { color: var(--danger); font-size: 0.85em; margin: -10px 0 15px; }
 .auth-submit-btn { width: 100%; justify-content: center; margin-top: 10px; padding: 15px; }
+.auth-terms-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.82em; color: var(--text-muted); margin: 2px 0 15px; cursor: pointer; line-height: 1.4; }
+.auth-terms-check input { width: auto; margin: 2px 0 0; flex-shrink: 0; }
+.auth-terms-check a, .auth-terms-footer a { color: var(--accent); }
+.auth-terms-footer { text-align: center; color: var(--text-muted); font-size: 0.78em; margin: 18px 0 0; line-height: 1.5; }
 
 @media (max-width: 768px) {
     body { padding-bottom: 240px; }

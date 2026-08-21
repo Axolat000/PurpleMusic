@@ -60,6 +60,17 @@ try {
     }
     if (!$hasPlaylistPrivate) $db->exec("ALTER TABLE playlists ADD COLUMN is_private INTEGER DEFAULT 0");
 
+    // --- MIGRATION AUTOMATIQUE (ACCEPTATION DES CGU) ---
+    // (miroir de la migration dans api.php, les deux scripts partagent music_app.db) -- NULL par défaut :
+    // tout compte existant AVANT l'introduction des CGU se retrouve donc automatiquement "non accepté"
+    // et devra les accepter pour continuer à utiliser le service, exactement comme un nouveau compte.
+    $colsUsersTerms = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_ASSOC);
+    $hasTermsAcceptedAt = false;
+    foreach ($colsUsersTerms as $c) {
+        if ($c['name'] === 'terms_accepted_at') $hasTermsAcceptedAt = true;
+    }
+    if (!$hasTermsAcceptedAt) $db->exec("ALTER TABLE users ADD COLUMN terms_accepted_at INTEGER DEFAULT NULL");
+
     // Likes + analytique d'écoute (miroir de la migration dans api.php, voir les commentaires là-bas).
     $db->exec("CREATE TABLE IF NOT EXISTS likes (user_id INTEGER NOT NULL, track_id INTEGER NOT NULL, created_at INTEGER, PRIMARY KEY (user_id, track_id))");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_likes_track ON likes(track_id)");
@@ -75,6 +86,17 @@ try {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
     $csrf_token = $_SESSION['csrf_token'];
+
+    // CGU : bloque l'accès au reste de l'app (voir plus bas, juste avant le rendu) tant que
+    // terms_accepted_at est NULL -- vrai pour tout compte existant avant l'ajout de cette colonne
+    // (migration ci-dessus) et pour tout nouveau compte tant qu'il n'a pas coché la case d'acceptation
+    // à l'inscription (voir auth.php).
+    $terms_accepted = false;
+    if ($user_id) {
+        $stmtTerms = $db->prepare("SELECT terms_accepted_at FROM users WHERE id = ?");
+        $stmtTerms->execute([$user_id]);
+        $terms_accepted = (bool) $stmtTerms->fetchColumn();
+    }
 
     // Récupération des paramètres
     $settingsRaw = $db->query("SELECT * FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -96,6 +118,9 @@ try {
     
     $default_cover = $settingsRaw['default_cover'] ?? 'default.png';
     $favicon_file = $settingsRaw['favicon'] ?? 'favicon.png';
+    // Placeholder générique par défaut (template open source, voir cgu.php) : chaque instance
+    // auto-hébergée renseigne son propre contact légal depuis le Panel Admin, jamais codé en dur.
+    $legal_contact_email = $settingsRaw['legal_contact_email'] ?? '[email]';
 
     $genresList = $db->query("SELECT name FROM genres ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
     if(empty($genresList)) {
@@ -202,12 +227,22 @@ try {
                      le champ est masqué. -->
                 <div x-show="mode === 'register'" x-cloak>
                     <input type="password" name="confirm_password" x-model="confirmPassword" placeholder="<?php echo htmlspecialchars(t('login_confirm_password_placeholder')); ?>" autocomplete="new-password" :required="mode === 'register'">
+                    <label class="auth-terms-check">
+                        <input type="checkbox" name="accept_terms" value="1" x-model="acceptTerms" :required="mode === 'register'">
+                        <span><?php echo t('login_accept_terms_html'); ?></span>
+                    </label>
                 </div>
                 <p x-show="clientError" x-cloak class="auth-client-error" x-text="clientError"></p>
                 <button type="submit" :name="mode" class="btn btn-primary auth-submit-btn" x-text="mode === 'login' ? T('login_btn') : T('login_register_btn')"><?php echo $authInitialMode === 'login' ? t('login_btn') : t('login_register_btn'); ?></button>
             </form>
         </div>
+
+        <p class="auth-terms-footer"><?php echo t('login_terms_footer_html'); ?></p>
     </div>
+<?php else: ?>
+
+<?php if (!$terms_accepted): ?>
+    <?php include __DIR__ . '/templates/terms-gate.php'; ?>
 <?php else: ?>
 
     <header>
@@ -271,7 +306,9 @@ try {
 <?php include __DIR__ . '/templates/modals.php'; ?>
 <?php include __DIR__ . '/templates/chrome.php'; ?>
 
-<?php endif; ?>
+<?php endif; // $terms_accepted ?>
+
+<?php endif; // $user_id ?>
 
 <?php include __DIR__ . '/templates/scripts.php'; ?>
     <?php

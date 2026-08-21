@@ -124,7 +124,7 @@ require_once __DIR__ . '/api/helpers.php';
 // correspond à aucune entrée ne produit aucune sortie, comme le faisait déjà le switch d'origine sans
 // `default:`.
 $actionDomains = [
-    'auth' => ['login', 'register', 'change_password', 'admin_reset_password'],
+    'auth' => ['login', 'register', 'change_password', 'admin_reset_password', 'accept_terms'],
     'tracks' => ['list', 'increment_play', 'stream', 'cover', 'upload', 'edit_track', 'delete_track'],
     'playlists' => ['playlists', 'playlist_create', 'playlist_mod', 'delete_playlist', 'playlist_save', 'get_playlist_tracks'],
     'likes_recommendations' => ['report_listen', 'toggle_like', 'my_likes', 'recommendations'],

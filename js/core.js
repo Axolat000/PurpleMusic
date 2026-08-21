@@ -302,6 +302,7 @@ document.addEventListener('alpine:init', () => {
         username: initialUsername || '',
         password: '',
         confirmPassword: '',
+        acceptTerms: false,
         clientError: '',
         showServerError: true, // masqué dès qu'on change de mode : une erreur de connexion n'a plus de sens une fois basculé sur inscription (et inversement)
         switchMode(m) {
@@ -324,6 +325,11 @@ document.addEventListener('alpine:init', () => {
             }
             if (this.password !== this.confirmPassword) {
                 this.clientError = T('err_password_mismatch');
+                event.preventDefault();
+                return;
+            }
+            if (!this.acceptTerms) {
+                this.clientError = T('err_must_accept_terms');
                 event.preventDefault();
             }
         }

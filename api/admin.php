@@ -12,6 +12,10 @@ switch ($action) {
         $stmtUpdate = $db->prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
         $fields = [
             'site_name' => isset($_POST['adm_site_name']) ? trim($_POST['adm_site_name']) : ($existingSettings['site_name'] ?? ''),
+            // Contact légal des CGU (cgu.php) : contrairement aux couleurs, une valeur vide ici est un
+            // choix valide (retombe sur le placeholder générique "[email]" côté cgu.php) -- pas de repli
+            // sur l'existant quand le champ est présent mais laissé vide.
+            'legal_contact_email' => isset($_POST['adm_legal_contact_email']) ? trim($_POST['adm_legal_contact_email']) : ($existingSettings['legal_contact_email'] ?? ''),
             'color_bg' => $_POST['adm_color_bg'] ?? $existingSettings['color_bg'] ?? '',
             'color_panel' => $_POST['adm_color_panel'] ?? $existingSettings['color_panel'] ?? '',
             'color_primary' => $_POST['adm_color_primary'] ?? $existingSettings['color_primary'] ?? '',
