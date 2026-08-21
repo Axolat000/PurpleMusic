@@ -70,6 +70,11 @@ try {
         if($c['name'] == 'cover') $hasPlaylistCover = true;
     }
     if(!$hasPlaylistCover) $db->exec("ALTER TABLE playlists ADD COLUMN cover TEXT");
+    $hasPlaylistPrivate = false;
+    foreach($colsPlaylists as $c) {
+        if($c['name'] == 'is_private') $hasPlaylistPrivate = true;
+    }
+    if(!$hasPlaylistPrivate) $db->exec("ALTER TABLE playlists ADD COLUMN is_private INTEGER DEFAULT 0");
 
     // --- LIKES + ANALYTIQUE D'ÉCOUTE (recommandations) ---
     // likes : une ligne = un like (clé composite, pas d'auto-incrément nécessaire).
@@ -794,7 +799,21 @@ switch($action) {
         break;
 
     case 'playlists':
-        echo json_encode($db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id")->fetchAll(PDO::FETCH_ASSOC));
+        // Auth optionnelle : authenticate_api_user() renvoie simplement false si les identifiants sont
+        // absents/invalides (elle ne die() jamais) -- l'app Android n'envoie aujourd'hui aucun identifiant
+        // sur cet appel, donc reste anonyme, et ne doit voir QUE les playlists publiques (jamais les
+        // privées de qui que ce soit, quel que soit le client).
+        $playlistsAuth = authenticate_api_user($db);
+        if ($playlistsAuth && $playlistsAuth['is_admin']) {
+            $rows = $db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id")->fetchAll(PDO::FETCH_ASSOC);
+        } elseif ($playlistsAuth) {
+            $stmt = $db->prepare("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id WHERE p.is_private = 0 OR p.creator_id = ?");
+            $stmt->execute([$playlistsAuth['id']]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $rows = $db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id WHERE p.is_private = 0")->fetchAll(PDO::FETCH_ASSOC);
+        }
+        echo json_encode($rows);
         break;
 
     case 'playlist_create':

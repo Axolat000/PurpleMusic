@@ -350,6 +350,7 @@ if ($user_id) {
         $song_ids = implode(',', $cleanIds);
         $playlistName = sanitize_text($_POST['playlist_name'] ?? 'Playlist', 100);
         $playlistId = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+        $isPrivate = !empty($_POST['is_private']) ? 1 : 0;
 
         // Couverture existante conservée par défaut (édition) ou NULL (création)
         $coverName = null;
@@ -370,9 +371,9 @@ if ($user_id) {
         }
 
         if ($playlistId) {
-            $db->prepare("UPDATE playlists SET name = ?, song_ids = ?, cover = ? WHERE id = ? AND (creator_id = ? OR ?)")->execute([$playlistName, $song_ids, $coverName, $playlistId, $user_id, $is_admin ? 1 : 0]);
+            $db->prepare("UPDATE playlists SET name = ?, song_ids = ?, cover = ?, is_private = ? WHERE id = ? AND (creator_id = ? OR ?)")->execute([$playlistName, $song_ids, $coverName, $isPrivate, $playlistId, $user_id, $is_admin ? 1 : 0]);
         } else {
-            $db->prepare("INSERT INTO playlists (name, creator_id, song_ids, cover) VALUES (?, ?, ?, ?)")->execute([$playlistName, $user_id, $song_ids, $coverName]);
+            $db->prepare("INSERT INTO playlists (name, creator_id, song_ids, cover, is_private) VALUES (?, ?, ?, ?, ?)")->execute([$playlistName, $user_id, $song_ids, $coverName, $isPrivate]);
         }
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;

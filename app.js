@@ -2316,6 +2316,8 @@ function openCreateModal() {
     if (title) title.innerText = T('playlist_new_title');
     document.getElementById('form-playlist-id').value = "";
     document.getElementById('form-playlist-name').value = "";
+    const pPrivateNew = document.getElementById('form-playlist-private');
+    if (pPrivateNew) pPrivateNew.checked = false;
     const pSearch = document.getElementById('playlist-search');
     if (pSearch) pSearch.value = "";
     resetPlaylistCoverPreview();
@@ -2334,6 +2336,8 @@ function openEditModal(p) {
     if (title) title.innerText = T('playlist_edit_title');
     document.getElementById('form-playlist-id').value = p.id;
     document.getElementById('form-playlist-name').value = p.name;
+    const pPrivateEdit = document.getElementById('form-playlist-private');
+    if (pPrivateEdit) pPrivateEdit.checked = !!(parseInt(p.is_private) || 0);
     const pSearch = document.getElementById('playlist-search');
     if (pSearch) pSearch.value = "";
     setPlaylistCoverPreview(p.cover);

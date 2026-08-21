@@ -54,6 +54,11 @@ try {
         if ($c['name'] === 'cover') $hasPlaylistCover = true;
     }
     if (!$hasPlaylistCover) $db->exec("ALTER TABLE playlists ADD COLUMN cover TEXT");
+    $hasPlaylistPrivate = false;
+    foreach ($playlistCols as $c) {
+        if ($c['name'] === 'is_private') $hasPlaylistPrivate = true;
+    }
+    if (!$hasPlaylistPrivate) $db->exec("ALTER TABLE playlists ADD COLUMN is_private INTEGER DEFAULT 0");
 
     // Likes + analytique d'écoute (miroir de la migration dans api.php, voir les commentaires là-bas).
     $db->exec("CREATE TABLE IF NOT EXISTS likes (user_id INTEGER NOT NULL, track_id INTEGER NOT NULL, created_at INTEGER, PRIMARY KEY (user_id, track_id))");
@@ -337,7 +342,16 @@ try {
     );
     $tracksStmt->execute([$user_id]);
     $all_tracks = $tracksStmt->fetchAll(PDO::FETCH_ASSOC);
-    $all_playlists = $db->query("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id")->fetchAll(PDO::FETCH_ASSOC);
+    // Playlists privées (is_private=1) : visibles seulement par leur créateur (ou un admin) -- jamais par
+    // les autres utilisateurs, contrairement au comportement historique où toutes les playlists de tout
+    // le monde étaient publiques par défaut (voir aussi la même règle dans api.php?action=playlists).
+    if ($is_admin) {
+        $all_playlists = $db->query("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id")->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $playlistsStmt = $db->prepare("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id WHERE playlists.is_private = 0 OR playlists.creator_id = ?");
+        $playlistsStmt->execute([$user_id]);
+        $all_playlists = $playlistsStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     // Liste des comptes, pour l'onglet "Utilisateurs" de l'Admin Panel (page dédiée, admin uniquement).
     $all_users = $is_admin ? $db->query("SELECT id, username, is_admin FROM users ORDER BY username COLLATE NOCASE ASC")->fetchAll(PDO::FETCH_ASSOC) : [];
@@ -628,24 +642,31 @@ try {
         <div id="browse-load-more-trigger"></div>
     </main>
 
+    <?php
+    // Séparation public/privé pour l'affichage uniquement -- $all_playlists est déjà filtré plus haut
+    // (playlists publiques + les privées de l'utilisateur courant, ou tout pour un admin). "Mes playlists
+    // privées" ne montre que les siennes, même pour un admin qui verrait aussi celles des autres en base.
+    $publicPlaylists = array_filter($all_playlists, fn($p) => empty($p['is_private']));
+    $privatePlaylists = array_filter($all_playlists, fn($p) => !empty($p['is_private']) && $p['creator_id'] == $user_id);
+    ?>
     <main id="playlists" x-show="$store.ui.section === 'playlists'" x-cloak>
-        <h2 class="section-title" style="margin-bottom:25px;"><?php echo t('home_your_mixes'); ?></h2>
+        <h2 class="section-title" style="margin-bottom:25px;"><?php echo t('home_public_playlists'); ?></h2>
         <div class="playlist-grid">
-            <?php foreach($all_playlists as $p): ?>
-                <div class="playlist-card" style="cursor:pointer;" onclick="openPlaylistDetail(<?php echo $p['id']; ?>)">
-                    <div class="playlist-cover">🎵<?php if (!empty($p['cover'])): ?><img src="covers/<?php echo htmlspecialchars($p['cover']); ?>" loading="lazy" onerror="this.remove()"><?php endif; ?></div>
-                    <h3 class="marquee-wrap playlist-card-title" style="margin-top:0; font-size:1.3em;"><span><?php echo htmlspecialchars($p['name']); ?></span></h3>
-                    <p style="font-size:0.85em; color:var(--text-muted); margin-bottom:20px;"><?php echo t('created_by'); ?> <strong><?php echo htmlspecialchars($p['username']); ?></strong></p>
-                    <button class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:15px;" onclick="event.stopPropagation(); openPlaylistDetail(<?php echo $p['id']; ?>)"><?php echo t('btn_view_mix'); ?></button>
-                    <?php if($p['creator_id'] == $user_id || $is_admin): ?>
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn btn-outline" style="flex:1; justify-content:center; font-size:0.8em;" onclick='event.stopPropagation(); openEditModal(<?php echo json_encode($p, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'><?php echo t('btn_edit'); ?></button>
-                            <a href="?delete_playlist=<?php echo $p['id']; ?>&csrf_token=<?php echo $csrf_token; ?>" class="btn btn-danger" style="flex:1; justify-content:center; font-size:0.8em; border-radius:99px;" onclick="event.stopPropagation(); return confirmDelete('<?php echo t('confirm_delete_generic'); ?>', '?delete_playlist=<?php echo $p['id']; ?>&csrf_token=<?php echo $csrf_token; ?>')"><?php echo t('btn_delete_short'); ?></a>
-                        </div>
-                    <?php endif; ?>
-                </div>
+            <?php foreach($publicPlaylists as $p): ?>
+                <?php include __DIR__ . '/templates/playlist-card.php'; ?>
             <?php endforeach; ?>
         </div>
+
+        <h2 class="section-title" style="margin:35px 0 25px;"><?php echo t('home_private_playlists'); ?></h2>
+        <?php if (empty($privatePlaylists)): ?>
+            <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('no_private_playlists'); ?></p>
+        <?php else: ?>
+        <div class="playlist-grid">
+            <?php foreach($privatePlaylists as $p): ?>
+                <?php include __DIR__ . '/templates/playlist-card.php'; ?>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </main>
 
     <main id="playlist-detail" x-show="$store.ui.section === 'playlist-detail'" x-cloak>
@@ -1140,6 +1161,10 @@ docker stop purplemusic && docker rm purplemusic</code>
                 <div class="playlist-cover playlist-modal-cover-preview" id="playlist-cover-preview-box">🎵<img id="playlist-cover-preview-img" style="display:none;" loading="lazy"></div>
                 <input type="file" name="playlist_cover" id="form-playlist-cover" accept="image/png,image/jpeg,image/webp,image/gif" onchange="previewPlaylistCoverFile(this)" style="flex:1;">
             </div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.9em; color:var(--text-muted); margin-bottom:15px; cursor:pointer;">
+                <input type="checkbox" name="is_private" id="form-playlist-private" value="1" style="width:auto;">
+                <?php echo t('playlist_private_label'); ?>
+            </label>
             <input type="text" id="playlist-search" placeholder="<?php echo htmlspecialchars(t('playlist_search_placeholder')); ?>" onkeyup="filterPlaylistTracks()" style="margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; font-size:0.85em; color:var(--text-muted); margin-bottom:10px;">
                 <span><?php echo t('select_tracks_label'); ?></span>
