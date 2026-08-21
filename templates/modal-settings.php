@@ -195,7 +195,9 @@
             </div>
         </div>
 
+        <?php if ($terms_enabled): ?>
         <p style="text-align:center; margin: 18px 0 0;"><a href="cgu.php" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:0.82em;"><?php echo t('settings_terms_link'); ?></a></p>
+        <?php endif; ?>
 
         <div style="display:flex; gap:15px; margin-top:15px;">
             <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" onclick="closeModal('settingsModal')"><?php echo t('btn_close'); ?></button>
