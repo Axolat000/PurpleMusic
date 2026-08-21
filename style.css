@@ -36,6 +36,15 @@ nav span.admin-nav-btn { color: #e67e22; font-weight: 700; }
 .btn-outline:hover { background: rgba(142, 68, 173, 0.1); }
 .btn-danger { background: rgba(255, 71, 87, 0.1); color: var(--danger); font-size: 0.75em; border: 1px solid rgba(255, 71, 87, 0.3); padding: 6px 12px; }
 
+/* Bouton like (liste de pistes) : contour discret au repos, rempli rose/rouge une fois actif -- basculé
+   par toggleLikeUI() (app.js), optimiste avant confirmation serveur. */
+.like-btn { display: flex; align-items: center; gap: 5px; background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--text-muted); font-size: 0.8em; font-weight: 600; transition: color 0.15s ease, transform 0.15s ease; }
+.like-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: fill 0.15s ease; }
+.like-btn:hover { color: #ff6b81; }
+.like-btn:active { transform: scale(0.9); }
+.like-btn.active { color: #ff4757; }
+.like-btn.active svg { fill: #ff4757; stroke: #ff4757; }
+
 /* Bouton icône seule (pas de pilule/contour visible au repos), pour le header et autres emplacements icon-only. */
 .btn-icon { background: none; border: none; padding: 10px; border-radius: 50%; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s ease, color 0.2s ease; text-decoration: none; flex-shrink: 0; }
 .btn-icon svg { width: 20px; height: 20px; fill: currentColor; display: block; }
@@ -66,7 +75,10 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 #load-more-trigger { height: 40px; text-align: center; color: #6b5e85; padding-top: 15px; font-size: 0.9em; }
 
 .home-row { margin-bottom: 30px; }
-.home-row-title { font-size: 1.15em; margin: 0 0 15px 0; color: var(--text); font-weight: 700; }
+.home-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+.home-row-title { font-size: 1.15em; margin: 0; color: var(--text); font-weight: 700; }
+.home-row-see-all { background: none; border: none; padding: 0; color: var(--accent); font-size: 0.85em; font-weight: 600; cursor: pointer; }
+.home-row-see-all:hover { text-decoration: underline; }
 .home-row-wrap { position: relative; }
 .home-row-scroll { display: flex; gap: 16px; overflow-x: auto; overflow-y: hidden; padding-bottom: 12px; scrollbar-width: none; -ms-overflow-style: none; }
 .home-row-scroll::-webkit-scrollbar { display: none; }

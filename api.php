@@ -71,6 +71,20 @@ try {
     }
     if(!$hasPlaylistCover) $db->exec("ALTER TABLE playlists ADD COLUMN cover TEXT");
 
+    // --- LIKES + ANALYTIQUE D'ÉCOUTE (recommandations) ---
+    // likes : une ligne = un like (clé composite, pas d'auto-incrément nécessaire).
+    // listen_events : une ligne par lecture réellement écoutée, avec le nombre de secondes écoutées --
+    // alimente à la fois le compteur de vues (uniquement au-delà de 10s, voir action=report_listen) et le
+    // moteur de recommandations (durée moyenne d'écoute, tendances récentes, affinités par genre/artiste).
+    // Ne remplace pas tracks.play_count (qui reste le compteur affiché tel quel) : c'est une source de
+    // données supplémentaire pour le calcul des recommandations, pas une refonte du compteur existant.
+    $db->exec("CREATE TABLE IF NOT EXISTS likes (user_id INTEGER NOT NULL, track_id INTEGER NOT NULL, created_at INTEGER, PRIMARY KEY (user_id, track_id))");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_likes_track ON likes(track_id)");
+    $db->exec("CREATE TABLE IF NOT EXISTS listen_events (id INTEGER PRIMARY KEY AUTOINCREMENT, track_id INTEGER NOT NULL, user_id INTEGER NOT NULL, listened_seconds INTEGER DEFAULT 0, created_at INTEGER)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_track ON listen_events(track_id)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_user ON listen_events(user_id)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_created ON listen_events(created_at)");
+
 } catch (Exception $e) { die(json_encode(["status" => "error", "message" => "Erreur BDD"])); }
 
 $musicDir = __DIR__ . '/music';
@@ -140,6 +154,113 @@ function is_valid_audio($path, $ext) {
     if (substr($sig, 0, 4) === 'fLaC') return true;
 
     return false;
+}
+
+// --- RECOMMANDATIONS ---
+// Moteur heuristique volontairement simple (pas de ML — inutile à l'échelle d'une instance
+// auto-hébergée) combinant : affinité de genre/artiste de l'utilisateur (son propre historique
+// d'écoute), tendance récente (7 derniers jours, tous utilisateurs confondus), qualité perçue (ratio
+// durée moyenne écoutée / durée réelle -- une piste qu'on écoute jusqu'au bout est un meilleur signal
+// qu'une piste juste "vue"), un petit coup de pouce si la piste est likée, et une popularité globale
+// AMORTIE en log (pas play_count brut) pour que les grosses pistes déjà archi-populaires n'écrasent pas
+// tout le classement -- "remettre toutes les musiques avec trop de vue à une valeur plus basse", demandé
+// explicitement, mais seulement ICI (le tri "Les plus écoutés" lui-même continue d'afficher le vrai
+// play_count, sans quoi il mentirait sur ce qu'il prétend montrer). Les pistes déjà beaucoup écoutées par
+// CET utilisateur sont fortement dépriorisées (pas exclues) : la recommandation sert à découvrir, pas à
+// re-suggérer ce que l'utilisateur retrouve déjà tout seul dans Récents/Plus écoutés.
+function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
+    $sevenDaysAgo = time() - (7 * 24 * 3600);
+
+    // Affinités de l'utilisateur : genres/artistes des pistes qu'il a réellement écoutées (>=10s).
+    $genreStmt = $db->prepare(
+        "SELECT tracks.genre as g, COUNT(*) as cnt FROM listen_events
+         JOIN tracks ON tracks.id = listen_events.track_id
+         WHERE listen_events.user_id = ? AND listen_events.listened_seconds >= 10
+         GROUP BY tracks.genre ORDER BY cnt DESC LIMIT 3"
+    );
+    $genreStmt->execute([$userId]);
+    $topGenres = []; // genre => poids (1er = 1.0, 2e = 0.6, 3e = 0.3)
+    $genreWeights = [1.0, 0.6, 0.3];
+    foreach ($genreStmt->fetchAll(PDO::FETCH_ASSOC) as $i => $row) { $topGenres[$row['g']] = $genreWeights[$i] ?? 0.15; }
+
+    $artistStmt = $db->prepare(
+        "SELECT tracks.artist as a, COUNT(*) as cnt FROM listen_events
+         JOIN tracks ON tracks.id = listen_events.track_id
+         WHERE listen_events.user_id = ? AND listen_events.listened_seconds >= 10
+         GROUP BY tracks.artist ORDER BY cnt DESC LIMIT 5"
+    );
+    $artistStmt->execute([$userId]);
+    $topArtists = [];
+    $artistWeights = [1.0, 0.8, 0.6, 0.4, 0.2];
+    foreach ($artistStmt->fetchAll(PDO::FETCH_ASSOC) as $i => $row) { $topArtists[$row['a']] = $artistWeights[$i] ?? 0.1; }
+
+    $hasHistory = count($topGenres) > 0 || count($topArtists) > 0;
+
+    // Pistes déjà pas mal écoutées par CET utilisateur (secondes cumulées) -> à dépriorisée, pas exclue.
+    $ownListenStmt = $db->prepare("SELECT track_id, SUM(listened_seconds) as total FROM listen_events WHERE user_id = ? GROUP BY track_id");
+    $ownListenStmt->execute([$userId]);
+    $ownListenSeconds = [];
+    foreach ($ownListenStmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $ownListenSeconds[$row['track_id']] = (int) $row['total']; }
+
+    // Tendance récente (tous utilisateurs) et qualité (ratio d'écoute moyen), en une passe par piste.
+    $recentStmt = $db->prepare("SELECT track_id, COUNT(*) as recent_plays, AVG(listened_seconds) as avg_sec FROM listen_events WHERE created_at > ? GROUP BY track_id");
+    $recentStmt->execute([$sevenDaysAgo]);
+    $recentPlays = []; $maxRecentPlays = 1;
+    $avgListenSeconds = [];
+    foreach ($recentStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $recentPlays[$row['track_id']] = (int) $row['recent_plays'];
+        $avgListenSeconds[$row['track_id']] = (float) $row['avg_sec'];
+        if ($recentPlays[$row['track_id']] > $maxRecentPlays) $maxRecentPlays = $recentPlays[$row['track_id']];
+    }
+
+    $likeStmt = $db->query("SELECT track_id, COUNT(*) as cnt FROM likes GROUP BY track_id");
+    $likeCounts = [];
+    foreach ($likeStmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $likeCounts[$row['track_id']] = (int) $row['cnt']; }
+
+    $tracks = $db->query("SELECT id, title, artist, cover, genre, play_count, duration, uploader_id FROM tracks")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tracks)) return [];
+    $maxPlayCount = max(1, max(array_column($tracks, 'play_count')));
+
+    $scored = [];
+    foreach ($tracks as $t) {
+        $id = $t['id'];
+        $genreScore = $topGenres[$t['genre']] ?? 0.0;
+        $artistScore = $topArtists[$t['artist']] ?? 0.0;
+        $trendScore = isset($recentPlays[$id]) ? ($recentPlays[$id] / $maxRecentPlays) : 0.0;
+        $completionScore = 0.5; // valeur neutre par défaut si pas assez de données
+        if (!empty($t['duration']) && isset($avgListenSeconds[$id])) {
+            $completionScore = max(0.0, min(1.0, $avgListenSeconds[$id] / $t['duration']));
+        }
+        $likeBoost = min(0.3, 0.1 * ($likeCounts[$id] ?? 0));
+        $popularityDamped = log(1 + (int) $t['play_count']) / log(1 + $maxPlayCount);
+
+        $score = (0.35 * $genreScore) + (0.25 * $artistScore) + (0.2 * $trendScore) + (0.1 * $completionScore) + (0.1 * $popularityDamped) + $likeBoost;
+
+        // Pénalité si déjà bien connue de cet utilisateur (mais jamais mise à zéro : garde une petite
+        // chance de resurgir, notamment pour un morceau aimé qu'on a envie de revoir de temps en temps).
+        $ownSeconds = $ownListenSeconds[$id] ?? 0;
+        if ($ownSeconds >= 120) $score *= 0.25;
+        elseif ($ownSeconds >= 30) $score *= 0.6;
+
+        // Sans historique du tout (nouvel utilisateur) : purement tendance + popularité amortie, le
+        // matching genre/artiste ($genreScore/$artistScore) étant nul pour tout le monde de toute façon.
+        if (!$hasHistory) $score = (0.5 * $trendScore) + (0.3 * $popularityDamped) + $likeBoost;
+
+        $scored[] = ['track' => $t, 'score' => $score];
+    }
+
+    usort($scored, fn($a, $b) => $b['score'] <=> $a['score']);
+    $top = array_slice($scored, 0, $limit);
+
+    $result = [];
+    foreach ($top as $entry) {
+        $t = $entry['track'];
+        $t['like_count'] = $likeCounts[$t['id']] ?? 0;
+        $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
+        $t['stream_url'] = $baseUrl . "api.php?action=stream&q=" . $t['id'];
+        $result[] = $t;
+    }
+    return $result;
 }
 
 // --- SÉCURITÉ : Fonction d'authentification stricte pour l'API ---
@@ -391,15 +512,19 @@ switch($action) {
         break;
 
     case 'list':
-        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.play_count, tracks.duration, tracks.uploader_id FROM tracks ORDER BY play_count DESC, id DESC");
+        // like_count : info publique (pas besoin d'identifier l'appelant), simple sous-requête corrélée --
+        // le nombre de pistes reste modeste sur ce type d'instance auto-hébergée, pas besoin d'optimiser
+        // davantage. Pour savoir LESQUELLES l'utilisateur courant a lui-même likées, voir action=my_likes
+        // (authentifié, séparé exprès pour ne pas complexifier/casser ce endpoint public existant).
+        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.play_count, tracks.duration, tracks.uploader_id, (SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id) as like_count FROM tracks ORDER BY play_count DESC, id DESC");
         $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach($tracks as &$t) { 
+        foreach($tracks as &$t) {
             $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
             $t['stream_url'] = $baseUrl . "api.php?action=stream&q=" . $t['id'];
         }
         echo json_encode($tracks);
         break;
-        
+
     case 'increment_play':
         // --- SÉCURITÉ : Authentification requise pour incrémenter ---
         $auth = authenticate_api_user($db);
@@ -411,6 +536,70 @@ switch($action) {
         $stmt = $db->prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?");
         $stmt->execute([$track_id]);
         echo json_encode(["status" => "success"]);
+        break;
+
+    // Remplace l'ancien usage d'increment_play (qui comptait une vue à l'instant même où la piste
+    // démarrait) : les deux clients appellent maintenant CETTE action, après avoir confirmé côté client
+    // qu'au moins 10s d'écoute réelle se sont écoulées (annulé si l'utilisateur skip/pause avant) --
+    // "compter une vue seulement si la musique a été écoutée plus de 10 secondes". La vérification est
+    // aussi refaite ici côté serveur (jamais confiance aveugle au client) avant d'incrémenter play_count.
+    // Un événement est systématiquement journalisé dans listen_events (même sous les 10s) : sert au calcul
+    // de la durée moyenne d'écoute et alimente le moteur de recommandations (action=recommendations).
+    case 'report_listen':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $track_id = filter_var($_POST['track_id'] ?? 0, FILTER_VALIDATE_INT);
+        $seconds = filter_var($_POST['seconds'] ?? 0, FILTER_VALIDATE_INT);
+        if ($track_id === false || $track_id <= 0 || $seconds === false || $seconds < 0) {
+            echo json_encode(["status" => "error", "message" => "Paramètres invalides"]); exit;
+        }
+        $seconds = min($seconds, 24 * 3600); // garde-fou anti-abus, une piste ne dure jamais 24h
+
+        $db->prepare("INSERT INTO listen_events (track_id, user_id, listened_seconds, created_at) VALUES (?, ?, ?, ?)")
+            ->execute([$track_id, $auth['id'], $seconds, time()]);
+
+        $counted = $seconds >= 10;
+        if ($counted) {
+            $db->prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?")->execute([$track_id]);
+        }
+        echo json_encode(["status" => "success", "counted" => $counted]);
+        break;
+
+    case 'toggle_like':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $track_id = filter_var($_POST['track_id'] ?? 0, FILTER_VALIDATE_INT);
+        if ($track_id === false || $track_id <= 0) { echo json_encode(["status" => "error", "message" => "ID invalide"]); exit; }
+
+        $existing = $db->prepare("SELECT 1 FROM likes WHERE user_id = ? AND track_id = ?");
+        $existing->execute([$auth['id'], $track_id]);
+        if ($existing->fetch()) {
+            $db->prepare("DELETE FROM likes WHERE user_id = ? AND track_id = ?")->execute([$auth['id'], $track_id]);
+            $liked = false;
+        } else {
+            $db->prepare("INSERT INTO likes (user_id, track_id, created_at) VALUES (?, ?, ?)")->execute([$auth['id'], $track_id, time()]);
+            $liked = true;
+        }
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM likes WHERE track_id = ?");
+        $countStmt->execute([$track_id]);
+        echo json_encode(["status" => "success", "liked" => $liked, "like_count" => (int) $countStmt->fetchColumn()]);
+        break;
+
+    case 'my_likes':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $stmt = $db->prepare("SELECT track_id FROM likes WHERE user_id = ?");
+        $stmt->execute([$auth['id']]);
+        echo json_encode(["liked_ids" => array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN))]);
+        break;
+
+    case 'recommendations':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+        echo json_encode(build_recommendations($db, $auth['id'], $baseUrl));
         break;
 
     case 'stream':

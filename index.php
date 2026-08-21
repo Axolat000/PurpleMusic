@@ -55,6 +55,14 @@ try {
     }
     if (!$hasPlaylistCover) $db->exec("ALTER TABLE playlists ADD COLUMN cover TEXT");
 
+    // Likes + analytique d'écoute (miroir de la migration dans api.php, voir les commentaires là-bas).
+    $db->exec("CREATE TABLE IF NOT EXISTS likes (user_id INTEGER NOT NULL, track_id INTEGER NOT NULL, created_at INTEGER, PRIMARY KEY (user_id, track_id))");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_likes_track ON likes(track_id)");
+    $db->exec("CREATE TABLE IF NOT EXISTS listen_events (id INTEGER PRIMARY KEY AUTOINCREMENT, track_id INTEGER NOT NULL, user_id INTEGER NOT NULL, listened_seconds INTEGER DEFAULT 0, created_at INTEGER)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_track ON listen_events(track_id)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_user ON listen_events(user_id)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_created ON listen_events(created_at)");
+
     // Gestion de l'authentification
     require_once 'auth.php';
 
@@ -96,6 +104,16 @@ try {
     if (isset($_GET['increment_play'])) {
         $stmt = $db->prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?");
         $stmt->execute([$_GET['increment_play']]);
+        exit;
+    }
+
+    // Ajax : Recommandations personnalisées (voir build_recommendations() dans functions.php) -- lecture
+    // seule, pas de CSRF nécessaire, même logique que get_lyrics/get_playlist_tracks ci-dessous. cover_url/
+    // stream_url doivent pointer vers api.php (même construction que list là-bas) : le front web n'a pas
+    // d'autre route publique pour ces fichiers.
+    if (isset($_GET['recommendations'])) {
+        $recoBaseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/";
+        echo json_encode(build_recommendations($db, $user_id, $recoBaseUrl), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
         exit;
     }
 
@@ -304,7 +322,17 @@ try {
         exit;
     }
 
-    $all_tracks = $db->query("SELECT tracks.*, users.username as uploader_name FROM tracks JOIN users ON tracks.uploader_id = users.id ORDER BY play_count DESC, id DESC")->fetchAll(PDO::FETCH_ASSOC);
+    // like_count : public. is_liked : propre à l'utilisateur connecté (contrairement à api.php?action=list,
+    // qui reste anonyme -- ici la session PHP donne déjà l'identité, pas besoin d'un endpoint séparé
+    // comme my_likes côté Android).
+    $tracksStmt = $db->prepare(
+        "SELECT tracks.*, users.username as uploader_name,
+                (SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id) as like_count,
+                (SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id AND likes.user_id = ?) as is_liked
+         FROM tracks JOIN users ON tracks.uploader_id = users.id ORDER BY play_count DESC, id DESC"
+    );
+    $tracksStmt->execute([$user_id]);
+    $all_tracks = $tracksStmt->fetchAll(PDO::FETCH_ASSOC);
     $all_playlists = $db->query("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id")->fetchAll(PDO::FETCH_ASSOC);
 
     // Liste des comptes, pour l'onglet "Utilisateurs" de l'Admin Panel (page dédiée, admin uniquement).
@@ -485,7 +513,10 @@ try {
         <div id="home-sections" x-show="$store.ui.searchTerm.trim() === ''" x-cloak>
             <template x-if="$store.ui.recentTracks.length > 0">
                 <div class="home-row">
-                    <h3 class="home-row-title"><?php echo t('sort_recent'); ?></h3>
+                    <div class="home-row-header">
+                        <h3 class="home-row-title"><?php echo t('sort_recent'); ?></h3>
+                        <button type="button" class="home-row-see-all" onclick="seeAllHome('date_desc')"><?php echo t('home_see_all'); ?></button>
+                    </div>
                     <div class="home-row-wrap" x-data="homeRowScroller()">
                         <button type="button" class="home-row-arrow home-row-arrow-left" x-show="canLeft" x-cloak @click="scrollDir(-1)" aria-label="<?php echo htmlspecialchars(t('tooltip_prev')); ?>">
                             <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -505,9 +536,37 @@ try {
                     </div>
                 </div>
             </template>
+            <!-- "Recommandé pour toi" : rempli de façon asynchrone (voir init() dans app.js, calcul serveur
+                 build_recommendations()) -- absent tant que la requête n'a pas répondu, apparaît une fois
+                 chargé plutôt que de bloquer l'affichage du reste de l'accueil. -->
+            <template x-if="$store.ui.recommendedTracks.length > 0">
+                <div class="home-row">
+                    <h3 class="home-row-title" style="margin-bottom:15px;"><?php echo t('home_recommended_for_you'); ?></h3>
+                    <div class="home-row-wrap" x-data="homeRowScroller()">
+                        <button type="button" class="home-row-arrow home-row-arrow-left" x-show="canLeft" x-cloak @click="scrollDir(-1)" aria-label="<?php echo htmlspecialchars(t('tooltip_prev')); ?>">
+                            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                        </button>
+                        <div class="home-row-scroll" x-ref="scrollEl" @scroll="onScroll">
+                            <template x-for="t in $store.ui.recommendedTracks" :key="'reco-' + t.id">
+                                <div class="home-track-card" @click="playTrackById(t.id)">
+                                    <img :src="'covers/' + (t.cover || 'default.png')" loading="lazy" @error="$event.target.src = 'covers/default.png'">
+                                    <div class="home-track-card-title" x-text="t.title"></div>
+                                    <div class="home-track-card-sub" x-text="t.artist"></div>
+                                </div>
+                            </template>
+                        </div>
+                        <button type="button" class="home-row-arrow home-row-arrow-right" x-show="canRight" x-cloak @click="scrollDir(1)" aria-label="<?php echo htmlspecialchars(t('tooltip_next')); ?>">
+                            <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </template>
             <template x-if="$store.ui.popularTracks.length > 0">
                 <div class="home-row">
-                    <h3 class="home-row-title"><?php echo t('sort_popular'); ?></h3>
+                    <div class="home-row-header">
+                        <h3 class="home-row-title"><?php echo t('sort_popular'); ?></h3>
+                        <button type="button" class="home-row-see-all" onclick="seeAllHome('popular')"><?php echo t('home_see_all'); ?></button>
+                    </div>
                     <div class="home-row-wrap" x-data="homeRowScroller()">
                         <button type="button" class="home-row-arrow home-row-arrow-left" x-show="canLeft" x-cloak @click="scrollDir(-1)" aria-label="<?php echo htmlspecialchars(t('tooltip_prev')); ?>">
                             <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>

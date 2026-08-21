@@ -177,3 +177,96 @@ function checkRateLimit($action, $limitSeconds) {
     $_SESSION[$key] = time();
     return true;
 }
+
+// --- RECOMMANDATIONS --- Miroir exact de build_recommendations() dans api.php (voir les commentaires
+// détaillés là-bas pour le détail de l'algorithme) -- dupliquée ici plutôt que partagée via un require
+// commun entre index.php et api.php, pour rester cohérente avec la façon dont ce projet gère déjà le
+// code partagé entre les deux entrées (ex. la migration cover de playlist, dupliquée pareil dans les deux
+// fichiers) plutôt que de faire dépendre api.php d'un fichier qu'il n'a jamais chargé jusqu'ici.
+function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
+    $sevenDaysAgo = time() - (7 * 24 * 3600);
+
+    $genreStmt = $db->prepare(
+        "SELECT tracks.genre as g, COUNT(*) as cnt FROM listen_events
+         JOIN tracks ON tracks.id = listen_events.track_id
+         WHERE listen_events.user_id = ? AND listen_events.listened_seconds >= 10
+         GROUP BY tracks.genre ORDER BY cnt DESC LIMIT 3"
+    );
+    $genreStmt->execute([$userId]);
+    $topGenres = [];
+    $genreWeights = [1.0, 0.6, 0.3];
+    foreach ($genreStmt->fetchAll(PDO::FETCH_ASSOC) as $i => $row) { $topGenres[$row['g']] = $genreWeights[$i] ?? 0.15; }
+
+    $artistStmt = $db->prepare(
+        "SELECT tracks.artist as a, COUNT(*) as cnt FROM listen_events
+         JOIN tracks ON tracks.id = listen_events.track_id
+         WHERE listen_events.user_id = ? AND listen_events.listened_seconds >= 10
+         GROUP BY tracks.artist ORDER BY cnt DESC LIMIT 5"
+    );
+    $artistStmt->execute([$userId]);
+    $topArtists = [];
+    $artistWeights = [1.0, 0.8, 0.6, 0.4, 0.2];
+    foreach ($artistStmt->fetchAll(PDO::FETCH_ASSOC) as $i => $row) { $topArtists[$row['a']] = $artistWeights[$i] ?? 0.1; }
+
+    $hasHistory = count($topGenres) > 0 || count($topArtists) > 0;
+
+    $ownListenStmt = $db->prepare("SELECT track_id, SUM(listened_seconds) as total FROM listen_events WHERE user_id = ? GROUP BY track_id");
+    $ownListenStmt->execute([$userId]);
+    $ownListenSeconds = [];
+    foreach ($ownListenStmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $ownListenSeconds[$row['track_id']] = (int) $row['total']; }
+
+    $recentStmt = $db->prepare("SELECT track_id, COUNT(*) as recent_plays, AVG(listened_seconds) as avg_sec FROM listen_events WHERE created_at > ? GROUP BY track_id");
+    $recentStmt->execute([$sevenDaysAgo]);
+    $recentPlays = []; $maxRecentPlays = 1;
+    $avgListenSeconds = [];
+    foreach ($recentStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $recentPlays[$row['track_id']] = (int) $row['recent_plays'];
+        $avgListenSeconds[$row['track_id']] = (float) $row['avg_sec'];
+        if ($recentPlays[$row['track_id']] > $maxRecentPlays) $maxRecentPlays = $recentPlays[$row['track_id']];
+    }
+
+    $likeStmt = $db->query("SELECT track_id, COUNT(*) as cnt FROM likes GROUP BY track_id");
+    $likeCounts = [];
+    foreach ($likeStmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $likeCounts[$row['track_id']] = (int) $row['cnt']; }
+
+    $tracks = $db->query("SELECT id, title, artist, cover, genre, play_count, duration, uploader_id FROM tracks")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tracks)) return [];
+    $maxPlayCount = max(1, max(array_column($tracks, 'play_count')));
+
+    $scored = [];
+    foreach ($tracks as $t) {
+        $id = $t['id'];
+        $genreScore = $topGenres[$t['genre']] ?? 0.0;
+        $artistScore = $topArtists[$t['artist']] ?? 0.0;
+        $trendScore = isset($recentPlays[$id]) ? ($recentPlays[$id] / $maxRecentPlays) : 0.0;
+        $completionScore = 0.5;
+        if (!empty($t['duration']) && isset($avgListenSeconds[$id])) {
+            $completionScore = max(0.0, min(1.0, $avgListenSeconds[$id] / $t['duration']));
+        }
+        $likeBoost = min(0.3, 0.1 * ($likeCounts[$id] ?? 0));
+        $popularityDamped = log(1 + (int) $t['play_count']) / log(1 + $maxPlayCount);
+
+        $score = (0.35 * $genreScore) + (0.25 * $artistScore) + (0.2 * $trendScore) + (0.1 * $completionScore) + (0.1 * $popularityDamped) + $likeBoost;
+
+        $ownSeconds = $ownListenSeconds[$id] ?? 0;
+        if ($ownSeconds >= 120) $score *= 0.25;
+        elseif ($ownSeconds >= 30) $score *= 0.6;
+
+        if (!$hasHistory) $score = (0.5 * $trendScore) + (0.3 * $popularityDamped) + $likeBoost;
+
+        $scored[] = ['track' => $t, 'score' => $score];
+    }
+
+    usort($scored, fn($a, $b) => $b['score'] <=> $a['score']);
+    $top = array_slice($scored, 0, $limit);
+
+    $result = [];
+    foreach ($top as $entry) {
+        $t = $entry['track'];
+        $t['like_count'] = $likeCounts[$t['id']] ?? 0;
+        $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
+        $t['stream_url'] = $baseUrl . "api.php?action=stream&q=" . $t['id'];
+        $result[] = $t;
+    }
+    return $result;
+}

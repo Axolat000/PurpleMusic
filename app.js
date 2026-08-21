@@ -10,6 +10,7 @@ document.addEventListener('alpine:init', () => {
         recentTracks: [],
         popularTracks: [],
         playlistsPreview: [],
+        recommendedTracks: [], // rempli de façon asynchrone (voir init()) -- calcul serveur, pas instantané comme les autres rangées
         confirmState: { open: false, message: '', onConfirm: null },
         toastState: { visible: false, message: '' },
         toastTimer: null,
@@ -83,6 +84,12 @@ document.addEventListener('alpine:init', () => {
             if (typeof ALL_PLAYLISTS_DATA !== 'undefined') {
                 this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 10);
             }
+            // Recommandations : calcul serveur (build_recommendations(), functions.php), chargé une fois
+            // au démarrage comme le reste de l'accueil -- échec réseau non bloquant, la rangée reste
+            // simplement absente (x-if sur .length > 0 dans index.php) plutôt que de casser la page.
+            fetch('?recommendations=1').then(r => r.json()).then(data => {
+                if (Array.isArray(data)) this.recommendedTracks = data;
+            }).catch(e => console.error(e));
             this.themePreset = localStorage.getItem('purpleMusicTheme') || 'violet';
             this.sleepTimerLastMinutes = parseInt(localStorage.getItem('purpleMusicSleepTimerLastMinutes') || '0', 10) || 0;
             this.visualizerEnabled = localStorage.getItem('purpleMusicVisualizerEnabled') === '1';
@@ -1354,6 +1361,8 @@ function renderTracksChunk() {
             `;
         }
 
+        const isLiked = !!(parseInt(t.is_liked) || 0);
+
         const div = document.createElement('div');
         div.className = 'track-item';
         div.onclick = () => playTrackById(t.id);
@@ -1365,7 +1374,13 @@ function renderTracksChunk() {
                     ${safeArtist} <span style="opacity:0.6;font-size:0.9em;">• ${safeGenre} • ▶ ${t.play_count || 0}</span>
                 </div>
             </div>
-            <div style="display:flex; gap:8px;" onclick="event.stopPropagation()">${editButtons}</div>
+            <div style="display:flex; gap:8px; align-items:center;" onclick="event.stopPropagation()">
+                <button type="button" class="like-btn${isLiked ? ' active' : ''}" title="${T('tooltip_like')}" onclick="toggleLikeUI(${t.id}, this)">
+                    <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    <span class="like-count">${t.like_count || 0}</span>
+                </button>
+                ${editButtons}
+            </div>
         `;
         fragment.appendChild(div);
     });
@@ -1374,6 +1389,16 @@ function renderTracksChunk() {
     // Synchrone (comme le fait déjà loadTrack() pour #fp-title) : le fragment vient d'être inséré dans le
     // DOM réel, donc immédiatement mesurable — pas besoin d'attendre un repaint.
     listContainer.querySelectorAll('.marquee-wrap').forEach(applyMarqueeIfOverflowing);
+}
+
+// Bouton "Voir tout" à côté d'Ajouts récents/Les plus écoutés : bascule le tri de la bibliothèque complète
+// (en dessous) sur le mode correspondant et l'amène à l'écran -- même bibliothèque, juste pré-triée,
+// plutôt qu'une vue dédiée séparée (même convention côté app Android).
+function seeAllHome(sortValue) {
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) { sortSelect.value = sortValue; filterAndSortTracks(); }
+    const list = document.getElementById('global-list');
+    if (list) list.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function filterAndSortTracks() {
@@ -1810,17 +1835,97 @@ function editPlaylistFromDetail() {
     if (playlist) openEditModal(playlist);
 }
 
+// --- SUIVI D'ÉCOUTE (vues après 10s + durée moyenne pour le moteur de recommandations) ---
+// Un intervalle de 1s qui n'incrémente listenSeconds QUE si l'audio joue réellement à ce moment-là (pas
+// en pause) -- gère naturellement pause/reprise/seek sans suivi événementiel précis : on ne se fie qu'à
+// l'état réel de <audio> à chaque tick, jamais à un delta de temps qui pourrait inclure une pause.
+let listenTrackId = null;
+let listenSeconds = 0;
+let listenCountedForCurrentTrack = false;
+let listenIntervalId = null;
+
+function startListenTracking(trackId) {
+    stopListenTracking(); // journalise la session précédente avant d'en démarrer une nouvelle
+    listenTrackId = trackId;
+    listenSeconds = 0;
+    listenCountedForCurrentTrack = false;
+    listenIntervalId = setInterval(() => {
+        if (!audio || audio.paused || audio.ended) return;
+        listenSeconds++;
+        if (listenSeconds === 10 && !listenCountedForCurrentTrack) {
+            listenCountedForCurrentTrack = true;
+            reportListen(listenTrackId, listenSeconds);
+        }
+    }, 1000);
+}
+
+function stopListenTracking() {
+    if (listenIntervalId) { clearInterval(listenIntervalId); listenIntervalId = null; }
+    // Pas encore atteint 10s (donc jamais reporté) : on journalise quand même la session courte pour la
+    // durée moyenne d'écoute (signal utile même pour un skip rapide -- indique qu'on n'a PAS accroché).
+    if (listenTrackId && !listenCountedForCurrentTrack && listenSeconds > 0) {
+        reportListen(listenTrackId, listenSeconds);
+    }
+    listenTrackId = null;
+}
+
+// Bouton cœur (liste de pistes) : bascule optimiste (le cœur/compteur change tout de suite) puis corrigé
+// au besoin par la vraie réponse serveur -- toggle_like est idempotent côté état (juste insert/delete),
+// pas de risque de désync grave même en cas de double-clic rapide (le serveur reste la source de vérité).
+function toggleLikeUI(trackId, btnEl) {
+    const wasActive = btnEl.classList.contains('active');
+    const countEl = btnEl.querySelector('.like-count');
+    const prevCount = parseInt(countEl.textContent) || 0;
+    btnEl.classList.toggle('active', !wasActive);
+    countEl.textContent = Math.max(0, prevCount + (wasActive ? -1 : 1));
+
+    const fd = new FormData();
+    fd.append('toggle_like', '1');
+    fd.append('track_id', trackId);
+    fd.append('csrf_token', CSRF_TOKEN);
+    fetch(window.location.pathname, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status !== 'success') { btnEl.classList.toggle('active', wasActive); countEl.textContent = prevCount; return; }
+            btnEl.classList.toggle('active', data.liked);
+            countEl.textContent = data.like_count;
+            if (typeof ALL_MUSIC_DATA !== 'undefined') {
+                const t = ALL_MUSIC_DATA.find(x => x.id == trackId);
+                if (t) { t.is_liked = data.liked ? 1 : 0; t.like_count = data.like_count; }
+            }
+        })
+        .catch(() => { btnEl.classList.toggle('active', wasActive); countEl.textContent = prevCount; });
+}
+
+function reportListen(trackId, seconds) {
+    const fd = new FormData();
+    fd.append('report_listen', '1');
+    fd.append('track_id', trackId);
+    fd.append('seconds', seconds);
+    fd.append('csrf_token', CSRF_TOKEN);
+    fetch(window.location.pathname, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (!data || !data.counted) return;
+            // Miroir de l'ancien comportement optimiste d'increment_play, mais seulement une fois la vue
+            // réellement comptée côté serveur (pas au chargement) -- met à jour l'affichage local du
+            // compteur sans attendre un rechargement de page.
+            if (typeof ALL_MUSIC_DATA !== 'undefined') {
+                const t = ALL_MUSIC_DATA.find(x => x.id == trackId);
+                if (t) t.play_count = (parseInt(t.play_count) || 0) + 1;
+            }
+        })
+        .catch(e => console.error(e));
+}
+
 function loadTrack(autoPlay = true) {
     if (!queue[currentIndex]) return;
     const track = queue[currentIndex];
     audio.src = 'music/' + track.filename;
-    fetch('?increment_play=' + track.id).catch(e => console.error(e));
-    track.play_count = (parseInt(track.play_count) || 0) + 1;
-
-    if (typeof ALL_MUSIC_DATA !== 'undefined') {
-        const globalTrack = ALL_MUSIC_DATA.find(t => t.id == track.id);
-        if (globalTrack) globalTrack.play_count = track.play_count;
-    }
+    // Ne compte plus la vue immédiatement au chargement -- voir startListenTracking() : une "vue" n'est
+    // désormais journalisée que si le morceau est réellement écouté 10s ou plus (report_listen côté
+    // serveur revérifie aussi ce seuil, jamais confiance aveugle au client).
+    startListenTracking(track.id);
 
     if (playTitle) playTitle.innerText = track.title;
     if (playCover) playCover.src = 'covers/' + (track.cover || 'default.png');

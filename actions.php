@@ -44,6 +44,55 @@ if ($user_id) {
         exit;
     }
 
+    // LIKE / UNLIKE (bouton cœur sur une piste) -- miroir web d'api.php?action=toggle_like (même table
+    // likes, protégé par CSRF ici comme toute action POST de ce fichier, contrairement à l'auth
+    // username+password par requête utilisée côté Android).
+    if (isset($_POST['toggle_like'])) {
+        header('Content-Type: application/json');
+        $trackId = filter_var($_POST['track_id'] ?? 0, FILTER_VALIDATE_INT);
+        if ($trackId === false || $trackId <= 0) {
+            echo json_encode(['status' => 'error', 'message' => t('err_invalid_id')]);
+            exit;
+        }
+        $existing = $db->prepare("SELECT 1 FROM likes WHERE user_id = ? AND track_id = ?");
+        $existing->execute([$user_id, $trackId]);
+        if ($existing->fetch()) {
+            $db->prepare("DELETE FROM likes WHERE user_id = ? AND track_id = ?")->execute([$user_id, $trackId]);
+            $liked = false;
+        } else {
+            $db->prepare("INSERT INTO likes (user_id, track_id, created_at) VALUES (?, ?, ?)")->execute([$user_id, $trackId, time()]);
+            $liked = true;
+        }
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM likes WHERE track_id = ?");
+        $countStmt->execute([$trackId]);
+        echo json_encode(['status' => 'success', 'liked' => $liked, 'like_count' => (int) $countStmt->fetchColumn()]);
+        exit;
+    }
+
+    // SIGNALEMENT D'ÉCOUTE (remplace l'ancien ?increment_play=<id> côté web, appelé maintenant après 10s
+    // d'écoute réelle confirmée côté client plutôt qu'au tout début de la lecture) -- miroir web
+    // d'api.php?action=report_listen, voir les commentaires détaillés là-bas pour le raisonnement complet.
+    if (isset($_POST['report_listen'])) {
+        header('Content-Type: application/json');
+        $trackId = filter_var($_POST['track_id'] ?? 0, FILTER_VALIDATE_INT);
+        $seconds = filter_var($_POST['seconds'] ?? 0, FILTER_VALIDATE_INT);
+        if ($trackId === false || $trackId <= 0 || $seconds === false || $seconds < 0) {
+            echo json_encode(['status' => 'error', 'message' => t('err_invalid_id')]);
+            exit;
+        }
+        $seconds = min($seconds, 24 * 3600);
+
+        $db->prepare("INSERT INTO listen_events (track_id, user_id, listened_seconds, created_at) VALUES (?, ?, ?, ?)")
+            ->execute([$trackId, $user_id, $seconds, time()]);
+
+        $counted = $seconds >= 10;
+        if ($counted) {
+            $db->prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?")->execute([$trackId]);
+        }
+        echo json_encode(['status' => 'success', 'counted' => $counted]);
+        exit;
+    }
+
     // RÉINITIALISATION DE MOT DE PASSE PAR UN ADMIN (Admin Panel > Utilisateurs) : différent du
     // changement self-service ci-dessus (ne requiert pas l'ancien mot de passe). Génère un mot de
     // passe temporaire aléatoire, le hash en base, et le renvoie EN CLAIR une seule fois au client

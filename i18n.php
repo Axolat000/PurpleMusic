@@ -77,6 +77,9 @@ $I18N = [
         'confirm_delete_user' => 'Supprimer définitivement cet utilisateur ? Ses musiques et playlists seront aussi supprimées.',
         'confirm_reset_password' => 'Générer un nouveau mot de passe temporaire pour {username} ?',
         'err_user_not_found' => 'Utilisateur introuvable.',
+        'err_invalid_id' => 'ID invalide.',
+        'home_recommended_for_you' => 'Recommandé pour toi',
+        'tooltip_like' => 'Aimer',
         'err_cannot_modify_self' => 'Vous ne pouvez pas effectuer cette action sur votre propre compte.',
 
         // File d'attente
@@ -103,6 +106,7 @@ $I18N = [
         'sort_artist' => 'Par Artiste',
         'tooltip_sort' => 'Trier',
         'home_your_mixes' => 'Tes Mixs',
+        'home_see_all' => 'Voir tout',
         'no_tracks_found' => 'Aucune piste trouvée.',
 
         // Playlists
@@ -293,6 +297,9 @@ $I18N = [
         'confirm_delete_user' => 'Permanently delete this user? Their tracks and playlists will also be deleted.',
         'confirm_reset_password' => 'Generate a new temporary password for {username}?',
         'err_user_not_found' => 'User not found.',
+        'err_invalid_id' => 'Invalid ID.',
+        'home_recommended_for_you' => 'Recommended for you',
+        'tooltip_like' => 'Like',
         'err_cannot_modify_self' => 'You cannot perform this action on your own account.',
 
         'queue_waiting_empty' => 'No tracks queued...',
@@ -316,6 +323,7 @@ $I18N = [
         'sort_artist' => 'By Artist',
         'tooltip_sort' => 'Sort',
         'home_your_mixes' => 'Your Mixes',
+        'home_see_all' => 'See all',
         'no_tracks_found' => 'No tracks found.',
 
         'created_by' => 'Created by',
@@ -496,6 +504,9 @@ $I18N = [
         'confirm_delete_user' => '¿Eliminar definitivamente este usuario? Sus pistas y playlists también se eliminarán.',
         'confirm_reset_password' => '¿Generar una nueva contraseña temporal para {username}?',
         'err_user_not_found' => 'Usuario no encontrado.',
+        'err_invalid_id' => 'ID no válido.',
+        'home_recommended_for_you' => 'Recomendado para ti',
+        'tooltip_like' => 'Me gusta',
         'err_cannot_modify_self' => 'No puedes realizar esta acción en tu propia cuenta.',
 
         'queue_waiting_empty' => 'No hay música en espera...',
@@ -519,6 +530,7 @@ $I18N = [
         'sort_artist' => 'Por artista',
         'tooltip_sort' => 'Ordenar',
         'home_your_mixes' => 'Tus mixes',
+        'home_see_all' => 'Ver todo',
         'no_tracks_found' => 'No se encontraron pistas.',
 
         'created_by' => 'Creado por',
@@ -699,6 +711,9 @@ $I18N = [
         'confirm_delete_user' => 'Diesen Benutzer endgültig löschen? Seine Titel und Playlists werden ebenfalls gelöscht.',
         'confirm_reset_password' => 'Neues temporäres Passwort für {username} erstellen?',
         'err_user_not_found' => 'Benutzer nicht gefunden.',
+        'err_invalid_id' => 'Ungültige ID.',
+        'home_recommended_for_you' => 'Für dich empfohlen',
+        'tooltip_like' => 'Gefällt mir',
         'err_cannot_modify_self' => 'Diese Aktion kann nicht für dein eigenes Konto ausgeführt werden.',
 
         'queue_waiting_empty' => 'Keine Musik in der Warteschlange...',
@@ -722,6 +737,7 @@ $I18N = [
         'sort_artist' => 'Nach Interpret',
         'tooltip_sort' => 'Sortieren',
         'home_your_mixes' => 'Deine Mixe',
+        'home_see_all' => 'Alle anzeigen',
         'no_tracks_found' => 'Keine Titel gefunden.',
 
         'created_by' => 'Erstellt von',
