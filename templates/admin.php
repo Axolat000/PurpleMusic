@@ -4,6 +4,7 @@
 
         <div class="settings-tabs admin-page-tabs">
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'"><?php echo t('admin_section_general'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'legal' }" @click="activeTab = 'legal'"><?php echo t('admin_section_legal'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'theme' }" @click="activeTab = 'theme'"><?php echo t('admin_section_theme'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'media' }" @click="activeTab = 'media'"><?php echo t('admin_section_media'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'genres' }" @click="activeTab = 'genres'"><?php echo t('admin_section_genres'); ?></button>
@@ -16,10 +17,25 @@
             <div x-show="activeTab === 'general'" x-cloak>
                 <label><?php echo t('admin_app_name_label'); ?></label>
                 <input type="text" name="adm_site_name" value="<?php echo htmlspecialchars($site_name); ?>" required>
+            </div>
 
-                <label style="margin-top:15px;"><?php echo t('admin_legal_email_label'); ?></label>
+            <div x-show="activeTab === 'legal'" x-cloak>
+                <!-- Désactivées par défaut (fraîche installation open source, voir $terms_enabled dans
+                     index.php) : ce switch est le seul endroit qui les active -- tant qu'il ne l'a jamais
+                     été, personne n'est jamais bloqué, aucune case n'apparaît à l'inscription. -->
+                <div class="eq-enable-row" style="margin-bottom:20px;">
+                    <span class="settings-section-label" style="margin:0;"><?php echo t('admin_legal_enable_label'); ?></span>
+                    <label class="switch-toggle">
+                        <input type="checkbox" name="adm_terms_enabled" value="1" <?php echo $terms_enabled ? 'checked' : ''; ?>>
+                        <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                    </label>
+                </div>
+                <p style="font-size:0.8em; color:var(--text-muted); margin:-12px 0 20px;"><?php echo t('admin_legal_enable_hint'); ?></p>
+
+                <label><?php echo t('admin_legal_email_label'); ?></label>
                 <input type="email" name="adm_legal_contact_email" value="<?php echo htmlspecialchars($legal_contact_email === '[email]' ? '' : $legal_contact_email); ?>" placeholder="<?php echo htmlspecialchars(t('admin_legal_email_placeholder')); ?>">
-                <p style="font-size:0.8em; color:var(--text-muted); margin:-8px 0 15px;"><?php echo t('admin_legal_email_hint'); ?></p>
+                <p style="font-size:0.8em; color:var(--text-muted); margin:-8px 0 20px;"><?php echo t('admin_legal_email_hint'); ?></p>
+                <a href="cgu.php" target="_blank" rel="noopener" class="btn btn-outline"><?php echo t('admin_legal_view_cgu'); ?></a>
             </div>
 
             <div x-show="activeTab === 'theme'" x-cloak>

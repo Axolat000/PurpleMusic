@@ -11,16 +11,18 @@ switch ($action) {
 
         $auth = authenticate_api_user($db);
         if ($auth) {
-            // terms_accepted/terms_url : présents uniquement sur une instance à jour qui gère les CGU --
-            // un client (Android) qui ne connaît pas encore ces champs les ignore simplement, donc un
-            // ancien serveur (sans cette colonne) reste compatible sans rien renvoyer de spécial.
-            $termsStmt = $db->prepare("SELECT terms_accepted_at FROM users WHERE id = ?");
-            $termsStmt->execute([$auth['id']]);
-            echo json_encode([
-                "status" => "success", "user_id" => $auth['id'], "username" => $auth['username'], "is_admin" => $auth['is_admin'],
-                "terms_accepted" => (bool) $termsStmt->fetchColumn(),
-                "terms_url" => $baseUrl . "cgu.php",
-            ]);
+            // terms_accepted/terms_url : présents uniquement si l'admin a activé les CGU sur cette instance
+            // (désactivées par défaut, voir terms_are_enabled()) -- un client (Android) qui ne les voit
+            // jamais dans la réponse doit se comporter exactement comme si le serveur n'avait pas cette
+            // fonctionnalité du tout, jamais afficher de prompt.
+            $response = ["status" => "success", "user_id" => $auth['id'], "username" => $auth['username'], "is_admin" => $auth['is_admin']];
+            if (terms_are_enabled($db)) {
+                $termsStmt = $db->prepare("SELECT terms_accepted_at FROM users WHERE id = ?");
+                $termsStmt->execute([$auth['id']]);
+                $response['terms_accepted'] = (bool) $termsStmt->fetchColumn();
+                $response['terms_url'] = $baseUrl . "cgu.php";
+            }
+            echo json_encode($response);
         } else {
             echo json_encode(["status" => "error", "message" => "Identifiants invalides"]);
         }
@@ -34,13 +36,18 @@ switch ($action) {
         if (mb_strlen($u) > 50) { echo json_encode(["status" => "error", "message" => "Nom d'utilisateur trop long (50 caractères max)"]); exit; }
         if (mb_strlen($p) < 6)  { echo json_encode(["status" => "error", "message" => "Mot de passe trop court (6 caractères min)"]); exit; }
         if (mb_strlen($p) > 200) { echo json_encode(["status" => "error", "message" => "Mot de passe trop long"]); exit; }
-        // accept_terms : requis aussi bien depuis le web (case à cocher, voir auth.php) que depuis
-        // Android (voir AcceptTermsScreen -- montré uniquement si le serveur expose terms_url sur login).
-        if (empty($_POST['accept_terms'])) { echo json_encode(["status" => "error", "message" => "Les CGU doivent être acceptées pour créer un compte"]); exit; }
+        // accept_terms : requis uniquement si l'admin a activé les CGU sur cette instance (voir
+        // terms_are_enabled()) -- absent = pas grave si les CGU sont désactivées, mais toujours refusé
+        // si elles sont activées, même si le client (web ou Android) a laissé passer une requête sans.
+        if (terms_are_enabled($db) && empty($_POST['accept_terms'])) { echo json_encode(["status" => "error", "message" => "Les CGU doivent être acceptées pour créer un compte"]); exit; }
 
+        // terms_accepted_at reflète simplement si accept_terms a été envoyé, peu importe si les CGU
+        // étaient activées au moment de l'inscription -- si elles sont activées plus tard par un admin,
+        // ce compte n'a jamais rien accepté et doit être bloqué comme un compte pré-existant.
+        $termsAcceptedAt = !empty($_POST['accept_terms']) ? time() : null;
         $u = htmlspecialchars(trim($u), ENT_QUOTES, 'UTF-8');
         try {
-            $db->prepare("INSERT INTO users (username, password, terms_accepted_at) VALUES (?, ?, ?)")->execute([$u, password_hash($p, PASSWORD_DEFAULT), time()]);
+            $db->prepare("INSERT INTO users (username, password, terms_accepted_at) VALUES (?, ?, ?)")->execute([$u, password_hash($p, PASSWORD_DEFAULT), $termsAcceptedAt]);
             echo json_encode(["status" => "success"]);
         } catch(Exception $e) {
             echo json_encode(["status" => "error", "message" => "Nom d'utilisateur déjà pris"]);

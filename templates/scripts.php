@@ -8,6 +8,7 @@
         const CURRENT_USER_ID = <?php echo json_encode($user_id); ?>;
         const IS_ADMIN = <?php echo json_encode($is_admin); ?>;
         const CSRF_TOKEN = <?php echo json_encode($csrf_token); ?>;
+        const TERMS_ENABLED = <?php echo json_encode($terms_enabled); ?>;
 
         // --- I18N : langue active (cookie "purpleMusicLang", lu côté PHP) + table de traduction client ---
         const LANG = <?php echo json_encode($lang, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;

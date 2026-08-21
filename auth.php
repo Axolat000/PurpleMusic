@@ -22,13 +22,18 @@ if (isset($_POST['register'])) {
             $error = t('err_password_too_short');
         } elseif (mb_strlen($regPassword) > 200) {
             $error = t('err_password_too_long');
-        } elseif (empty($_POST['accept_terms'])) {
+        } elseif ($terms_enabled && empty($_POST['accept_terms'])) {
             $error = t('err_must_accept_terms');
         } else {
+            // terms_accepted_at reflète simplement si la case a été cochée, peu importe si elle était
+            // obligatoire -- si les CGU sont désactivées à l'inscription puis activées plus tard par un
+            // admin, ce compte n'a jamais rien accepté et doit être bloqué comme n'importe quel compte
+            // pré-existant (voir index.php : $terms_accepted).
+            $termsAcceptedAt = !empty($_POST['accept_terms']) ? time() : null;
             $hash = password_hash($regPassword, PASSWORD_DEFAULT);
             $stmt = $db->prepare("INSERT INTO users (username, password, terms_accepted_at) VALUES (?, ?, ?)");
             try {
-                $stmt->execute([$regUsername, $hash, time()]);
+                $stmt->execute([$regUsername, $hash, $termsAcceptedAt]);
             } catch (Exception $e) {
                 $error = t('err_username_taken');
             }

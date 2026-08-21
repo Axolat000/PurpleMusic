@@ -79,29 +79,11 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_user ON listen_events(user_id)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_created ON listen_events(created_at)");
 
-    // Gestion de l'authentification
-    require_once 'auth.php';
-
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    $csrf_token = $_SESSION['csrf_token'];
-
-    // CGU : bloque l'accès au reste de l'app (voir plus bas, juste avant le rendu) tant que
-    // terms_accepted_at est NULL -- vrai pour tout compte existant avant l'ajout de cette colonne
-    // (migration ci-dessus) et pour tout nouveau compte tant qu'il n'a pas coché la case d'acceptation
-    // à l'inscription (voir auth.php).
-    $terms_accepted = false;
-    if ($user_id) {
-        $stmtTerms = $db->prepare("SELECT terms_accepted_at FROM users WHERE id = ?");
-        $stmtTerms->execute([$user_id]);
-        $terms_accepted = (bool) $stmtTerms->fetchColumn();
-    }
-
-    // Récupération des paramètres
+    // Récupération des paramètres -- avant require_once 'auth.php' : le traitement de l'inscription
+    // dans auth.php a besoin de $terms_enabled pour savoir si accept_terms doit être exigé.
     $settingsRaw = $db->query("SELECT * FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
     $site_name = $settingsRaw['site_name'] ?? 'Purple Music';
-    
+
     $color_bg = $settingsRaw['color_bg'] ?? '#0f0c1d';
     $color_panel = $settingsRaw['color_panel'] ?? '#1b1429';
     $color_primary = $settingsRaw['color_primary'] ?? '#8e44ad';
@@ -115,12 +97,36 @@ try {
     $color_mob_nav_bg = $settingsRaw['color_mob_nav_bg'] ?? 'rgba(21, 16, 32, 0.95)';
     $color_fp_gradient_1 = $settingsRaw['color_fp_gradient_1'] ?? '#302b63';
     $color_fp_gradient_2 = $settingsRaw['color_fp_gradient_2'] ?? '#0f0c29';
-    
+
     $default_cover = $settingsRaw['default_cover'] ?? 'default.png';
     $favicon_file = $settingsRaw['favicon'] ?? 'favicon.png';
     // Placeholder générique par défaut (template open source, voir cgu.php) : chaque instance
     // auto-hébergée renseigne son propre contact légal depuis le Panel Admin, jamais codé en dur.
     $legal_contact_email = $settingsRaw['legal_contact_email'] ?? '[email]';
+    // CGU désactivées par défaut (fraîche installation open source) : un admin doit explicitement les
+    // activer depuis le Panel Admin (onglet Conditions Générales) une fois son contact légal renseigné --
+    // sinon tout resterait bloqué sur une instance qui n'a jamais configuré ses CGU.
+    $terms_enabled = ($settingsRaw['terms_enabled'] ?? '0') === '1';
+
+    // Gestion de l'authentification
+    require_once 'auth.php';
+
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    $csrf_token = $_SESSION['csrf_token'];
+
+    // CGU : bloque l'accès au reste de l'app (voir plus bas, juste avant le rendu) tant que
+    // terms_accepted_at est NULL -- vrai pour tout compte existant avant l'ajout de cette colonne
+    // (migration ci-dessus) et pour tout nouveau compte tant qu'il n'a pas coché la case d'acceptation
+    // à l'inscription (voir auth.php). Sans objet du tout si $terms_enabled est faux : jamais de blocage
+    // sur une instance qui n'a pas activé cette fonctionnalité.
+    $terms_accepted = true;
+    if ($terms_enabled && $user_id) {
+        $stmtTerms = $db->prepare("SELECT terms_accepted_at FROM users WHERE id = ?");
+        $stmtTerms->execute([$user_id]);
+        $terms_accepted = (bool) $stmtTerms->fetchColumn();
+    }
 
     $genresList = $db->query("SELECT name FROM genres ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
     if(empty($genresList)) {
@@ -153,7 +159,7 @@ try {
     $all_users = $is_admin ? $db->query("SELECT id, username, is_admin FROM users ORDER BY username COLLATE NOCASE ASC")->fetchAll(PDO::FETCH_ASSOC) : [];
 
     // Onglet initial de l'Admin Panel (préservé après un redirect POST/GET depuis une action de cette page, ex: ?admin_tab=users).
-    $adminTabOptions = ['general', 'theme', 'media', 'genres', 'users'];
+    $adminTabOptions = ['general', 'legal', 'theme', 'media', 'genres', 'users'];
     $initialAdminTab = in_array($_GET['admin_tab'] ?? '', $adminTabOptions, true) ? $_GET['admin_tab'] : 'general';
 
 } catch (Exception $e) { die(t('err_db_prefix') . $e->getMessage()); }
@@ -227,17 +233,21 @@ try {
                      le champ est masqué. -->
                 <div x-show="mode === 'register'" x-cloak>
                     <input type="password" name="confirm_password" x-model="confirmPassword" placeholder="<?php echo htmlspecialchars(t('login_confirm_password_placeholder')); ?>" autocomplete="new-password" :required="mode === 'register'">
+                    <?php if ($terms_enabled): ?>
                     <label class="auth-terms-check">
                         <input type="checkbox" name="accept_terms" value="1" x-model="acceptTerms" :required="mode === 'register'">
                         <span><?php echo t('login_accept_terms_html'); ?></span>
                     </label>
+                    <?php endif; ?>
                 </div>
                 <p x-show="clientError" x-cloak class="auth-client-error" x-text="clientError"></p>
                 <button type="submit" :name="mode" class="btn btn-primary auth-submit-btn" x-text="mode === 'login' ? T('login_btn') : T('login_register_btn')"><?php echo $authInitialMode === 'login' ? t('login_btn') : t('login_register_btn'); ?></button>
             </form>
         </div>
 
+        <?php if ($terms_enabled): ?>
         <p class="auth-terms-footer"><?php echo t('login_terms_footer_html'); ?></p>
+        <?php endif; ?>
     </div>
 <?php else: ?>
 

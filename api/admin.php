@@ -16,6 +16,10 @@ switch ($action) {
             // choix valide (retombe sur le placeholder générique "[email]" côté cgu.php) -- pas de repli
             // sur l'existant quand le champ est présent mais laissé vide.
             'legal_contact_email' => isset($_POST['adm_legal_contact_email']) ? trim($_POST['adm_legal_contact_email']) : ($existingSettings['legal_contact_email'] ?? ''),
+            // Checkbox HTML classique : absente du POST quand décochée (contrairement à un champ texte
+            // vide) -- le vrai formulaire envoyant toujours tous ses champs d'un coup, son absence ici
+            // signifie sans ambiguïté "désactivé", pas "champ non fourni, garder l'existant".
+            'terms_enabled' => isset($_POST['adm_terms_enabled']) ? '1' : '0',
             'color_bg' => $_POST['adm_color_bg'] ?? $existingSettings['color_bg'] ?? '',
             'color_panel' => $_POST['adm_color_panel'] ?? $existingSettings['color_panel'] ?? '',
             'color_primary' => $_POST['adm_color_primary'] ?? $existingSettings['color_primary'] ?? '',

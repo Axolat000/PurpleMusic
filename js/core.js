@@ -328,7 +328,7 @@ document.addEventListener('alpine:init', () => {
                 event.preventDefault();
                 return;
             }
-            if (!this.acceptTerms) {
+            if (typeof TERMS_ENABLED !== 'undefined' && TERMS_ENABLED && !this.acceptTerms) {
                 this.clientError = T('err_must_accept_terms');
                 event.preventDefault();
             }

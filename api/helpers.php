@@ -1,4 +1,12 @@
 <?php
+// CGU désactivées par défaut (fraîche installation open source) : un admin doit explicitement les
+// activer depuis le Panel Admin (miroir de la même règle dans index.php). Sans cache : appelée au plus
+// une fois par requête (login/register/accept_terms uniquement), coût négligeable.
+function terms_are_enabled($db) {
+    $stmt = $db->query("SELECT value FROM settings WHERE key = 'terms_enabled'");
+    return $stmt->fetchColumn() === '1';
+}
+
 function check_rate_limit($db) {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     $now = time();
