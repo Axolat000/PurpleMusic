@@ -11,7 +11,7 @@
     <?php if($p['creator_id'] == $user_id || $is_admin): ?>
         <div style="display:flex; gap:10px;">
             <button class="btn btn-outline" style="flex:1; justify-content:center; font-size:0.8em;" onclick='event.stopPropagation(); openEditModal(<?php echo json_encode($p, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'><?php echo t('btn_edit'); ?></button>
-            <a href="?delete_playlist=<?php echo $p['id']; ?>&csrf_token=<?php echo $csrf_token; ?>" class="btn btn-danger" style="flex:1; justify-content:center; font-size:0.8em; border-radius:99px;" onclick="event.stopPropagation(); return confirmDelete('<?php echo t('confirm_delete_generic'); ?>', '?delete_playlist=<?php echo $p['id']; ?>&csrf_token=<?php echo $csrf_token; ?>')"><?php echo t('btn_delete_short'); ?></a>
+            <a href="#" class="btn btn-danger" style="flex:1; justify-content:center; font-size:0.8em; border-radius:99px;" onclick="event.stopPropagation(); return confirmPostAction('<?php echo t('confirm_delete_generic'); ?>', 'delete_playlist', { playlist_id: <?php echo $p['id']; ?> })"><?php echo t('btn_delete_short'); ?></a>
         </div>
     <?php endif; ?>
 </div>

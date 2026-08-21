@@ -98,6 +98,7 @@ $I18N = [
         // Bibliothèque / accueil
         'section_all_tracks' => 'Toutes les pistes',
         'search_placeholder' => 'Rechercher titre, artiste...',
+        'err_action_failed' => "Une erreur est survenue.",
         'sort_recommended' => 'Recommandé pour toi',
         'sort_popular' => 'Les plus écoutés',
         'sort_recent' => 'Ajouts récents',
@@ -321,6 +322,7 @@ $I18N = [
 
         'section_all_tracks' => 'All Tracks',
         'search_placeholder' => 'Search title, artist...',
+        'err_action_failed' => "An error occurred.",
         'sort_recommended' => 'Recommended for you',
         'sort_popular' => 'Most Played',
         'sort_recent' => 'Recently Added',
@@ -534,6 +536,7 @@ $I18N = [
 
         'section_all_tracks' => 'Todas las pistas',
         'search_placeholder' => 'Buscar título, artista...',
+        'err_action_failed' => 'Ha ocurrido un error.',
         'sort_recommended' => 'Recomendado para ti',
         'sort_popular' => 'Más escuchados',
         'sort_recent' => 'Añadidos recientemente',
@@ -747,6 +750,7 @@ $I18N = [
 
         'section_all_tracks' => 'Alle Titel',
         'search_placeholder' => 'Titel, Interpret suchen...',
+        'err_action_failed' => 'Ein Fehler ist aufgetreten.',
         'sort_recommended' => 'Für dich empfohlen',
         'sort_popular' => 'Meistgehört',
         'sort_recent' => 'Kürzlich hinzugefügt',
@@ -927,6 +931,8 @@ const I18N_CLIENT_KEYS = [
     // (voir openBrowseAll() dans app.js) -- ailleurs ces titres sont rendus côté PHP directement.
     'sort_popular',
     'sort_recent',
+    'err_action_failed',
+    'settings_password_changed',
 ];
 
 function i18n_client_table() {

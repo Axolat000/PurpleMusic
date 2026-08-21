@@ -85,16 +85,16 @@ document.addEventListener('alpine:init', () => {
             if (typeof ALL_PLAYLISTS_DATA !== 'undefined') {
                 this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 10);
             }
-            // Recommandations : calcul serveur (build_recommendations(), functions.php), chargé une fois
+            // Recommandations : calcul serveur (build_recommendations(), api.php), chargé une fois
             // au démarrage comme le reste de l'accueil -- échec réseau non bloquant, la rangée reste
             // simplement absente (x-if sur .length > 0 dans index.php) plutôt que de casser la page.
-            fetch('?recommendations=1').then(r => r.json()).then(data => {
+            fetch('api.php?action=recommendations').then(r => r.json()).then(data => {
                 if (Array.isArray(data)) this.recommendedTracks = data;
             }).catch(e => console.error(e));
             // Classement complet (pas juste le top 20 ci-dessus) : alimente le mode de tri 'recommended',
             // par défaut sur la bibliothèque -- arrive après le premier rendu, donc on retrie une fois prêt
             // si l'utilisateur est toujours sur ce tri (voir compareTracksBySort()/filterAndSortTracks()).
-            fetch('?recommendations=1&full=1').then(r => r.json()).then(data => {
+            fetch('api.php?action=recommendations&full=1').then(r => r.json()).then(data => {
                 if (!Array.isArray(data)) return;
                 RECOMMENDED_RANK = new Map(data.map((t, i) => [t.id, i]));
                 const sortSelect = document.getElementById('sortSelect');
@@ -128,7 +128,7 @@ document.addEventListener('alpine:init', () => {
             } catch (e) { /* cache client corrompu : on ignore et on retente une vraie requête */ }
 
             try {
-                const res = await fetch('?check_update=1');
+                const res = await fetch('api.php?action=check_update');
                 const data = await res.json();
                 sessionStorage.setItem('pmUpdateCheckResult', JSON.stringify({ ts: Date.now(), data }));
                 this.applyUpdateCheckResult(data);
@@ -162,8 +162,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const fd = new FormData();
                 fd.append('csrf_token', CSRF_TOKEN);
-                fd.append('trigger_update', '1');
-                const res = await fetch(window.location.pathname, { method: 'POST', body: fd });
+                const res = await fetch('api.php?action=trigger_update', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.status === 'success') {
                     this.updateTriggerState = 'updating';
@@ -262,17 +261,16 @@ document.addEventListener('alpine:init', () => {
             try {
                 const fd = new FormData();
                 fd.append('csrf_token', CSRF_TOKEN);
-                fd.append('change_password', '1');
                 fd.append('current_password', this.pwCurrent);
                 fd.append('new_password', this.pwNew);
                 fd.append('confirm_password', this.pwConfirm);
-                const res = await fetch(window.location.pathname, { method: 'POST', body: fd });
+                const res = await fetch('api.php?action=change_password', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.status === 'success') {
                     this.pwCurrent = '';
                     this.pwNew = '';
                     this.pwConfirm = '';
-                    Alpine.store('ui').showToast(data.message);
+                    Alpine.store('ui').showToast(data.message || T('settings_password_changed'));
                 } else {
                     this.pwError = data.message || T('err_password_change_network');
                 }
@@ -379,12 +377,48 @@ function T(key, vars = {}) {
 }
 
 // Pont générique pour les liens/boutons de suppression : remplace window.confirm() par le dialogue Alpine.
-function confirmDelete(message, url) {
+// Envoie une action mutante à api.php (session + CSRF, voir authenticate_api_user() côté serveur) et
+// recharge la page au succès -- remplace les anciens liens/formulaires GET/POST classiques vers
+// actions.php (rechargeaient déjà la page via une redirection serveur ; api.php ne fait jamais de
+// redirection HTML, seulement du JSON, donc ce fetch()+reload reproduit le même résultat visible).
+function postApiAction(action, fields) {
+    const fd = new FormData();
+    fd.append('csrf_token', CSRF_TOKEN);
+    for (const k in fields) fd.append(k, fields[k]);
+    return fetch('api.php?action=' + action, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') { window.location.reload(); return data; }
+            const msg = (data && data.message) || T('err_action_failed');
+            if (window.Alpine) Alpine.store('ui').showToast(msg); else alert(msg);
+            return data;
+        })
+        .catch(() => { if (window.Alpine) Alpine.store('ui').showToast(T('err_action_failed')); else alert(T('err_action_failed')); });
+}
+
+function confirmPostAction(message, action, fields) {
     if (window.Alpine) {
-        Alpine.store('ui').confirmAction(message, () => { window.location.href = url; });
+        Alpine.store('ui').confirmAction(message, () => { postApiAction(action, fields); });
     } else if (confirm(message)) {
-        window.location.href = url;
+        postApiAction(action, fields);
     }
+    return false;
+}
+
+// Intercepte un <form> classique (upload, édition de piste, playlist, réglages admin...) et l'envoie à
+// api.php au lieu d'un POST natif vers index.php -- api.php ne fait jamais de redirection HTML, donc ce
+// fetch()+reload reproduit le même résultat visible que l'ancienne redirection serveur. Retourne false
+// (appelé depuis onsubmit="return ...") pour empêcher systématiquement la soumission native du form.
+function submitFormToApi(formEl, action) {
+    const fd = new FormData(formEl);
+    fetch('api.php?action=' + action, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') { window.location.reload(); return; }
+            const msg = (data && data.message) || T('err_action_failed');
+            if (window.Alpine) Alpine.store('ui').showToast(msg); else alert(msg);
+        })
+        .catch(() => { if (window.Alpine) Alpine.store('ui').showToast(T('err_action_failed')); else alert(T('err_action_failed')); });
     return false;
 }
 
@@ -921,9 +955,8 @@ async function doAdminResetPassword(userId, username) {
     try {
         const fd = new FormData();
         fd.append('csrf_token', CSRF_TOKEN);
-        fd.append('admin_reset_password', '1');
         fd.append('target_user_id', userId);
-        const res = await fetch(window.location.pathname, { method: 'POST', body: fd });
+        const res = await fetch('api.php?action=admin_reset_password', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.status === 'success') {
             Alpine.store('ui').adminGeneratedPassword = { username: username, password: data.password };
@@ -1368,7 +1401,7 @@ function buildTrackRowElement(t, onClick) {
     if(t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
         editButtons = `
             <button class="btn btn-outline" style="font-size:0.7em; padding:6px 10px; border-radius:8px;" onclick="openEditTrackModal(${t.id}, '${jsSafeTitle}', '${jsSafeArtist}', '${jsSafeGenre}')">✎</button>
-            <a href="?delete_track=${t.id}&csrf_token=${CSRF_TOKEN}" class="btn btn-danger" style="border-radius:8px;" onclick="return confirmDelete('${T('confirm_delete_generic')}', '?delete_track=${t.id}&csrf_token=${CSRF_TOKEN}')">✕</a>
+            <button type="button" class="btn btn-danger" style="border-radius:8px;" onclick="confirmPostAction('${T('confirm_delete_generic')}', 'delete_track', {track_id: ${t.id}})">✕</button>
         `;
     }
 
@@ -1625,7 +1658,7 @@ async function loadLyricsForCurrentTrack(force = false) {
     store.lyricsActiveIndex = -1;
 
     try {
-        const res = await fetch('?get_lyrics=' + track.id);
+        const res = await fetch('api.php?action=get_lyrics&q=' + track.id);
         const data = await res.json();
         // La piste a pu changer pendant l'attente de la réponse : on ignore un résultat périmé.
         if (store.lyricsTrackId !== track.id) return;
@@ -1821,7 +1854,7 @@ function playTrackById(id, autoPlay = true) {
 }
 
 async function playPlaylist(ids, pId = null) {
-    const res = await fetch('?get_playlist_tracks=' + ids);
+    const res = await fetch('api.php?action=get_playlist_tracks&q=' + ids);
     let data = await res.json();
     if (hiddenGenres.length > 0) {
         data = data.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
@@ -1861,7 +1894,7 @@ async function openPlaylistDetail(id) {
     showSection('playlist-detail');
 
     try {
-        const res = await fetch('?get_playlist_tracks=' + playlist.song_ids);
+        const res = await fetch('api.php?action=get_playlist_tracks&q=' + playlist.song_ids);
         const data = await res.json();
         if (store.playlistDetail && store.playlistDetail.id == playlist.id) {
             store.playlistDetail.tracks = data;
@@ -1951,10 +1984,9 @@ function toggleLikeUI(trackId, btnEl) {
     countEl.textContent = Math.max(0, prevCount + (wasActive ? -1 : 1));
 
     const fd = new FormData();
-    fd.append('toggle_like', '1');
     fd.append('track_id', trackId);
     fd.append('csrf_token', CSRF_TOKEN);
-    fetch(window.location.pathname, { method: 'POST', body: fd })
+    fetch('api.php?action=toggle_like', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(data => {
             if (data.status !== 'success') { btnEl.classList.toggle('active', wasActive); countEl.textContent = prevCount; return; }
@@ -1970,11 +2002,10 @@ function toggleLikeUI(trackId, btnEl) {
 
 function reportListen(trackId, seconds) {
     const fd = new FormData();
-    fd.append('report_listen', '1');
     fd.append('track_id', trackId);
     fd.append('seconds', seconds);
     fd.append('csrf_token', CSRF_TOKEN);
-    fetch(window.location.pathname, { method: 'POST', body: fd })
+    fetch('api.php?action=report_listen', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(data => {
             if (!data || !data.counted) return;

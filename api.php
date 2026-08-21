@@ -1,4 +1,9 @@
 <?php
+// Session PHP (cookie) : permet au site web (même origine) de s'authentifier ici sans renvoyer
+// username+password à chaque appel, voir authenticate_api_user() plus bas -- n'affecte pas l'app
+// Android, qui n'envoie jamais ce cookie et continue donc à s'authentifier par identifiants comme avant.
+session_start();
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Content-Type: application/json');
@@ -268,19 +273,38 @@ function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
     return $result;
 }
 
-// --- SÉCURITÉ : Fonction d'authentification stricte pour l'API ---
+// --- SÉCURITÉ : Fonction d'authentification pour l'API, double mode ---
+// 1) Session PHP (navigateur web, cookie déjà posé par le login classique dans auth.php, inchangé) :
+//    pour toute requête POST (donc mutante), exige un csrf_token valide -- même protection
+//    qu'actions.php avant sa fusion ici, juste centralisée. Jamais atteint par l'app Android, qui
+//    n'envoie pas ce cookie.
+// 2) Sinon, comportement historique inchangé : username+password à chaque requête (Android).
 function authenticate_api_user($db) {
+    if (!empty($_SESSION['user_id'])) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $token = $_POST['csrf_token'] ?? '';
+            if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
+                return false;
+            }
+        }
+        return [
+            'id' => $_SESSION['user_id'],
+            'username' => $_SESSION['username'] ?? '',
+            'is_admin' => !empty($_SESSION['is_admin'])
+        ];
+    }
+
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
-    
+
     if (empty($username) || empty($password)) {
         return false;
     }
-    
+
     $stmt = $db->prepare("SELECT id, username, password, is_admin FROM users WHERE username = ?");
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($user && password_verify($password, $user['password'])) {
         return [
             'id' => $user['id'],
@@ -858,6 +882,368 @@ switch($action) {
             }
             echo json_encode(["status" => "success"]);
         } else echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette playlist"]);
+        break;
+
+    // --- Actions ci-dessous : migrées depuis actions.php/index.php (fusion des deux backends web/API sur
+    // api.php) -- authentifiées via authenticate_api_user() comme le reste de ce fichier (session pour le
+    // site web, username+password pour Android), CSRF vérifié automatiquement pour tout POST authentifié
+    // par session (voir authenticate_api_user()). ---
+
+    case 'change_password':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $currentPassword = (string) ($_POST['current_password'] ?? '');
+        $newPassword = (string) ($_POST['new_password'] ?? '');
+        $confirmPassword = (string) ($_POST['confirm_password'] ?? '');
+
+        $stmt = $db->prepare("SELECT password FROM users WHERE id = ?");
+        $stmt->execute([$auth['id']]);
+        $u = $stmt->fetch();
+
+        if (!$u || !password_verify($currentPassword, $u['password'])) {
+            echo json_encode(['status' => 'error', 'message' => "Mot de passe actuel invalide."]); exit;
+        }
+        if ($newPassword !== $confirmPassword) { echo json_encode(['status' => 'error', 'message' => "Les mots de passe ne correspondent pas."]); exit; }
+        if (mb_strlen($newPassword) < 6) { echo json_encode(['status' => 'error', 'message' => "Mot de passe trop court."]); exit; }
+        if (mb_strlen($newPassword) > 200) { echo json_encode(['status' => 'error', 'message' => "Mot de passe trop long."]); exit; }
+
+        $db->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([password_hash($newPassword, PASSWORD_DEFAULT), $auth['id']]);
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'admin_reset_password':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $targetId = filter_var($_POST['target_user_id'] ?? '', FILTER_VALIDATE_INT);
+        if ($targetId === false) { echo json_encode(['status' => 'error', 'message' => "Utilisateur introuvable."]); exit; }
+        if ($targetId == $auth['id']) { echo json_encode(['status' => 'error', 'message' => "Impossible de te modifier toi-même."]); exit; }
+
+        $stmt = $db->prepare("SELECT id FROM users WHERE id = ?");
+        $stmt->execute([$targetId]);
+        if (!$stmt->fetch()) { echo json_encode(['status' => 'error', 'message' => "Utilisateur introuvable."]); exit; }
+
+        $newPassword = bin2hex(random_bytes(6));
+        $db->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([password_hash($newPassword, PASSWORD_DEFAULT), $targetId]);
+        echo json_encode(['status' => 'success', 'password' => $newPassword]);
+        break;
+
+    case 'save_admin_settings':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        // Un champ absent du POST garde sa valeur actuelle (jamais écrasé par une chaîne vide) : le
+        // vrai formulaire (Panel Admin) envoie toujours tous les champs d'un coup (onglets en x-show,
+        // pas x-if -- restent dans le DOM/FormData même masqués), mais un futur appelant partiel (ou un
+        // test manuel de cet endpoint) ne doit jamais pouvoir vider le thème/site_name par accident.
+        $existingSettings = $db->query("SELECT * FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
+        $stmtUpdate = $db->prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+        $fields = [
+            'site_name' => isset($_POST['adm_site_name']) ? trim($_POST['adm_site_name']) : ($existingSettings['site_name'] ?? ''),
+            'color_bg' => $_POST['adm_color_bg'] ?? $existingSettings['color_bg'] ?? '',
+            'color_panel' => $_POST['adm_color_panel'] ?? $existingSettings['color_panel'] ?? '',
+            'color_primary' => $_POST['adm_color_primary'] ?? $existingSettings['color_primary'] ?? '',
+            'color_accent' => $_POST['adm_color_accent'] ?? $existingSettings['color_accent'] ?? '',
+            'color_text' => $_POST['adm_color_text'] ?? $existingSettings['color_text'] ?? '',
+            'color_text_muted' => $_POST['adm_color_text_muted'] ?? $existingSettings['color_text_muted'] ?? '',
+            'color_border' => $_POST['adm_color_border'] ?? $existingSettings['color_border'] ?? '',
+            'color_search_bg' => $_POST['adm_color_search_bg'] ?? $existingSettings['color_search_bg'] ?? '',
+            'color_header_bg' => $_POST['adm_color_header_bg'] ?? $existingSettings['color_header_bg'] ?? '',
+            'color_player_bg' => $_POST['adm_color_player_bg'] ?? $existingSettings['color_player_bg'] ?? '',
+            'color_mob_nav_bg' => $_POST['adm_color_mob_nav_bg'] ?? $existingSettings['color_mob_nav_bg'] ?? '',
+            'color_fp_gradient_1' => $_POST['adm_color_fp_gradient_1'] ?? $existingSettings['color_fp_gradient_1'] ?? '',
+            'color_fp_gradient_2' => $_POST['adm_color_fp_gradient_2'] ?? $existingSettings['color_fp_gradient_2'] ?? '',
+        ];
+        foreach ($fields as $k => $v) { $stmtUpdate->execute([$k, $v]); }
+
+        if (!empty($_FILES['adm_favicon']['name'])) {
+            $ext = strtolower(pathinfo($_FILES['adm_favicon']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['png', 'ico'])) move_uploaded_file($_FILES['adm_favicon']['tmp_name'], __DIR__ . '/favicon.png');
+        }
+        if (!empty($_FILES['adm_default_cover']['name'])) {
+            $ext = strtolower(pathinfo($_FILES['adm_default_cover']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['png', 'jpg', 'jpeg'])) move_uploaded_file($_FILES['adm_default_cover']['tmp_name'], $coverDir . '/default.png');
+        }
+        if (!empty($_POST['adm_new_genre'])) {
+            $db->prepare("INSERT OR IGNORE INTO genres (name) VALUES (?)")->execute([trim($_POST['adm_new_genre'])]);
+        }
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'delete_genre':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+        $db->prepare("DELETE FROM genres WHERE name = ?")->execute([$_POST['name'] ?? '']);
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'toggle_admin':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $targetId = filter_var($_POST['user_id'] ?? '', FILTER_VALIDATE_INT);
+        if ($targetId !== false && $targetId != $auth['id']) {
+            $stmt = $db->prepare("SELECT is_admin FROM users WHERE id = ?");
+            $stmt->execute([$targetId]);
+            $curr = $stmt->fetchColumn();
+            if ($curr !== false) {
+                $db->prepare("UPDATE users SET is_admin = ? WHERE id = ?")->execute([$curr == 1 ? 0 : 1, $targetId]);
+            }
+        }
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'delete_user':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $targetId = filter_var($_POST['user_id'] ?? '', FILTER_VALIDATE_INT);
+        if ($targetId !== false && $targetId != $auth['id']) {
+            // Cascade sur pistes/playlists de l'utilisateur : nécessaire, sinon elles deviennent orphelines
+            // (le JOIN sur users dans les listings les ferait disparaître silencieusement).
+            $stmt = $db->prepare("SELECT filename, cover FROM tracks WHERE uploader_id = ?");
+            $stmt->execute([$targetId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                $safeMusicFile = basename($t['filename']);
+                $safeCoverFile = basename($t['cover']);
+                if (!empty($safeMusicFile) && file_exists($musicDir . '/' . $safeMusicFile)) unlink($musicDir . '/' . $safeMusicFile);
+                if ($safeCoverFile !== 'default.png' && file_exists($coverDir . '/' . $safeCoverFile)) unlink($coverDir . '/' . $safeCoverFile);
+            }
+            $db->prepare("DELETE FROM tracks WHERE uploader_id = ?")->execute([$targetId]);
+
+            $stmt = $db->prepare("SELECT cover FROM playlists WHERE creator_id = ?");
+            $stmt->execute([$targetId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $pl) {
+                $safeCoverFile = basename((string) $pl['cover']);
+                if (!empty($safeCoverFile) && file_exists($coverDir . '/' . $safeCoverFile)) unlink($coverDir . '/' . $safeCoverFile);
+            }
+            $db->prepare("DELETE FROM playlists WHERE creator_id = ?")->execute([$targetId]);
+
+            $db->prepare("DELETE FROM users WHERE id = ?")->execute([$targetId]);
+        }
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'trigger_update':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $watchtowerUrl = (string) getenv('WATCHTOWER_API_URL');
+        $watchtowerToken = (string) getenv('WATCHTOWER_API_TOKEN');
+
+        if ($watchtowerUrl === '' || $watchtowerToken === '') {
+            echo json_encode(['status' => 'error', 'message' => "Watchtower n'est pas configuré.", 'manual' => true]); exit;
+        }
+        if (!function_exists('curl_init')) {
+            echo json_encode(['status' => 'error', 'message' => "Échec du déclenchement.", 'manual' => true]); exit;
+        }
+
+        $ch = curl_init($watchtowerUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => '',
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $watchtowerToken],
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrNo = curl_errno($ch);
+        curl_close($ch);
+
+        if ($curlErrNo === 0 && $httpCode >= 200 && $httpCode < 300) {
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => "Échec du déclenchement.", 'manual' => true]);
+        }
+        break;
+
+    case 'delete_playlist':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $pid = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+        if ($pid === false || $pid <= 0) { echo json_encode(["status" => "error", "message" => "ID de playlist invalide"]); exit; }
+
+        $stmt = $db->prepare("SELECT cover, creator_id FROM playlists WHERE id = ? AND (creator_id = ? OR ?)");
+        $stmt->execute([$pid, $auth['id'], $auth['is_admin'] ? 1 : 0]);
+        $pl = $stmt->fetch();
+        if ($pl) {
+            $safeCoverFile = basename((string) $pl['cover']);
+            if (!empty($safeCoverFile) && file_exists($coverDir . '/' . $safeCoverFile)) unlink($coverDir . '/' . $safeCoverFile);
+            $db->prepare("DELETE FROM playlists WHERE id = ?")->execute([$pid]);
+            echo json_encode(['status' => 'success']);
+        } else echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette playlist"]);
+        break;
+
+    // Sauvegarde "en bloc" (nom + cover + liste complète de morceaux + is_private en un seul appel) --
+    // utilisée par la modale playlist du site web (création ET édition). Distincte de playlist_create/
+    // playlist_mod ci-dessus (flux incrémental utilisé par Android : créer vide, puis add/remove un
+    // morceau à la fois) pour ne rien changer au contrat Android existant.
+    case 'playlist_save':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $cleanIds = isset($_POST['selected_songs']) ? array_filter(array_map('intval', (array) $_POST['selected_songs']), fn($v) => $v > 0) : [];
+        $songIds = implode(',', $cleanIds);
+        $playlistName = sanitize_text($_POST['playlist_name'] ?? 'Playlist', 100);
+        $playlistId = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+        $isPrivate = !empty($_POST['is_private']) ? 1 : 0;
+
+        $coverName = null;
+        if ($playlistId) {
+            $stmt = $db->prepare("SELECT cover FROM playlists WHERE id = ? AND (creator_id = ? OR ?)");
+            $stmt->execute([$playlistId, $auth['id'], $auth['is_admin'] ? 1 : 0]);
+            $currPlaylist = $stmt->fetch();
+            if ($currPlaylist === false) { echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette playlist"]); exit; }
+            $coverName = $currPlaylist['cover'];
+        }
+
+        if (!empty($_FILES['playlist_cover']['name'])) {
+            if ($_FILES['playlist_cover']['size'] > MAX_IMAGE_SIZE) { echo json_encode(["status" => "error", "message" => "Image trop volumineuse"]); exit; }
+            $imgExt = strtolower(pathinfo($_FILES['playlist_cover']['name'], PATHINFO_EXTENSION));
+            if (in_array($imgExt, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
+                $coverName = bin2hex(random_bytes(8)) . '.webp';
+                optimizeImage($_FILES['playlist_cover']['tmp_name'], $coverDir . '/' . $coverName);
+            }
+        }
+
+        if ($playlistId) {
+            $db->prepare("UPDATE playlists SET name = ?, song_ids = ?, cover = ?, is_private = ? WHERE id = ?")->execute([$playlistName, $songIds, $coverName, $isPrivate, $playlistId]);
+        } else {
+            $db->prepare("INSERT INTO playlists (name, creator_id, song_ids, cover, is_private) VALUES (?, ?, ?, ?, ?)")->execute([$playlistName, $auth['id'], $songIds, $coverName, $isPrivate]);
+        }
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'get_playlist_tracks':
+        $ids = array_filter(array_map('intval', explode(',', $_GET['q'] ?? '')), fn($v) => $v > 0);
+        if (empty($ids)) { echo json_encode([]); break; }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $db->prepare("SELECT id, filename, title, artist, cover, genre, play_count, duration FROM tracks WHERE id IN ($placeholders)");
+        $stmt->execute(array_values($ids));
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
+    case 'get_lyrics':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["error" => "Non authentifié."]); exit; }
+
+        $trackId = filter_var($_GET['q'] ?? 0, FILTER_VALIDATE_INT);
+        if ($trackId === false || $trackId <= 0) { echo json_encode(['error' => "ID de piste invalide"]); exit; }
+
+        $stmt = $db->prepare("SELECT title, artist, lyrics_synced, lyrics_plain, lyrics_checked_at FROM tracks WHERE id = ?");
+        $stmt->execute([$trackId]);
+        $track = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$track) { echo json_encode(['error' => "Piste introuvable"]); exit; }
+
+        if ($track['lyrics_checked_at'] !== null) {
+            $syncedCached = !empty($track['lyrics_synced']) ? $track['lyrics_synced'] : null;
+            $plainCached = !empty($track['lyrics_plain']) ? $track['lyrics_plain'] : null;
+            echo json_encode(['synced' => $syncedCached, 'plain' => $plainCached, 'found' => ($syncedCached !== null || $plainCached !== null), 'cached' => true]);
+            break;
+        }
+
+        $queryTitle = html_entity_decode((string) $track['title'], ENT_QUOTES, 'UTF-8');
+        $queryArtist = html_entity_decode((string) $track['artist'], ENT_QUOTES, 'UTF-8');
+        $lrclibUrl = 'https://lrclib.net/api/get?' . http_build_query(['track_name' => $queryTitle, 'artist_name' => $queryArtist]);
+
+        $synced = null; $plain = null; $found = false; $shouldCache = false;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($lrclibUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                // IMPORTANT : lrclib.net (Cloudflare) renvoie 520 pour les User-Agent génériques.
+                CURLOPT_USERAGENT => 'PurpleMusic-Web/1.0 (+https://github.com/purplemusic; contact: fujinixx@gmail.com)',
+                CURLOPT_HTTPHEADER => ['Accept: application/json'],
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErrNo = curl_errno($ch);
+            curl_close($ch);
+
+            if ($curlErrNo === 0 && $response !== false) {
+                if ($httpCode === 200) {
+                    $data = json_decode($response, true);
+                    if (is_array($data)) {
+                        $synced = !empty($data['syncedLyrics']) ? $data['syncedLyrics'] : null;
+                        $plain = !empty($data['plainLyrics']) ? $data['plainLyrics'] : null;
+                        $found = ($synced !== null || $plain !== null);
+                        $shouldCache = true;
+                    }
+                } elseif ($httpCode === 404) {
+                    $found = false;
+                    $shouldCache = true;
+                }
+            }
+        }
+
+        if ($shouldCache) {
+            $db->prepare("UPDATE tracks SET lyrics_synced = ?, lyrics_plain = ?, lyrics_checked_at = ? WHERE id = ?")->execute([$synced, $plain, time(), $trackId]);
+        }
+        echo json_encode(['synced' => $synced, 'plain' => $plain, 'found' => $found, 'cached' => false]);
+        break;
+
+    case 'check_update':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(['error' => "Non authentifié."]); exit; }
+
+        $localSha = (string) getenv('APP_COMMIT_SHA');
+        if ($localSha === '' || $localSha === 'unknown') { echo json_encode(['checked' => false, 'update_available' => false]); break; }
+
+        $cacheFile = $dataDir . '/update_check_cache.json';
+        $cacheTtl = 3600;
+        $cached = null;
+        if (file_exists($cacheFile)) {
+            $rawCache = @file_get_contents($cacheFile);
+            $decoded = $rawCache !== false ? json_decode($rawCache, true) : null;
+            if (is_array($decoded)) $cached = $decoded;
+        }
+
+        $remoteSha = null;
+        $cacheIsFresh = $cached !== null
+            && isset($cached['checked_at'], $cached['remote_sha'], $cached['local_sha'])
+            && $cached['local_sha'] === $localSha
+            && (time() - $cached['checked_at']) < $cacheTtl;
+
+        if ($cacheIsFresh) {
+            $remoteSha = $cached['remote_sha'];
+        } elseif (function_exists('curl_init')) {
+            $ch = curl_init('https://api.github.com/repos/Axolat000/PurpleMusic/commits/main');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_USERAGENT => 'PurpleMusic-UpdateChecker',
+                CURLOPT_HTTPHEADER => ['Accept: application/vnd.github+json'],
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErrNo = curl_errno($ch);
+            curl_close($ch);
+
+            if ($curlErrNo === 0 && $response !== false && $httpCode === 200) {
+                $data = json_decode($response, true);
+                if (is_array($data) && !empty($data['sha']) && is_string($data['sha'])) $remoteSha = $data['sha'];
+            }
+            if ($remoteSha !== null) {
+                @file_put_contents($cacheFile, json_encode(['checked_at' => time(), 'remote_sha' => $remoteSha, 'local_sha' => $localSha]));
+            } elseif ($cached !== null && isset($cached['remote_sha'])) {
+                $remoteSha = $cached['remote_sha'];
+            }
+        }
+
+        if ($remoteSha === null) { echo json_encode(['checked' => false, 'update_available' => false]); break; }
+
+        echo json_encode([
+            'checked' => true,
+            'update_available' => ($remoteSha !== $localSha),
+            'watchtower_configured' => (getenv('WATCHTOWER_API_URL') ?: '') !== '' && (getenv('WATCHTOWER_API_TOKEN') ?: '') !== '',
+        ]);
         break;
 }
 ?>

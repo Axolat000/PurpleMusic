@@ -76,9 +76,6 @@ try {
     }
     $csrf_token = $_SESSION['csrf_token'];
 
-    // Gestion des actions (Upload, Edit, Delete, etc.)
-    require_once 'actions.php';
-
     // Récupération des paramètres
     $settingsRaw = $db->query("SELECT * FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
     $site_name = $settingsRaw['site_name'] ?? 'Purple Music';
@@ -103,232 +100,6 @@ try {
     $genresList = $db->query("SELECT name FROM genres ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
     if(empty($genresList)) {
         $genresList = ['Phonk/Funk', 'Rap', 'Pop', 'Rock', 'Electro', 'Hyperpop', 'Nightcore', 'Qualité inférieure', 'Autre'];
-    }
-
-    // Ajax : Incrémenter les écoutes
-    if (isset($_GET['increment_play'])) {
-        $stmt = $db->prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?");
-        $stmt->execute([$_GET['increment_play']]);
-        exit;
-    }
-
-    // Ajax : Recommandations personnalisées (voir build_recommendations() dans functions.php) -- lecture
-    // seule, pas de CSRF nécessaire, même logique que get_lyrics/get_playlist_tracks ci-dessous. cover_url/
-    // stream_url doivent pointer vers api.php (même construction que list là-bas) : le front web n'a pas
-    // d'autre route publique pour ces fichiers.
-    if (isset($_GET['recommendations'])) {
-        $recoBaseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/";
-        // full=1 : classement complet (pas juste le top 20 de la rangée d'accueil) -- utilisé par le
-        // client pour trier "Toute la bibliothèque" par défaut sur la recommandation (voir openBrowseAll()/
-        // filterAndSortTracks() dans app.js, mode de tri 'recommended').
-        $recoLimit = !empty($_GET['full']) ? PHP_INT_MAX : 20;
-        echo json_encode(build_recommendations($db, $user_id, $recoBaseUrl, $recoLimit), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-        exit;
-    }
-
-    // Ajax : Récupérer les musiques d'une playlist
-    if (isset($_GET['get_playlist_tracks'])) {
-        $ids = explode(',', $_GET['get_playlist_tracks']);
-        if (!empty($ids[0])) {
-            $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            $stmt = $db->prepare("SELECT id, filename, title, artist, cover, genre, play_count, duration FROM tracks WHERE id IN ($placeholders)");
-            $stmt->execute($ids);
-            $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            echo json_encode($tracks, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-        } else { echo json_encode([]); }
-        exit;
-    }
-
-    // Ajax : Récupérer (et mettre en cache) les paroles synchronisées/brutes depuis lrclib.net
-    if (isset($_GET['get_lyrics'])) {
-        header('Content-Type: application/json');
-
-        if (!$user_id) {
-            http_response_code(403);
-            echo json_encode(['error' => t('err_not_authenticated')]);
-            exit;
-        }
-
-        $trackId = filter_var($_GET['get_lyrics'], FILTER_VALIDATE_INT);
-        if ($trackId === false || $trackId <= 0) {
-            http_response_code(400);
-            echo json_encode(['error' => t('err_invalid_track_id')]);
-            exit;
-        }
-
-        $stmt = $db->prepare("SELECT title, artist, lyrics_synced, lyrics_plain, lyrics_checked_at FROM tracks WHERE id = ?");
-        $stmt->execute([$trackId]);
-        $track = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$track) {
-            http_response_code(404);
-            echo json_encode(['error' => t('err_track_not_found')]);
-            exit;
-        }
-
-        // --- Résultat déjà en cache (lookup déjà tenté, trouvé ou non) : pas de requête réseau ---
-        if ($track['lyrics_checked_at'] !== null) {
-            $syncedCached = !empty($track['lyrics_synced']) ? $track['lyrics_synced'] : null;
-            $plainCached = !empty($track['lyrics_plain']) ? $track['lyrics_plain'] : null;
-            echo json_encode([
-                'synced' => $syncedCached,
-                'plain' => $plainCached,
-                'found' => ($syncedCached !== null || $plainCached !== null),
-                'cached' => true,
-            ]);
-            exit;
-        }
-
-        // --- Pas encore tenté : on interroge lrclib.net ---
-        // Les titres/artistes sont stockés HTML-encodés (sanitize_text -> htmlspecialchars),
-        // on les décode pour envoyer le texte brut à l'API de recherche.
-        $queryTitle = html_entity_decode((string)$track['title'], ENT_QUOTES, 'UTF-8');
-        $queryArtist = html_entity_decode((string)$track['artist'], ENT_QUOTES, 'UTF-8');
-
-        $lrclibUrl = 'https://lrclib.net/api/get?' . http_build_query([
-            'track_name' => $queryTitle,
-            'artist_name' => $queryArtist,
-        ]);
-
-        $synced = null;
-        $plain = null;
-        $found = false;
-        $shouldCache = false;
-
-        if (function_exists('curl_init')) {
-            $ch = curl_init($lrclibUrl);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 10,
-                CURLOPT_CONNECTTIMEOUT => 8,
-                // IMPORTANT : lrclib.net (Cloudflare) renvoie 520 pour les User-Agent génériques.
-                CURLOPT_USERAGENT => 'PurpleMusic-Web/1.0 (+https://github.com/purplemusic; contact: fujinixx@gmail.com)',
-                CURLOPT_HTTPHEADER => ['Accept: application/json'],
-            ]);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlErrNo = curl_errno($ch);
-            curl_close($ch);
-
-            if ($curlErrNo === 0 && $response !== false) {
-                if ($httpCode === 200) {
-                    $data = json_decode($response, true);
-                    if (is_array($data)) {
-                        $synced = !empty($data['syncedLyrics']) ? $data['syncedLyrics'] : null;
-                        $plain = !empty($data['plainLyrics']) ? $data['plainLyrics'] : null;
-                        $found = ($synced !== null || $plain !== null);
-                        $shouldCache = true;
-                    }
-                } elseif ($httpCode === 404) {
-                    // Réponse propre de lrclib.net : piste absente de leur base -> "vérifié, rien trouvé"
-                    $found = false;
-                    $shouldCache = true;
-                }
-                // Autres codes (ex: 520 Cloudflare, 5xx) : on ne met pas en cache, on retentera au prochain essai.
-            }
-        }
-
-        if ($shouldCache) {
-            $upd = $db->prepare("UPDATE tracks SET lyrics_synced = ?, lyrics_plain = ?, lyrics_checked_at = ? WHERE id = ?");
-            $upd->execute([$synced, $plain, time(), $trackId]);
-        }
-
-        echo json_encode([
-            'synced' => $synced,
-            'plain' => $plain,
-            'found' => $found,
-            'cached' => false,
-        ]);
-        exit;
-    }
-
-    // Ajax : Vérifier si une nouvelle version de l'app est disponible (admin uniquement, lecture seule
-    // -> pas de CSRF nécessaire, même logique que get_lyrics/get_playlist_tracks ci-dessus). Compare le
-    // SHA du commit avec lequel l'image Docker a été buildée (APP_COMMIT_SHA, injecté au build par le
-    // workflow GitHub Actions) au HEAD actuel de la branche main sur GitHub. Résultat mis en cache
-    // (fichier dans PURPLEMUSIC_DATA_DIR, 1h de TTL) pour ne pas taper l'API GitHub non-authentifiée
-    // (60 req/h/IP) à chaque rechargement de page par un admin.
-    if (isset($_GET['check_update'])) {
-        header('Content-Type: application/json');
-
-        if (!$is_admin) {
-            http_response_code(403);
-            echo json_encode(['error' => t('err_not_authenticated')]);
-            exit;
-        }
-
-        $localSha = (string) getenv('APP_COMMIT_SHA');
-        if ($localSha === '' || $localSha === 'unknown') {
-            // Pas d'image Docker versionnée (dev local, install manuelle, build sans build-arg...) :
-            // aucune base de comparaison fiable, on ne vérifie pas (évite un faux positif permanent).
-            echo json_encode(['checked' => false, 'update_available' => false]);
-            exit;
-        }
-
-        $cacheFile = $dataDir . '/update_check_cache.json';
-        $cacheTtl = 3600;
-        $cached = null;
-        if (file_exists($cacheFile)) {
-            $rawCache = @file_get_contents($cacheFile);
-            $decoded = $rawCache !== false ? json_decode($rawCache, true) : null;
-            if (is_array($decoded)) $cached = $decoded;
-        }
-
-        $remoteSha = null;
-        // Le cache est écrit dans PURPLEMUSIC_DATA_DIR, qui survit à un redéploiement — mais APP_COMMIT_SHA,
-        // lui, change à chaque nouvelle image. Sans le comparateur local_sha ci-dessous, un cache "frais" (TTL)
-        // écrit juste avant un déploiement continuait de dire "mise à jour disponible" juste après, même une
-        // fois l'admin déjà à jour (vécu en prod : popup affiché à tort pendant jusqu'à 1h après un déploiement).
-        $cacheIsFresh = $cached !== null
-            && isset($cached['checked_at'], $cached['remote_sha'], $cached['local_sha'])
-            && $cached['local_sha'] === $localSha
-            && (time() - $cached['checked_at']) < $cacheTtl;
-
-        if ($cacheIsFresh) {
-            $remoteSha = $cached['remote_sha'];
-        } elseif (function_exists('curl_init')) {
-            $ch = curl_init('https://api.github.com/repos/Axolat000/PurpleMusic/commits/main');
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 10,
-                CURLOPT_CONNECTTIMEOUT => 8,
-                // GitHub renvoie 403 sans User-Agent sur toutes les requêtes API.
-                CURLOPT_USERAGENT => 'PurpleMusic-UpdateChecker',
-                CURLOPT_HTTPHEADER => ['Accept: application/vnd.github+json'],
-            ]);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlErrNo = curl_errno($ch);
-            curl_close($ch);
-
-            if ($curlErrNo === 0 && $response !== false && $httpCode === 200) {
-                $data = json_decode($response, true);
-                if (is_array($data) && !empty($data['sha']) && is_string($data['sha'])) {
-                    $remoteSha = $data['sha'];
-                }
-            }
-
-            if ($remoteSha !== null) {
-                @file_put_contents($cacheFile, json_encode(['checked_at' => time(), 'remote_sha' => $remoteSha, 'local_sha' => $localSha]));
-            } elseif ($cached !== null && isset($cached['remote_sha'])) {
-                // GitHub injoignable/rate-limité : on retombe sur le dernier résultat connu plutôt que rien,
-                // sans réécrire le cache (pour retenter une vraie requête au prochain appel après le TTL).
-                $remoteSha = $cached['remote_sha'];
-            }
-        }
-
-        if ($remoteSha === null) {
-            // Échec réseau et rien en cache : jamais d'erreur fatale, juste "pas d'info de mise à jour".
-            echo json_encode(['checked' => false, 'update_available' => false]);
-            exit;
-        }
-
-        echo json_encode([
-            'checked' => true,
-            'update_available' => ($remoteSha !== $localSha),
-            'watchtower_configured' => (getenv('WATCHTOWER_API_URL') ?: '') !== '' && (getenv('WATCHTOWER_API_TOKEN') ?: '') !== '',
-        ]);
-        exit;
     }
 
     // like_count : public. is_liked : propre à l'utilisateur connecté (contrairement à api.php?action=list,
@@ -687,7 +458,7 @@ try {
                             <button class="btn btn-outline" onclick="editPlaylistFromDetail()"><?php echo t('btn_edit'); ?></button>
                         </template>
                         <template x-if="$store.ui.playlistDetail.canEdit">
-                            <button class="btn btn-danger" @click="confirmDelete('<?php echo t('confirm_delete_playlist'); ?>', '?delete_playlist=' + $store.ui.playlistDetail.id + '&csrf_token=' + CSRF_TOKEN)"><?php echo t('btn_delete_short'); ?></button>
+                            <button class="btn btn-danger" @click="confirmPostAction('<?php echo t('confirm_delete_playlist'); ?>', 'delete_playlist', { playlist_id: $store.ui.playlistDetail.id })"><?php echo t('btn_delete_short'); ?></button>
                         </template>
                     </div>
                 </div>
@@ -726,7 +497,7 @@ try {
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'"><?php echo t('admin_section_users'); ?></button>
         </div>
 
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'save_admin_settings')">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
 
             <div x-show="activeTab === 'general'" x-cloak>
@@ -775,7 +546,7 @@ try {
                     <?php foreach($genresList as $g): ?>
                         <div class="adm-genre-item">
                             <span><?php echo htmlspecialchars($g); ?></span>
-                            <a href="?delete_genre=<?php echo urlencode($g); ?>&admin_tab=genres&csrf_token=<?php echo $csrf_token; ?>" style="color:var(--danger); text-decoration:none; font-weight:bold;" onclick="return confirmDelete('<?php echo t('confirm_delete_genre'); ?>', '?delete_genre=<?php echo urlencode($g); ?>&admin_tab=genres&csrf_token=<?php echo $csrf_token; ?>')">✕</a>
+                            <a href="#" style="color:var(--danger); text-decoration:none; font-weight:bold;" onclick="return confirmPostAction('<?php echo t('confirm_delete_genre'); ?>', 'delete_genre', { name: <?php echo json_encode($g, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?> })">✕</a>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -815,8 +586,8 @@ try {
                                         <span class="admin-user-self-note"><?php echo t('admin_users_self_note'); ?></span>
                                     <?php else: ?>
                                         <button type="button" class="btn btn-outline admin-user-action-btn" onclick="adminResetPassword(<?php echo (int)$u['id']; ?>, '<?php echo htmlspecialchars(addslashes($u['username'])); ?>')"><?php echo t('admin_users_reset_password'); ?></button>
-                                        <a href="?toggle_admin=<?php echo (int)$u['id']; ?>&admin_tab=users&csrf_token=<?php echo $csrf_token; ?>" class="btn btn-outline admin-user-action-btn"><?php echo $u['is_admin'] ? t('admin_users_demote') : t('admin_users_promote'); ?></a>
-                                        <a href="?delete_user=<?php echo (int)$u['id']; ?>&admin_tab=users&csrf_token=<?php echo $csrf_token; ?>" class="btn btn-danger admin-user-action-btn" onclick="return confirmDelete('<?php echo t('confirm_delete_user'); ?>', '?delete_user=<?php echo (int)$u['id']; ?>&admin_tab=users&csrf_token=<?php echo $csrf_token; ?>')"><?php echo t('btn_delete_short'); ?></a>
+                                        <a href="#" class="btn btn-outline admin-user-action-btn" onclick="postApiAction('toggle_admin', { user_id: <?php echo (int)$u['id']; ?> }); return false;"><?php echo $u['is_admin'] ? t('admin_users_demote') : t('admin_users_promote'); ?></a>
+                                        <a href="#" class="btn btn-danger admin-user-action-btn" onclick="return confirmPostAction('<?php echo t('confirm_delete_user'); ?>', 'delete_user', { user_id: <?php echo (int)$u['id']; ?> })"><?php echo t('btn_delete_short'); ?></a>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -1107,7 +878,7 @@ docker stop purplemusic && docker rm purplemusic</code>
 
     <div id="uploadModal" class="modal" x-show="$store.ui.activeModal === 'uploadModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('uploadModal')"><div class="modal-content">
         <h2 style="margin-top:0;"><?php echo t('btn_upload'); ?></h2>
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'upload')">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="text" name="title" placeholder="<?php echo htmlspecialchars(t('upload_title_placeholder')); ?>">
             <input type="text" name="artist" placeholder="<?php echo htmlspecialchars(t('upload_artist_placeholder')); ?>">
@@ -1130,11 +901,11 @@ docker stop purplemusic && docker rm purplemusic</code>
 
     <div id="editTrackModal" class="modal" x-show="$store.ui.activeModal === 'editTrackModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('editTrackModal')"><div class="modal-content">
         <h2 style="margin-top:0;"><?php echo t('edit_track_title'); ?></h2>
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'edit_track')">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="track_id" id="edit-track-id">
-            <input type="text" name="new_title" id="edit-track-title" placeholder="<?php echo htmlspecialchars(t('title_placeholder')); ?>" required>
-            <input type="text" name="new_artist" id="edit-track-artist" placeholder="<?php echo htmlspecialchars(t('artist_placeholder')); ?>">
+            <input type="text" name="title" id="edit-track-title" placeholder="<?php echo htmlspecialchars(t('title_placeholder')); ?>" required>
+            <input type="text" name="artist" id="edit-track-artist" placeholder="<?php echo htmlspecialchars(t('artist_placeholder')); ?>">
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('edit_genre_label'); ?></label>
             <select name="new_genre" id="edit-track-genre">
                 <?php foreach($genresList as $g): ?>
@@ -1152,7 +923,7 @@ docker stop purplemusic && docker rm purplemusic</code>
 
     <div id="playlistModal" class="modal" x-show="$store.ui.activeModal === 'playlistModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('playlistModal')"><div class="modal-content">
         <h2 id="modal-playlist-title" style="margin-top:0;">Playlist</h2>
-        <form method="post" id="playlist-form" enctype="multipart/form-data">
+        <form method="post" id="playlist-form" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'playlist_save')">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="playlist_id" id="form-playlist-id">
             <input type="text" name="playlist_name" id="form-playlist-name" placeholder="<?php echo htmlspecialchars(t('playlist_name_placeholder')); ?>" required>
