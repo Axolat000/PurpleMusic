@@ -1,0 +1,120 @@
+:root {
+    --bg-dark: #0f0c1d; /* Fallback values, will be overridden by inline styles from DB */
+    --bg-panel: #1b1429;
+    --primary: #8e44ad;
+    --accent: #bb86fc;
+    --text: #e0e0e0;
+    --text-muted: #a196b4;
+    --border-color: #3d2b56;
+    --search-bg: #241b36;
+    --header-bg: rgba(27, 20, 41, 0.85);
+    --mob-nav-bg: rgba(21, 16, 32, 0.95);
+    --danger: #ff4757;
+    --radius-sm: 8px; --radius-md: 16px; --radius-lg: 24px; --radius-full: 9999px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin:0; font-family:'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg-dark); color: var(--text); padding-bottom: 160px; overflow-x: hidden; }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+header { display:flex; justify-content:space-between; padding:15px 30px; background: var(--header-bg); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(61, 43, 86, 0.5); align-items:center; position:sticky; top:0; z-index:100; height: 70px; }
+.logo { font-weight: 800; font-size: 1.6em; color: var(--accent); white-space: nowrap; letter-spacing: -1px; }
+nav { display:flex; gap:25px; margin-left: 40px; flex-grow: 1; }
+nav span { cursor:pointer; font-weight: 600; color: var(--text-muted); transition: 0.3s; white-space: nowrap; padding: 5px 10px; border-radius: var(--radius-sm); }
+nav span:hover { color: white; background: rgba(255,255,255,0.05); }
+nav span.active { color: var(--accent); }
+nav span.admin-nav-btn { color: #e67e22; font-weight: 700; }
+.header-actions { display:flex; gap:12px; align-items:center; }
+
+.btn { padding:10px 20px; border-radius: var(--radius-full); border:none; cursor:pointer; font-weight:700; transition: all 0.2s ease; text-decoration: none; display: inline-flex; align-items: center; font-size: 0.9em; white-space: nowrap; justify-content: center; }
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: var(--primary); color: white; box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3); }
+.btn-primary:hover { background: #9b59b6; }
+.btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--accent); }
+.btn-outline:hover { background: rgba(142, 68, 173, 0.1); }
+.btn-danger { background: rgba(255, 71, 87, 0.1); color: var(--danger); font-size: 0.75em; border: 1px solid rgba(255, 71, 87, 0.3); padding: 6px 12px; }
+
+/* Bouton like (liste de pistes) : contour discret au repos, rempli rose/rouge une fois actif -- basculé
+   par toggleLikeUI() (app.js), optimiste avant confirmation serveur. */
+.like-btn { display: flex; align-items: center; gap: 5px; background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--text-muted); font-size: 0.8em; font-weight: 600; transition: color 0.15s ease, transform 0.15s ease; }
+.like-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: fill 0.15s ease; }
+.like-btn:hover { color: #ff6b81; }
+.like-btn:active { transform: scale(0.9); }
+.like-btn.active { color: #ff4757; }
+.like-btn.active svg { fill: #ff4757; stroke: #ff4757; }
+
+/* Bouton icône seule (pas de pilule/contour visible au repos), pour le header et autres emplacements icon-only. */
+.btn-icon { background: none; border: none; padding: 10px; border-radius: 50%; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s ease, color 0.2s ease; text-decoration: none; flex-shrink: 0; }
+.btn-icon svg { width: 20px; height: 20px; fill: currentColor; display: block; }
+.btn-icon:hover { background: rgba(255,255,255,0.08); color: var(--accent); }
+.btn-icon:active { transform: scale(0.94); }
+
+main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
+.controls-container { margin-bottom: 25px; }
+.section-title { border-left: 5px solid var(--primary); padding-left: 15px; margin-bottom: 20px; font-size: 1.5em; letter-spacing: 0.5px; border-radius: 2px; }
+
+.search-row { display: flex; align-items: center; gap: 15px; width: 100%; position: relative; }
+.search-container { flex-grow: 1; position: relative; }
+.search-input { width: 100%; height: 50px; padding: 0 25px; border-radius: 50px; border: 1px solid rgba(61, 43, 86, 0.5); background: var(--search-bg); color: white; font-size: 1em; outline: none; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.2); line-height: 48px; }
+.search-input:focus { border-color: var(--accent); background: #2d2444; box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.2); }
+.search-input::placeholder { color: #6b5e85; }
+
+.filter-wrapper { position: relative; width: 50px; height: 50px; flex-shrink: 0; }
+.filter-icon-visual { width: 100%; height: 100%; background: var(--search-bg); border: 1px solid rgba(61, 43, 86, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: 0.3s; }
+.filter-select-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; z-index: 10; }
+.filter-wrapper:hover .filter-icon-visual { border-color: var(--accent); background: #32264d; transform: translateY(-2px); }
+
+.track-list { background: var(--bg-panel); border-radius: 24px; overflow: hidden; border: 1px solid #2d2444; min-height: 200px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+.track-item { display:grid; grid-template-columns: 50px 1fr auto; align-items:center; padding:15px 25px; border-bottom:1px solid rgba(255,255,255,0.03); gap:20px; transition: background 0.2s; cursor: pointer; }
+.track-item:last-child { border-bottom: none; }
+.track-item:hover { background: rgba(255,255,255,0.07); }
+
+.mini-cover { width: 50px; height: 50px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+#load-more-trigger { height: 40px; text-align: center; color: #6b5e85; padding-top: 15px; font-size: 0.9em; }
+
+.home-row { margin-bottom: 30px; }
+.home-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+.home-row-title { font-size: 1.15em; margin: 0; color: var(--text); font-weight: 700; }
+.home-row-see-all { background: none; border: none; padding: 0; color: var(--accent); font-size: 0.85em; font-weight: 600; cursor: pointer; }
+.home-row-see-all:hover { text-decoration: underline; }
+.home-row-wrap { position: relative; }
+.home-row-scroll { display: flex; gap: 16px; overflow-x: auto; overflow-y: hidden; padding-bottom: 12px; scrollbar-width: none; -ms-overflow-style: none; }
+.home-row-scroll::-webkit-scrollbar { display: none; }
+
+/* Chevrons "Netflix-row" : superposés aux extrémités, visibles uniquement quand il reste du contenu à faire défiler. */
+.home-row-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; background: rgba(15, 12, 29, 0.85); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,0.4); transition: background 0.2s, transform 0.2s; padding: 0; }
+.home-row-arrow:hover { background: var(--primary); }
+.home-row-arrow:active { transform: translateY(-50%) scale(0.92); }
+.home-row-arrow svg { width: 20px; height: 20px; fill: currentColor; }
+.home-row-arrow-left { left: 4px; }
+.home-row-arrow-right { right: 4px; }
+.home-track-card { flex: 0 0 130px; width: 130px; cursor: pointer; background: var(--bg-panel); border: 1px solid rgba(61, 43, 86, 0.5); border-radius: 16px; padding: 10px; transition: transform 0.2s, border-color 0.2s; }
+.home-track-card:hover { transform: translateY(-3px); border-color: var(--primary); }
+.home-track-card > img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 10px; margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: block; }
+.home-track-card-title { font-weight: 700; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-track-card-sub { font-size: 0.75em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+/* Cover de playlist (image réelle si définie, sinon fallback dégradé + icône musicale) — réutilisée dans la
+   rangée d'accueil "Tes Mixs", la grille "Mixes" et l'en-tête du détail de playlist. */
+.playlist-cover { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 2em; background: linear-gradient(135deg, var(--primary), var(--accent)); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.playlist-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; box-shadow: none; }
+.home-track-card .playlist-cover { margin-bottom: 8px; }
+
+/* align-items: start (pas le stretch par défaut d'une grille) : sinon chaque carte est étirée à la hauteur
+   de la plus haute ligne, ce qui laisse un vide sous le bouton "Voir le mix" des cartes dont le titre tient
+   sur moins de lignes que sa voisine — vécu en prod avec des titres de longueurs très différentes. */
+.playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; align-items: start; }
+.playlist-card { background: var(--bg-panel); border-radius: 18px; padding: 14px; border: 1px solid rgba(61, 43, 86, 0.5); transition: transform 0.3s, box-shadow 0.3s; }
+.playlist-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); border-color: var(--primary); }
+.playlist-card .playlist-cover { border-radius: 12px; margin-bottom: 12px; font-size: 1.6em; }
+
+.playlist-detail-cover { width: 90px; height: 90px; flex-shrink: 0; border-radius: 16px; }
+.playlist-modal-cover-preview { width: 70px; height: 70px; flex-shrink: 0; border-radius: 14px; }
+
+#queue-panel { position: fixed; right: -360px; top: 70px; width: 340px; height: calc(100vh - 70px); background: rgba(27, 20, 41, 0.95); backdrop-filter: blur(20px); border-left: 1px solid rgba(255,255,255,0.1); z-index: 999; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 25px; padding-bottom: 120px; box-shadow: -10px 0 40px rgba(0,0,0,0.5); overflow-y: auto; }
+#queue-panel.open { right: 0; }
+.queue-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
+.queue-item.active { background: rgba(142, 68, 173, 0.15); border-color: var(--primary); }
+.queue-item:hover { background: rgba(255,255,255,0.05); }

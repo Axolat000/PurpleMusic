@@ -1,0 +1,174 @@
+.close-queue-mobile { display: none; width: 100%; margin-bottom: 20px; background: #2d2444; border:none; color: white; padding: 12px; border-radius: var(--radius-sm); font-weight:bold; }
+
+#lyrics-panel { position: fixed; right: -360px; top: 70px; width: 340px; height: calc(100vh - 70px); background: rgba(27, 20, 41, 0.95); backdrop-filter: blur(20px); border-left: 1px solid rgba(255,255,255,0.1); z-index: 999; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 25px; padding-bottom: 120px; box-shadow: -10px 0 40px rgba(0,0,0,0.5); overflow-y: auto; }
+#lyrics-panel.open { right: 0; }
+.lyrics-panel-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 50%; transition: 0.2s; }
+.lyrics-panel-close:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.lyrics-panel-body .fp-lyrics-status { color: var(--text-muted); font-size: 0.9em; text-align: center; margin-top: 30px; }
+.lyrics-panel-body .lyrics-line { text-align: left; padding: 7px 4px; }
+.lyrics-panel-body .lyrics-plain-text { text-align: left; font-size: 0.9em; }
+
+/* Paroles : styles partagés entre le lecteur plein écran (.fp-lyrics-view, mobile) et le panneau latéral (#lyrics-panel, desktop). */
+.lyrics-line { padding: 9px 6px; color: rgba(255,255,255,0.55); font-size: 1em; line-height: 1.5; text-align: center; border-radius: 8px; transition: color 0.2s, transform 0.2s; overflow-wrap: break-word; }
+.lyrics-line.active { color: #fff; font-weight: 700; transform: scale(1.05); }
+.lyrics-plain-text { white-space: pre-wrap; overflow-wrap: break-word; color: rgba(255,255,255,0.85); line-height: 1.8; font-size: 0.95em; text-align: center; }
+
+#player-bar { position:fixed; bottom:25px; left: 50%; transform: translateX(-50%); width:94%; max-width: 1000px; background: var(--player-bg); backdrop-filter: blur(20px) saturate(180%); padding:15px 30px; border-radius: 20px; display:flex; align-items:center; z-index: 1000; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 15px 50px rgba(0,0,0,0.6); transition: all 0.3s; }
+.player-info { display: flex; align-items: center; gap: 15px; width: 25%; min-width: 180px; }
+#player-cover { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+.progress-container { flex-grow: 1; margin: 0 20px; }
+.progress-bg { background: rgba(255,255,255,0.1); height: 6px; border-radius: 10px; cursor: pointer; position: relative; overflow: hidden; }
+.progress-fill { background: linear-gradient(90deg, var(--primary), var(--accent)); height: 100%; width: 0%; border-radius: 10px; }
+
+.controls { display:flex; align-items:center; gap:12px; }
+.control-btn { background: none; border: none; color: white; cursor: pointer; opacity: 0.8; transition: 0.2s; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.control-btn svg { width: 24px; height: 24px; fill: white; display: block; }
+.control-btn:hover { background: rgba(255,255,255,0.1); opacity: 1; }
+.control-btn.active { color: var(--accent); opacity: 1; position:relative; }
+.control-btn.active svg { fill: var(--accent); }
+.control-btn.active::after { content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:4px; height:4px; background:var(--accent); border-radius:50%; }
+
+#masterPlay { background: white; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 20px rgba(255,255,255,0.3); flex-shrink: 0; }
+#masterPlay:hover { transform: scale(1.1); box-shadow: 0 0 30px rgba(255,255,255,0.5); }
+#masterPlay svg { fill: #0f0c1d; width: 22px; height: 22px; }
+
+.volume-container { display: flex; align-items: center; gap: 8px; width: 110px; margin-left: 10px;}
+.settings-vol-row { width: 100%; margin: 0 0 25px 0; }
+/* Le curseur (::-webkit/-moz-slider-thumb) reste invisible tant qu'on n'interagit pas avec la barre —
+   seule la portion remplie (dégradé posé dynamiquement par updateVolume(), app.js) indique le niveau.
+   Avant : un rond blanc de 12px en permanence visible sur une piste de 4px ressortait comme une grosse
+   bulle disproportionnée au repos. */
+input[type="range"].vol-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent) 100%, rgba(255,255,255,0.2) 100%); border-radius: 5px; outline: none; cursor: pointer; }
+input[type="range"].vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: #fff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease; }
+input[type="range"].vol-slider:hover::-webkit-slider-thumb, input[type="range"].vol-slider:active::-webkit-slider-thumb, input[type="range"].vol-slider:focus::-webkit-slider-thumb { opacity: 1; }
+input[type="range"].vol-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+input[type="range"].vol-slider::-moz-range-thumb { width: 12px; height: 12px; background: #fff; border: none; border-radius: 50%; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease; }
+input[type="range"].vol-slider:hover::-moz-range-thumb, input[type="range"].vol-slider:active::-moz-range-thumb, input[type="range"].vol-slider:focus::-moz-range-thumb { opacity: 1; }
+input[type="range"].vol-slider::-moz-range-thumb:hover { transform: scale(1.3); }
+
+/* Bouton-icône du volume (mute toggle) : reset des styles natifs de <button>, l'icône reste le seul
+   élément visible — partagé par les deux variantes ci-dessous. */
+.vol-icon-btn { background: none; border: none; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+
+/* Volume du grand lecteur desktop (carte carrousel) : "icône, grossit au survol", pastille visible au
+   repos (bordure/fond assumés dans ce contexte — carte déjà mise en avant). .vol-hover-zone garde une
+   taille FIXE égale à l'état déployé en permanence : c'est ELLE qui capte :hover, jamais la pastille
+   visible — sinon la pastille grossirait, pousserait le curseur hors de sa propre zone, se rétrécirait,
+   le curseur la retrouverait, etc. (boucle de clignotement vécue avec la 1ère version qui animait la
+   largeur de la pastille elle-même). */
+.vol-hover-zone { display: flex; align-items: center; width: 136px; height: 44px; flex-shrink: 0; }
+.vol-hover-zone .volume-container { width: 44px; height: 44px; gap: 8px; padding: 0 14px; margin-left: 0; background: rgba(255,255,255,0.08); border-radius: 999px; box-sizing: border-box; overflow: hidden; transition: width 0.25s ease, background 0.2s ease; }
+.vol-hover-zone:hover .volume-container, .vol-hover-zone .volume-container:focus-within { width: 136px; background: rgba(255,255,255,0.16); }
+.vol-hover-zone .volume-container svg { flex-shrink: 0; }
+.vol-hover-zone .volume-container .vol-slider { width: 0; opacity: 0; transition: width 0.2s ease, opacity 0.2s ease; }
+.vol-hover-zone:hover .volume-container .vol-slider, .vol-hover-zone .volume-container:focus-within .vol-slider { width: 70px; opacity: 1; }
+
+/* Volume de la mini-barre (#player-bar) : contrairement à .vol-hover-zone ci-dessus, ne réserve AUCUN
+   espace dans la ligne de contrôles au repos (pas de fond/bordure visible non plus), et grossit sans
+   pousser les boutons voisins. La pastille (.volume-container) est positionnée en absolu, ancrée sur le
+   bord GAUCHE de .vol-flyout-anchor (qui, lui, garde une taille fixe et discrète dans le flux normal,
+   dernier élément de .controls) -- elle grossit donc vers la DROITE, dans l'espace que #player-bar
+   libère lui-même via padding-right ci-dessous, jamais vers la gauche par-dessus les boutons Boucle/
+   Paroles voisins. (Bug vécu en prod : ancrée à droite au lieu de la gauche, elle grossissait dans le
+   mauvais sens et recouvrait complètement ces deux boutons.) Le bord gauche (donc l'icône) ne bouge
+   jamais sous le curseur pendant la transition : le survol reste stable sans réserver de largeur à vide
+   comme la variante desktop. */
+.vol-flyout-anchor { position: relative; width: 40px; height: 40px; flex-shrink: 0; }
+.vol-flyout-anchor .volume-container { position: absolute; top: 0; left: 0; z-index: 5; width: 40px; height: 40px; gap: 8px; padding: 0 10px; justify-content: flex-start; margin-left: 0; background: transparent; border-radius: 999px; box-sizing: border-box; overflow: hidden; transition: width 0.25s ease, background 0.2s ease; }
+.vol-flyout-anchor .volume-container:hover, .vol-flyout-anchor .volume-container:focus-within { width: 160px; background: rgba(255,255,255,0.12); }
+.vol-flyout-anchor .volume-container .vol-slider { width: 0; opacity: 0; transition: width 0.2s ease, opacity 0.2s ease; }
+.vol-flyout-anchor .volume-container:hover .vol-slider, .vol-flyout-anchor .volume-container:focus-within .vol-slider { width: 90px; opacity: 1; }
+/* La pastille grandit par-dessus le contenu de la page en dessous (bar en position:fixed) — sans ça,
+   elle avait l'air de "flotter" au-dessus de la liste de pistes plutôt que de faire partie de la barre.
+   Le fond/blur de la barre elle-même s'étend donc en même temps pour l'englober visuellement. */
+#player-bar:has(.vol-flyout-anchor .volume-container:hover),
+#player-bar:has(.vol-flyout-anchor .volume-container:focus-within) { padding-right: 170px; }
+
+[x-cloak] { display: none !important; }
+.modal { position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+.modal-content { background: #1e162e; margin: 5% auto; padding:30px; width:90%; max-width:550px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 80px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+input[type="text"], input[type="password"], input[type="file"], select { width:100%; padding:14px; margin:10px 0 20px 0; background:#140f1f; border:1px solid var(--border-color); color:#fff; border-radius: 12px; outline:none; transition: 0.3s; }
+input[type="text"]:focus, input[type="password"]:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(142, 68, 173, 0.2); }
+
+/* --- CORRECTION ET ENRICHISSEMENT DE LA GRILLE DE COULEURS ADM --- */
+.extended-color-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 10px; }
+.extended-color-item { background: #140f1f; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.extended-color-item span { font-size: 0.85em; color: var(--text-muted); font-weight: 500; }
+.extended-color-item input[type="color"] { border: none; width: 45px !important; height: 35px !important; background: transparent; cursor: pointer; padding: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border-radius: 6px; margin: 0; flex-shrink: 0; }
+
+.song-select-container { max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid var(--border-color); border-radius: 16px; background: #140f1f; }
+.song-select-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s; }
+.song-select-item:hover { background: rgba(255,255,255,0.05); }
+.song-select-item.selected { background: rgba(142, 68, 173, 0.2); }
+
+#full-player { position: fixed; top: 100%; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at top right, var(--fp-gradient-1), var(--fp-gradient-2)); z-index: 5000; transition: top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; padding: 30px; box-sizing: border-box; color: white; justify-content: space-between; }
+#full-player.active { top: 0; }
+.fp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.fp-btn { background: none; border: none; cursor: pointer; padding: 10px; border-radius:50%; }
+.fp-btn:active { background: rgba(255,255,255,0.1); }
+.fp-art-container { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 20px 0; max-height: 45vh; }
+#fp-cover { width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); max-width: 350px; }
+
+/* Visualiseur audio (Web Audio AnalyserNode, voir startVisualizer() dans app.js) : superposé EN
+   TRANSPARENCE par-dessus la pochette (qui reste affichée) plutôt que de la remplacer -- fond
+   transparent, position absolute+inset+margin:auto pour se centrer exactement sur la même zone que
+   #fp-cover (tailles/contraintes identiques). pointer-events:none pour ne pas intercepter de clics
+   destinés à la pochette/zone en dessous. */
+.fp-visualizer-canvas { position: absolute; inset: 0; margin: auto; width: 100%; height: auto; aspect-ratio: 1/1; max-width: 350px; max-height: 100%; border-radius: 20px; background: transparent; display: block; pointer-events: none; }
+
+/* Paroles à la place de la pochette, dans le lecteur plein écran (mobile & réutilisé pour desktop) */
+.fp-lyrics-view { width: 100%; max-width: 480px; max-height: 45vh; overflow-y: auto; overflow-x: hidden; padding: 6px; box-sizing: border-box; }
+
+/* Scroll fonctionnel mais scrollbar invisible sur les vues de paroles (mobile plein écran + panneau desktop). */
+.fp-lyrics-view, #lyrics-panel { scrollbar-width: none; -ms-overflow-style: none; }
+.fp-lyrics-view::-webkit-scrollbar, #lyrics-panel::-webkit-scrollbar { display: none; }
+
+/* Bouton "revenir au direct" affiché quand l'utilisateur a scrollé manuellement dans les paroles. */
+.lyrics-back-to-live {
+    display: block; margin: 0 auto 12px; padding: 8px 16px; border-radius: 999px; border: none;
+    background: var(--primary); color: #fff; font-size: 0.8em; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+.fp-lyrics-view .lyrics-back-to-live { position: sticky; top: 0; z-index: 2; }
+.lyrics-back-to-live:hover { filter: brightness(1.1); }
+.fp-lyrics-status { color: rgba(255,255,255,0.6); text-align: center; padding: 40px 10px; font-size: 0.95em; }
+.fp-info-area { text-align: left; margin-bottom: 30px; padding: 0 10px; overflow: hidden; }
+#fp-title { font-size: 1.8em; font-weight: 800; margin-bottom: 5px; white-space: nowrap; overflow: hidden; width: 100%; position: relative; mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%); }
+#fp-title span { display: inline-block; padding-left: 0; }
+.scrolling-active { padding-left: 100%; animation: marquee 12s linear infinite; }
+@keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
+
+/* Titre sur une seule ligne, défilement (même mécanisme que #fp-title ci-dessus) uniquement si trop long
+   pour tenir — évite le vrai bug derrière l'irrégularité de hauteur des cartes playlist/pistes : un titre
+   qui passe sur 2-3 lignes fait varier la hauteur de la carte, contrairement à une ligne unique qui
+   tronque/défile sans jamais changer la hauteur. applyMarqueeIfOverflowing() (app.js) ajoute
+   .scrolling-active seulement quand le texte dépasse réellement. */
+.marquee-wrap { white-space: nowrap; overflow: hidden; width: 100%; position: relative; mask-image: linear-gradient(to right, black 90%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%); }
+.marquee-wrap span { display: inline-block; padding-left: 0; }
+
+.fp-controls { display: flex; justify-content: space-between; align-items: center; padding: 0 10px 20px 10px; width: 100%; box-sizing: border-box; }
+
+/* flex-wrap : avec 3 boutons (Paroles/Visualiseur/Minuteur de sommeil) la rangée ne tient plus sur une
+   seule ligne aux largeurs mobile étroites (ex: 375px) -- sans wrap le 3e bouton débordait hors écran au
+   lieu de passer à la ligne. */
+.fp-lyrics-toggle-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 12px; padding: 0 10px; }
+.fp-lyrics-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.7); padding: 10px 22px; border-radius: 999px; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
+.fp-lyrics-btn svg { width: 18px; height: 18px; fill: currentColor; }
+.fp-lyrics-btn.active { background: var(--primary); color: white; }
+.fp-lyrics-btn:active { transform: scale(0.96); }
+
+/* Minuteur de sommeil : popover de préréglages ancré sous son bouton déclencheur (mobile #full-player
+   ET desktop #desktop-player, même markup dupliqué -- voir index.php). Même fond "verre" que
+   #queue-panel/#lyrics-panel/.modal-content, mais volontairement plus léger qu'une vraie modale pour une
+   simple liste de 7 options, vit uniquement dans Paramètres > Général désormais (plus de bouton/popover
+   dans les lecteurs) -- rangée de pilules, même langage visuel que .lang-switch-btn. */
+.sleep-timer-settings-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
+.sleep-timer-option-settings { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.15); color: var(--text-muted); font-size: 0.85em; font-weight: 600; cursor: pointer; transition: transform 0.2s, border-color 0.2s, color 0.2s, background 0.2s; }
+.sleep-timer-option-settings:hover { transform: scale(1.05); color: var(--text); }
+.sleep-timer-option-settings.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.06); }
+/* Dernier préréglage choisi (localStorage) : simple repère visuel supplémentaire quand il n'est pas déjà
+   la sélection active elle-même. */
+.sleep-timer-option-recent:not(.active) { color: var(--accent); }
+

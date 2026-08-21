@@ -1,0 +1,92 @@
+/* --- LECTEUR DESKTOP "GRAND ÉCRAN" (#desktop-player) : distinct du lecteur plein écran mobile
+   (#full-player, non modifié) -- carte centrée à deux colonnes plutôt qu'une pile verticale plein
+   viewport (qui paraîtrait vide/étirée à 1920px de large). Préfixe de classes .dfp-* dédié pour ne
+   jamais hériter des styles .fp- (et ne pas interférer avec le lecteur mobile). z-index volontairement
+   sous #queue-panel/#lyrics-panel (999) : ouvrir un de ces panneaux depuis ce lecteur doit le faire
+   apparaître par-dessus la carte, pas derrière. */
+#desktop-player { display: none; position: fixed; inset: 0; background: rgba(5, 3, 12, 0.65); backdrop-filter: blur(10px); z-index: 500; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; }
+#desktop-player.active { display: flex; }
+
+/* Scène du carrousel vertical à 3 positions (lecteur / paroles / file d'attente) : taille fixe qui sert de
+   gabarit pour les 3 cartes empilées en position:absolute par-dessus (voir .dfp-card ci-dessous). overflow:
+   hidden pour que les cartes parquées hors-écran (translateY ±100%) ne débordent jamais du popup. */
+.dfp-stage { position: relative; width: 100%; max-width: 980px; height: 560px; max-height: calc(100vh - 80px); overflow: hidden; border-radius: 28px; box-shadow: 0 30px 90px rgba(0,0,0,0.6); animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.dfp-close { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; z-index: 20; }
+.dfp-close:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
+/* Les 3 "pages" du carrousel : même forme/dégradé/rayon que l'ancienne carte unique, mais empilées en
+   position:absolute dans .dfp-stage et déplacées via translateY() (classes .dfp-card-in/-out-up/-out-down,
+   posées dynamiquement selon $store.ui.desktopPlayerView). Easing/durée alignés sur .modal-content
+   (modalPop) et #queue-panel/#lyrics-panel (0.4s cubic-bezier similaire) déjà utilisés ailleurs dans ce fichier. */
+.dfp-card { position: absolute; inset: 0; width: 100%; height: 100%; background: radial-gradient(circle at top right, var(--fp-gradient-1), var(--fp-gradient-2)); border-radius: 28px; border: 1px solid rgba(255,255,255,0.1); display: flex; overflow: hidden; color: #fff; box-sizing: border-box; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
+.dfp-card-player { transform: translateY(0); }
+.dfp-card-player.dfp-card-out-up { transform: translateY(-100%); }
+.dfp-card-player.dfp-card-out-down { transform: translateY(100%); }
+.dfp-card-lyrics { transform: translateY(100%); flex-direction: column; padding: 36px 48px; }
+.dfp-card-lyrics.dfp-card-in { transform: translateY(0); }
+.dfp-card-queue { transform: translateY(-100%); flex-direction: column; padding: 36px 48px; }
+.dfp-card-queue.dfp-card-in { transform: translateY(0); }
+
+.dfp-art-col { position: relative; flex: 0 0 380px; display: flex; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; }
+.dfp-cover { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); }
+/* Visualiseur audio desktop : superposé en transparence par-dessus .dfp-cover (qui reste affichée), voir
+   le commentaire équivalent sur .fp-visualizer-canvas plus haut pour le détail. */
+.dfp-visualizer-canvas { position: absolute; inset: 0; margin: auto; width: calc(100% - 80px); aspect-ratio: 1/1; max-height: calc(100% - 80px); border-radius: 20px; background: transparent; display: block; pointer-events: none; }
+.dfp-info-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 40px 56px 40px 10px; box-sizing: border-box; }
+.dfp-eyebrow { font-size: 0.78em; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
+.dfp-title { font-size: 2em; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -12px; }
+.dfp-artist { font-size: 1.15em; color: var(--accent); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -14px; }
+.dfp-time-row { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.85em; color: #ccc; font-family: monospace; }
+.dfp-controls { display: flex; align-items: center; gap: 14px; }
+.dfp-controls .control-btn svg { width: 26px; height: 26px; }
+.dfp-skip-btn svg { width: 30px; height: 30px; }
+.dfp-master-play { background: #fff; border: none; width: 68px; height: 68px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(255,255,255,0.25); transition: transform 0.2s, box-shadow 0.2s; flex-shrink: 0; }
+.dfp-master-play:hover { transform: scale(1.06); box-shadow: 0 0 40px rgba(255,255,255,0.4); }
+
+/* Boutons Lyrics/Queue de la carte lecteur ; le volume est géré par .vol-hover-zone/.volume-container
+   partagé avec la mini-barre (voir plus haut, section volume). */
+.dfp-secondary-actions { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.dfp-secondary-actions .vol-hover-zone { margin-left: 2px; }
+.dfp-action-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.75); padding: 11px 20px; border-radius: 999px; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
+.dfp-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.dfp-action-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+.dfp-action-btn.active { background: var(--primary); color: #fff; }
+
+/* En-tête des cartes "paroles"/"file d'attente" du carrousel : flèche de retour vers la carte lecteur + titre. */
+.dfp-subcard-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-shrink: 0; }
+.dfp-back-btn { background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0; }
+.dfp-back-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+.dfp-back-btn svg { width: 22px; height: 22px; fill: currentColor; }
+.dfp-subcard-title { margin: 0; font-size: 1.25em; color: var(--accent); flex: 1; }
+
+.dfp-lyrics-body { flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.dfp-lyrics-body::-webkit-scrollbar { display: none; }
+.dfp-lyrics-body .lyrics-line { cursor: pointer; text-align: center; padding: 8px 6px; }
+.dfp-lyrics-body .lyrics-plain-text { text-align: center; }
+.dfp-lyrics-body .fp-lyrics-status { text-align: center; }
+
+.dfp-queue-body { flex: 1; overflow-y: auto; }
+
+#mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; width: 100%; background: var(--mob-nav-bg); backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.05); z-index: 3000; justify-content: space-around; padding: 10px 0 15px 0; height: 70px; box-sizing: border-box; box-shadow: 0 -10px 30px rgba(0,0,0,0.2); }
+.mob-nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.7em; background: none; border: none; gap: 5px; font-weight: 600; width: 20%; }
+.mob-nav-item svg { width: 24px; height: 24px; fill: currentColor; transition: transform 0.2s; }
+.mob-nav-item.active { color: var(--accent); }
+.mob-nav-item:active svg { transform: scale(0.9); }
+
+.mobile-settings-btn { display:none; }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+.settings-grid label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.95em; }
+.settings-grid input[type="checkbox"] { width: 18px; height: 18px; margin: 0; }
+.adm-genre-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(0,0,0,0.2); margin-bottom: 5px; border-radius: 8px; border: 1px solid var(--border-color); }
+
+/* Onglets de la modale Paramètres (Général / Bibliothèque / Compte) — même langage visuel pilule que .lang-switch-btn. */
+.settings-tabs { display: flex; gap: 6px; background: rgba(0,0,0,0.2); padding: 6px; border-radius: var(--radius-full); margin-bottom: 25px; border: 1px solid var(--border-color); }
+.settings-tab-btn { flex: 1; padding: 10px 12px; border-radius: var(--radius-full); border: none; background: transparent; color: var(--text-muted); font-weight: 700; font-size: 0.85em; cursor: pointer; transition: background 0.25s, color 0.25s; text-align: center; white-space: nowrap; }
+.settings-tab-btn:hover { color: var(--text); }
+.settings-tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3); }
+
+/* Admin Panel (page dédiée) : réutilise .settings-tabs/.settings-tab-btn (modale Paramètres), avec un
+   wrap sur plusieurs lignes car cette page a plus d'onglets (5) que la modale (3) et n'a pas de largeur contrainte. */
+.admin-page-tabs { flex-wrap: wrap; }
+.admin-page-tabs .settings-tab-btn { flex: 1 1 auto; min-width: 110px; }
+

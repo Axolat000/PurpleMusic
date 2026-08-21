@@ -140,7 +140,13 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?php echo htmlspecialchars($site_name); ?></title>
     <link rel="icon" href="<?php echo htmlspecialchars($favicon_file); ?>?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="style.css?v=<?php echo urlencode($assetVersion); ?>">
+    <?php
+    // style.css a été scindé en plusieurs fichiers (css/*.css) -- la cascade CSS ne dépend que de l'ordre
+    // relatif des règles, préservé ici puisque les fichiers sont chargés dans le même ordre que l'original.
+    $appStyles = ['base', 'components', 'player', 'responsive'];
+    foreach ($appStyles as $s): ?>
+    <link rel="stylesheet" href="css/<?php echo $s; ?>.css?v=<?php echo urlencode($assetVersion); ?>">
+    <?php endforeach; ?>
     <style>
         /* Variables dynamiques injectées depuis la BDD */
         :root {
@@ -268,7 +274,15 @@ try {
 <?php endif; ?>
 
 <?php include __DIR__ . '/templates/scripts.php'; ?>
-    <script defer src="app.js?v=<?php echo urlencode($assetVersion); ?>"></script>
+    <?php
+    // app.js a été scindé en plusieurs fichiers (js/*.js), chargés dans le MÊME ordre que le fichier
+    // d'origine -- "defer" garantit une exécution dans l'ordre du DOM, donc ceci équivaut exactement à
+    // l'ancien fichier unique concaténé. Pas de modules ES ici : Alpine.js et les onclick="..." inline
+    // référencent des fonctions dans le scope global, ce que type="module" casserait.
+    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals'];
+    foreach ($appScripts as $s): ?>
+    <script defer src="js/<?php echo $s; ?>.js?v=<?php echo urlencode($assetVersion); ?>"></script>
+    <?php endforeach; ?>
     <script defer src="vendor/alpine.min.js"></script>
 </body>
 </html>

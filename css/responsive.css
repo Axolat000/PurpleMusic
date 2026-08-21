@@ -1,0 +1,92 @@
+/* --- Admin Panel : tableau de gestion des utilisateurs --- */
+.admin-user-table-wrap { overflow-x: auto; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 20px; }
+.admin-user-table { width: 100%; border-collapse: collapse; min-width: 480px; }
+.admin-user-table th { text-align: left; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
+.admin-user-table td { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+.admin-user-table tr:last-child td { border-bottom: none; }
+.admin-user-you-badge { color: var(--accent); font-size: 0.85em; margin-left: 4px; }
+.admin-user-role-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 0.75em; font-weight: 700; background: rgba(255,255,255,0.06); color: var(--text-muted); }
+.admin-user-role-badge.admin-user-role-admin { background: rgba(230, 126, 34, 0.15); color: #e67e22; }
+.admin-user-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-user-action-btn { padding: 6px 14px; font-size: 0.78em; }
+.admin-user-self-note { color: var(--text-muted); font-size: 0.85em; font-style: italic; }
+
+.settings-section-label { color: var(--text-muted); font-size: 0.9em; font-weight: 600; margin: 0 0 10px 0; }
+.theme-swatch-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 25px; }
+.theme-swatch-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.theme-swatch { width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; position: relative; background: linear-gradient(135deg, var(--sw-primary), var(--sw-accent)); box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
+.theme-swatch:hover { transform: scale(1.08); }
+.theme-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 4px 10px rgba(0,0,0,0.4); }
+.theme-swatch.active::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.theme-swatch-label { font-size: 0.7em; color: var(--text-muted); }
+/* Swatch "Personnalisé" : pas de --sw-primary/--sw-accent fixes (contrairement aux presets statiques,
+   ses couleurs sont définies par l'utilisateur) -- roue chromatique en conic-gradient pour signaler
+   "construis ton propre thème" plutôt qu'un dégradé à deux couleurs figées. */
+.theme-swatch-custom { background: conic-gradient(from 180deg, #ff5f6d, #ffc371, #4dd8d0, #3b5bdb, #c2478d, #ff5f6d); }
+
+.lang-switch-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
+.lang-switch-btn { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.15); color: var(--text-muted); font-size: 0.85em; font-weight: 600; cursor: pointer; transition: transform 0.2s, border-color 0.2s, color 0.2s, background 0.2s; }
+.lang-switch-btn:hover { transform: scale(1.05); color: var(--text); }
+.lang-switch-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.06); }
+
+/* Interrupteur à bascule générique (pilule + pastille) -- pas de pattern existant ailleurs dans l'appli,
+   introduit pour l'activation/désactivation de l'égaliseur (onglet "Égaliseur" de la modale Paramètres)
+   mais volontairement générique (.switch-toggle) pour être réutilisable ailleurs. */
+.switch-toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; flex-shrink: 0; }
+.switch-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-toggle-track { width: 44px; height: 24px; background: rgba(255,255,255,0.15); border-radius: 999px; transition: background 0.2s ease; position: relative; }
+.switch-toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+.switch-toggle input:checked + .switch-toggle-track { background: var(--primary); }
+.switch-toggle input:checked + .switch-toggle-track .switch-toggle-thumb { transform: translateX(20px); }
+.switch-toggle input:focus-visible + .switch-toggle-track { box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+
+/* Onglet Égaliseur (modale Paramètres) : 5 curseurs .vol-slider réutilisés tels quels (identité visuelle
+   partagée avec le volume) sur une plage bipolaire -12..+12 dB, gain 0 = position centrale. */
+.eq-enable-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
+.eq-bands { display: flex; flex-direction: column; gap: 18px; transition: opacity 0.2s ease; }
+.eq-bands.eq-disabled { opacity: 0.45; pointer-events: none; }
+.eq-band-row { display: grid; grid-template-columns: 56px 1fr 62px; align-items: center; gap: 14px; }
+.eq-band-freq { font-size: 0.8em; color: var(--text-muted); font-weight: 600; }
+.eq-band-val { font-size: 0.8em; color: var(--text); font-weight: 600; font-family: monospace; text-align: right; }
+
+/* Page de connexion / inscription : carte "verre" avec la même identité visuelle que les modales
+   (.modal-content) et l'onglet de bascule mode réutilise .settings-tabs/.settings-tab-btn tel quel. */
+.auth-page { max-width: 380px; width: 90%; margin: 90px auto; animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.auth-subtitle { text-align: center; color: var(--text-muted); font-size: 0.9em; margin: 0 0 25px; }
+.auth-card { background: #1e162e; border-radius: 28px; padding: 30px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 80px rgba(0,0,0,0.5); }
+.auth-mode-tabs { margin-bottom: 20px; }
+.auth-server-error { color: var(--danger); font-size: 0.9em; background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); border-radius: 12px; padding: 10px 14px; margin: 0 0 15px; }
+.auth-client-error { color: var(--danger); font-size: 0.85em; margin: -10px 0 15px; }
+.auth-submit-btn { width: 100%; justify-content: center; margin-top: 10px; padding: 15px; }
+
+@media (max-width: 768px) {
+    body { padding-bottom: 240px; }
+    header { display: flex; justify-content: center; align-items: center; height: 60px; padding: 10px 20px; position: relative; }
+    nav, .header-actions { display: none; }
+    .mobile-settings-btn { display: block; position: absolute; right: 20px; background: none; border: none; padding: 5px; cursor: pointer; }
+    .mobile-settings-btn svg { width: 24px; height: 24px; fill: #a196b4; }
+    main { padding: 20px; width: 100%; box-sizing: border-box; }
+    .search-row { gap: 10px; }
+    .search-input { padding: 0 20px; font-size: 0.95em; height: 50px; line-height: 48px; }
+    .track-item { padding: 12px 10px; gap: 12px; }
+    #player-bar { width: calc(100% - 20px); max-width: 100%; bottom: 80px; left: 50%; transform: translateX(-50%); border-radius: 16px; flex-direction: column; padding: 12px 15px; box-sizing: border-box; height: auto; background: var(--player-bg); border: 1px solid rgba(255,255,255,0.08); }
+    .player-info { width: 100%; justify-content: flex-start; margin-bottom: 5px; }
+    .progress-container { width: 100%; margin: 8px 0 12px 0; }
+    .controls { width: 100%; justify-content: space-between; gap: 0; padding: 0 10px; box-sizing: border-box; }
+    .control-btn { padding: 5px; }
+    #masterPlay { width: 45px; height: 45px; }
+    #player-bar .vol-flyout-anchor { display: none; }
+    /* Panneau latéral desktop uniquement — sur mobile les paroles passent par le lecteur plein écran. */
+    #player-bar #lyricsBarBtn { display: none; }
+    #queue-panel { width: 100%; right: -100%; top: 0; height: 100%; z-index: 2000; border-left: none; }
+    /* Sur mobile, les paroles passent par le lecteur plein écran (bouton "Paroles" en bas), pas ce panneau. */
+    #lyrics-panel { display: none; }
+    .close-queue-mobile { display: block; }
+    .modal-content { width: 90%; margin: 8% auto; padding: 25px; }
+    .home-track-card { flex: 0 0 105px; width: 105px; padding: 8px; }
+    .settings-grid { grid-template-columns: 1fr; }
+    #mobile-bottom-nav { display: flex; }
+    .extended-color-grid { grid-template-columns: 1fr; }
+    /* Lecteur desktop uniquement — sur mobile, .player-info rouvre #full-player (voir openSmartPlayer()). */
+    #desktop-player { display: none !important; }
+}
