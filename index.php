@@ -515,7 +515,7 @@ try {
                 <div class="home-row">
                     <div class="home-row-header">
                         <h3 class="home-row-title"><?php echo t('sort_recent'); ?></h3>
-                        <button type="button" class="home-row-see-all" onclick="seeAllHome('date_desc')"><?php echo t('home_see_all'); ?></button>
+                        <button type="button" class="home-row-see-all" onclick="openBrowseAll('date_desc', '<?php echo t('sort_recent'); ?>')"><?php echo t('home_see_all'); ?></button>
                     </div>
                     <div class="home-row-wrap" x-data="homeRowScroller()">
                         <button type="button" class="home-row-arrow home-row-arrow-left" x-show="canLeft" x-cloak @click="scrollDir(-1)" aria-label="<?php echo htmlspecialchars(t('tooltip_prev')); ?>">
@@ -565,7 +565,7 @@ try {
                 <div class="home-row">
                     <div class="home-row-header">
                         <h3 class="home-row-title"><?php echo t('sort_popular'); ?></h3>
-                        <button type="button" class="home-row-see-all" onclick="seeAllHome('popular')"><?php echo t('home_see_all'); ?></button>
+                        <button type="button" class="home-row-see-all" onclick="openBrowseAll('popular', '<?php echo t('sort_popular'); ?>')"><?php echo t('home_see_all'); ?></button>
                     </div>
                     <div class="home-row-wrap" x-data="homeRowScroller()">
                         <button type="button" class="home-row-arrow home-row-arrow-left" x-show="canLeft" x-cloak @click="scrollDir(-1)" aria-label="<?php echo htmlspecialchars(t('tooltip_prev')); ?>">
@@ -612,6 +612,15 @@ try {
 
         <div class="track-list" id="global-list"></div>
         <div id="load-more-trigger"></div>
+    </main>
+
+    <!-- Page "Voir tout" : liste dédiée pré-triée (Ajouts récents / Les plus écoutés), séparée de la
+         bibliothèque de l'accueil -- ne modifie jamais #sortSelect, voir openBrowseAll() dans app.js. -->
+    <main id="browse" x-show="$store.ui.section === 'browse'" x-cloak>
+        <button class="btn btn-outline" style="margin-bottom:20px;" onclick="showSection('accueil')"><?php echo t('btn_back'); ?></button>
+        <h2 class="section-title" style="margin-bottom:20px;" x-text="$store.ui.browseTitle"></h2>
+        <div class="track-list" id="browse-list"></div>
+        <div id="browse-load-more-trigger"></div>
     </main>
 
     <main id="playlists" x-show="$store.ui.section === 'playlists'" x-cloak>

@@ -119,6 +119,7 @@ $I18N = [
 
         // Détail playlist
         'btn_back_to_playlists' => '← Retour aux Mixs',
+        'btn_back' => '← Retour',
         'btn_play_all' => '▶ Tout lire',
         'loading_generic' => 'Chargement...',
         'playlist_empty' => 'Ce mix est vide.',
@@ -334,6 +335,7 @@ $I18N = [
         'confirm_delete_playlist' => 'Delete this mix?',
 
         'btn_back_to_playlists' => '← Back to Mixes',
+        'btn_back' => '← Back',
         'btn_play_all' => '▶ Play All',
         'loading_generic' => 'Loading...',
         'playlist_empty' => 'This mix is empty.',
@@ -541,6 +543,7 @@ $I18N = [
         'confirm_delete_playlist' => '¿Eliminar este mix?',
 
         'btn_back_to_playlists' => '← Volver a los mixes',
+        'btn_back' => '← Volver',
         'btn_play_all' => '▶ Reproducir todo',
         'loading_generic' => 'Cargando...',
         'playlist_empty' => 'Este mix está vacío.',
@@ -748,6 +751,7 @@ $I18N = [
         'confirm_delete_playlist' => 'Diesen Mix löschen?',
 
         'btn_back_to_playlists' => '← Zurück zu den Mixen',
+        'btn_back' => '← Zurück',
         'btn_play_all' => '▶ Alles abspielen',
         'loading_generic' => 'Wird geladen...',
         'playlist_empty' => 'Dieser Mix ist leer.',
@@ -899,6 +903,10 @@ const I18N_CLIENT_KEYS = [
     'sleep_timer_off',
     'sleep_timer_minutes',
     'sleep_timer_short_minutes',
+    // Titre de la page "Voir tout" reconstruit au chargement direct d'une URL ?page=browse&sort=...
+    // (voir openBrowseAll() dans app.js) -- ailleurs ces titres sont rendus côté PHP directement.
+    'sort_popular',
+    'sort_recent',
 ];
 
 function i18n_client_table() {
