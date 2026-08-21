@@ -30,7 +30,10 @@ switch ($action) {
 
         if (!empty($_FILES['adm_favicon']['name'])) {
             $ext = strtolower(pathinfo($_FILES['adm_favicon']['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, ['png', 'ico'])) move_uploaded_file($_FILES['adm_favicon']['tmp_name'], __DIR__ . '/favicon.png');
+            // dirname(__DIR__), pas __DIR__ : ce fichier vit dans api/, la racine du site (où vit
+            // favicon.php) est un niveau au-dessus -- __DIR__ tout court écrivait dans api/favicon.png,
+            // jamais servi (bug introduit par le découpage en domaines, jamais exercé en test local).
+            if (in_array($ext, ['png', 'ico'])) move_uploaded_file($_FILES['adm_favicon']['tmp_name'], dirname(__DIR__) . '/favicon.png');
         }
         if (!empty($_FILES['adm_default_cover']['name'])) {
             $ext = strtolower(pathinfo($_FILES['adm_default_cover']['name'], PATHINFO_EXTENSION));

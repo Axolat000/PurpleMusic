@@ -9,7 +9,7 @@
         <h2 class="section-title" style="margin-bottom:25px;"><?php echo t('home_public_playlists'); ?></h2>
         <div class="playlist-grid">
             <?php foreach($publicPlaylists as $p): ?>
-                <?php include __DIR__ . '/templates/playlist-card.php'; ?>
+                <?php include __DIR__ . '/playlist-card.php'; ?>
             <?php endforeach; ?>
         </div>
 
@@ -19,7 +19,7 @@
         <?php else: ?>
         <div class="playlist-grid">
             <?php foreach($privatePlaylists as $p): ?>
-                <?php include __DIR__ . '/templates/playlist-card.php'; ?>
+                <?php include __DIR__ . '/playlist-card.php'; ?>
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
