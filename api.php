@@ -599,7 +599,9 @@ switch($action) {
     case 'recommendations':
         $auth = authenticate_api_user($db);
         if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
-        echo json_encode(build_recommendations($db, $auth['id'], $baseUrl));
+        // full=1 : classement complet plutôt que le top 20 -- voir la même option côté index.php.
+        $recoLimit = !empty($_GET['full']) || !empty($_POST['full']) ? PHP_INT_MAX : 20;
+        echo json_encode(build_recommendations($db, $auth['id'], $baseUrl, $recoLimit));
         break;
 
     case 'stream':

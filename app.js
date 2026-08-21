@@ -91,6 +91,15 @@ document.addEventListener('alpine:init', () => {
             fetch('?recommendations=1').then(r => r.json()).then(data => {
                 if (Array.isArray(data)) this.recommendedTracks = data;
             }).catch(e => console.error(e));
+            // Classement complet (pas juste le top 20 ci-dessus) : alimente le mode de tri 'recommended',
+            // par défaut sur la bibliothèque -- arrive après le premier rendu, donc on retrie une fois prêt
+            // si l'utilisateur est toujours sur ce tri (voir compareTracksBySort()/filterAndSortTracks()).
+            fetch('?recommendations=1&full=1').then(r => r.json()).then(data => {
+                if (!Array.isArray(data)) return;
+                RECOMMENDED_RANK = new Map(data.map((t, i) => [t.id, i]));
+                const sortSelect = document.getElementById('sortSelect');
+                if (sortSelect && sortSelect.value === 'recommended') filterAndSortTracks();
+            }).catch(e => console.error(e));
             this.themePreset = localStorage.getItem('purpleMusicTheme') || 'violet';
             this.sleepTimerLastMinutes = parseInt(localStorage.getItem('purpleMusicSleepTimerLastMinutes') || '0', 10) || 0;
             this.visualizerEnabled = localStorage.getItem('purpleMusicVisualizerEnabled') === '1';
@@ -456,6 +465,9 @@ const RENDER_CHUNK = 30;
 let BROWSE_VIEW_DATA = [];
 let browseRenderedCount = 0;
 let browseSort = null;
+// Classement complet "Recommandé pour toi" (id -> rang, 0 = meilleur), utilisé comme mode de tri par
+// défaut de la bibliothèque -- rempli de façon asynchrone au démarrage (voir init() dans le store Alpine).
+let RECOMMENDED_RANK = new Map();
 let originalQueue = [];
 let queue = [];
 let currentIndex = 0;
@@ -1432,7 +1444,13 @@ const _browseObserver = new IntersectionObserver((entries) => {
 // (openBrowseAll) -- une seule définition des modes de tri disponibles.
 function compareTracksBySort(sortValue) {
     return (a, b) => {
-        if (sortValue === 'popular') {
+        if (sortValue === 'recommended') {
+            const ra = RECOMMENDED_RANK.has(a.id) ? RECOMMENDED_RANK.get(a.id) : Infinity;
+            const rb = RECOMMENDED_RANK.has(b.id) ? RECOMMENDED_RANK.get(b.id) : Infinity;
+            if (ra !== rb) return ra - rb;
+            return b.id - a.id;
+        }
+        else if (sortValue === 'popular') {
             if (b.play_count !== a.play_count) return (b.play_count || 0) - (a.play_count || 0);
             return b.id - a.id;
         }

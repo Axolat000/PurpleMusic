@@ -98,6 +98,7 @@ $I18N = [
         // Bibliothèque / accueil
         'section_all_tracks' => 'Toutes les pistes',
         'search_placeholder' => 'Rechercher titre, artiste...',
+        'sort_recommended' => 'Recommandé pour toi',
         'sort_popular' => 'Les plus écoutés',
         'sort_recent' => 'Ajouts récents',
         'sort_oldest' => 'Ajouts anciens',
@@ -316,6 +317,7 @@ $I18N = [
 
         'section_all_tracks' => 'All Tracks',
         'search_placeholder' => 'Search title, artist...',
+        'sort_recommended' => 'Recommended for you',
         'sort_popular' => 'Most Played',
         'sort_recent' => 'Recently Added',
         'sort_oldest' => 'Oldest First',
@@ -524,6 +526,7 @@ $I18N = [
 
         'section_all_tracks' => 'Todas las pistas',
         'search_placeholder' => 'Buscar título, artista...',
+        'sort_recommended' => 'Recomendado para ti',
         'sort_popular' => 'Más escuchados',
         'sort_recent' => 'Añadidos recientemente',
         'sort_oldest' => 'Añadidos antiguos',
@@ -732,6 +735,7 @@ $I18N = [
 
         'section_all_tracks' => 'Alle Titel',
         'search_placeholder' => 'Titel, Interpret suchen...',
+        'sort_recommended' => 'Für dich empfohlen',
         'sort_popular' => 'Meistgehört',
         'sort_recent' => 'Kürzlich hinzugefügt',
         'sort_oldest' => 'Älteste zuerst',

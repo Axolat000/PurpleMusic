@@ -113,7 +113,11 @@ try {
     // d'autre route publique pour ces fichiers.
     if (isset($_GET['recommendations'])) {
         $recoBaseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/";
-        echo json_encode(build_recommendations($db, $user_id, $recoBaseUrl), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+        // full=1 : classement complet (pas juste le top 20 de la rangée d'accueil) -- utilisé par le
+        // client pour trier "Toute la bibliothèque" par défaut sur la recommandation (voir openBrowseAll()/
+        // filterAndSortTracks() dans app.js, mode de tri 'recommended').
+        $recoLimit = !empty($_GET['full']) ? PHP_INT_MAX : 20;
+        echo json_encode(build_recommendations($db, $user_id, $recoBaseUrl, $recoLimit), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
         exit;
     }
 
@@ -499,6 +503,7 @@ try {
                         </svg>
                     </div>
                     <select id="sortSelect" class="filter-select-overlay" onchange="filterAndSortTracks()">
+                        <option value="recommended" selected><?php echo t('sort_recommended'); ?></option>
                         <option value="popular"><?php echo t('sort_popular'); ?></option>
                         <option value="date_desc"><?php echo t('sort_recent'); ?></option>
                         <option value="date_asc"><?php echo t('sort_oldest'); ?></option>
