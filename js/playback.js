@@ -154,6 +154,7 @@ function loadTrack(autoPlay = true) {
     }
     updateUrl();
     applyDynamicThemeForCurrentTrack();
+    applyAppDynamicThemeForCurrentTrack();
     if (window.Alpine) {
         const s = Alpine.store('ui');
         if (s.showLyricsInPlayer || s.lyricsPanelOpen || s.desktopPlayerView === 'lyrics') loadLyricsForCurrentTrack();

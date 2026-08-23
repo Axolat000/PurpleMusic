@@ -55,6 +55,12 @@ document.addEventListener('alpine:init', () => {
         // / setDynamicThemeEnabled(), appelé depuis loadTrack()) au lieu de garder les valeurs figées du preset.
         dynamicThemeEnabled: false,
 
+        // --- THÈME DYNAMIQUE D'APPLICATION (Paramètres > Thème) : réglage indépendant de dynamicThemeEnabled
+        // ci-dessus -- recolore TOUTES les variables de thème (pas seulement --fp-gradient-1/2) à partir de
+        // la pochette en cours. Voir setAppDynamicThemeEnabled()/applyAppDynamicThemeForCurrentTrack() dans
+        // theme.js.
+        appDynamicThemeEnabled: false,
+
         // --- MINUTEUR DE SOMMEIL (Paramètres > Général uniquement -- pas de bouton dans les lecteurs).
         // sleepTimerActive/Remaining : un seul minuteur réel peut tourner à la fois (voir
         // startSleepTimer()/cancelSleepTimer(), hors store, en mémoire seulement -- pas de persistance de
@@ -110,6 +116,7 @@ document.addEventListener('alpine:init', () => {
             this.sleepTimerLastMinutes = parseInt(localStorage.getItem('purpleMusicSleepTimerLastMinutes') || '0', 10) || 0;
             this.visualizerEnabled = localStorage.getItem('purpleMusicVisualizerEnabled') === '1';
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';
+            this.appDynamicThemeEnabled = localStorage.getItem('purpleMusicAppDynamicThemeEnabled') === '1';
 
             // Vérif de mise à jour : uniquement pour un admin connecté (IS_ADMIN/CURRENT_USER_ID sont
             // injectés par index.php, absents/false sur la page de connexion). init() ne tourne qu'une

@@ -521,6 +521,48 @@ function setDynamicThemeEnabled(enabled) {
     }
 }
 
+// --- THÈME DYNAMIQUE D'APPLICATION (Paramètres > Thème) : réglage indépendant de dynamicThemeEnabled
+// ci-dessus -- recolore TOUTES les variables de THEME_VAR_NAMES (pas seulement --fp-gradient-1/2) à partir
+// de la pochette de la piste en cours, via generateThemeFromBaseColor() (même dérivation que le générateur
+// de thème personnalisé). N'écrit jamais dans localStorage['purpleMusicTheme']/CUSTOM_THEME_STORAGE_KEY ni
+// dans $store.ui.themePreset : c'est une surcharge d'affichage live par-dessus le preset/thème personnalisé
+// réellement enregistré, retirée proprement à la désactivation (setThemeVars() du preset actuel).
+function applyAppDynamicThemeForCurrentTrack() {
+    if (!window.Alpine || !Alpine.store('ui').appDynamicThemeEnabled) return;
+    const track = queue[currentIndex];
+    if (!track) return;
+    const coverUrl = 'covers/' + (track.cover || 'default.png');
+    const trackIdAtRequest = track.id;
+
+    extractDominantAndVibrantColors(coverUrl)
+        .then(({ dominant }) => {
+            if (!window.Alpine || !Alpine.store('ui').appDynamicThemeEnabled) return;
+            if (!queue[currentIndex] || queue[currentIndex].id !== trackIdAtRequest) return;
+            const generated = generateThemeFromBaseColor(dominant);
+            if (!generated) return;
+            const root = document.documentElement;
+            Object.entries(generated).forEach(([k, v]) => root.style.setProperty(k, v));
+        })
+        .catch((e) => {
+            // Échec d'extraction (pas de pochette, erreur réseau/décodage...) : on laisse le thème
+            // actuellement affiché tel quel, jamais d'erreur visible ni de page cassée.
+            console.error('App dynamic theme extraction failed', e);
+        });
+}
+
+// Bascule le réglage persistant -- à la désactivation, retour immédiat au preset/thème personnalisé
+// réellement enregistré (setThemeVars() relit $store.ui.themePreset, jamais écrasé par cette fonctionnalité).
+function setAppDynamicThemeEnabled(enabled) {
+    if (!window.Alpine) return;
+    Alpine.store('ui').appDynamicThemeEnabled = enabled;
+    localStorage.setItem('purpleMusicAppDynamicThemeEnabled', enabled ? '1' : '0');
+    if (enabled) {
+        applyAppDynamicThemeForCurrentTrack();
+    } else {
+        setThemeVars(Alpine.store('ui').themePreset);
+    }
+}
+
 const playIcon = '<svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg>';
 const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
 

@@ -165,6 +165,20 @@
                     <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
                 </label>
             </div>
+
+            <!-- Thème dynamique D'APPLICATION : réglage indépendant du précédent -- recolore TOUTES les
+                 variables de thème (fond, panneaux, texte, accent...) à partir de la pochette en cours, pas
+                 seulement --fp-gradient-1/2 (voir setAppDynamicThemeEnabled()/
+                 applyAppDynamicThemeForCurrentTrack() dans theme.js). Ne modifie ni le preset/thème
+                 personnalisé enregistré ni son localStorage -- surcouche live retirée (retour au thème
+                 normal) à la désactivation. -->
+            <div class="eq-enable-row">
+                <span class="settings-section-label" style="margin:0;"><?php echo t('app_dynamic_theme_label'); ?></span>
+                <label class="switch-toggle">
+                    <input type="checkbox" :checked="$store.ui.appDynamicThemeEnabled" @change="setAppDynamicThemeEnabled($event.target.checked)">
+                    <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                </label>
+            </div>
         </div>
 
         <div x-show="activeTab === 'library'" x-cloak>
