@@ -458,9 +458,30 @@ let audioCtx = null;
 let sourceNode = null;
 let eqFilters = [];
 let analyserNode = null;
-const EQ_BANDS = [60, 230, 910, 3600, 14000]; // Hz -- calqué sur les presets courants d'android.media.audiofx.Equalizer
+// 6 bandes -- calqué sur les presets courants d'android.media.audiofx.Equalizer, plus une bande basse
+// supplémentaire à 100Hz en "lowshelf" (renforcement large des basses, différent d'un pic étroit) pour un
+// vrai contrôle grave/aigu distinct du pic à 60Hz. { freq, type } au lieu d'un simple nombre : chaque bande
+// peut avoir son propre type de filtre BiquadFilterNode (voir initAudioGraph() ci-dessous).
+const EQ_BANDS = [
+    { freq: 60, type: 'peaking' },
+    { freq: 100, type: 'lowshelf' },
+    { freq: 230, type: 'peaking' },
+    { freq: 910, type: 'peaking' },
+    { freq: 3600, type: 'peaking' },
+    { freq: 14000, type: 'peaking' }
+];
 const EQ_MIN_DB = -12;
 const EQ_MAX_DB = 12;
+
+// Préréglages (voir applyEqPreset() dans player-controls.js) -- un gain par bande, même ordre que EQ_BANDS.
+const EQ_PRESETS = {
+    flat:   [0, 0, 0, 0, 0, 0],
+    bass:   [6, 8, 3, 0, 0, 0],
+    treble: [0, 0, 0, 2, 5, 8],
+    vocal:  [-2, -3, 1, 4, 3, 0],
+    rock:   [4, 2, 3, -2, -1, 5],
+    pop:    [2, 3, 4, 3, 0, -1]
+};
 
 function initAudioGraph() {
     if (audioCtx || !audio) return;
@@ -470,10 +491,10 @@ function initAudioGraph() {
         audioCtx = new AudioContextClass();
         sourceNode = audioCtx.createMediaElementSource(audio);
 
-        eqFilters = EQ_BANDS.map((freq) => {
+        eqFilters = EQ_BANDS.map((band) => {
             const filter = audioCtx.createBiquadFilter();
-            filter.type = 'peaking';
-            filter.frequency.value = freq;
+            filter.type = band.type;
+            filter.frequency.value = band.freq;
             filter.Q.value = 1;
             filter.gain.value = 0;
             return filter;

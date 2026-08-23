@@ -78,7 +78,7 @@ if(desktopVol) desktopVol.addEventListener('input', (e) => updateVolume(e.target
 if(settingsVol) settingsVol.addEventListener('input', (e) => updateVolume(e.target.value));
 if(dpVol) dpVol.addEventListener('input', (e) => updateVolume(e.target.value));
 
-// --- ÉGALISEUR (onglet "Égaliseur" de la modale Paramètres) : 5 bandes fixes (EQ_BANDS, déclarées avec
+// --- ÉGALISEUR (onglet "Égaliseur" de la modale Paramètres) : 6 bandes fixes (EQ_BANDS, déclarées avec
 // le graphe audio partagé plus haut) sur une plage bipolaire -12..+12 dB. Réglages persistés en
 // localStorage (même convention que purpleMusicVolume/purpleMusicTheme) et réappliqués au chargement
 // (restoreEqUI(), appelé depuis DOMContentLoaded plus bas) -- indépendamment du graphe audio lui-même,
@@ -140,6 +140,27 @@ function setEqBand(i, val) {
     if (label) label.textContent = formatDb(val);
     if (slider) updateEqSliderFill(slider);
     saveEqSettings();
+    applyEqGains();
+}
+
+// Applique un préréglage (EQ_PRESETS, voir core.js) : écrit les gains dans chaque slider, active
+// l'égaliseur (comme un réglage manuel le ferait), puis persiste/réapplique -- même effet de bord que
+// bouger les 6 sliders un par un via setEqBand(), juste en un seul geste.
+function applyEqPreset(name) {
+    const gains = EQ_PRESETS[name];
+    if (!gains) return;
+    const enableCb = document.getElementById('eq-enable-cb');
+    if (enableCb) enableCb.checked = true;
+    EQ_BANDS.forEach((_, i) => {
+        const slider = document.getElementById('eq-band-' + i);
+        const label = document.getElementById('eq-band-' + i + '-val');
+        const val = gains[i] || 0;
+        if (slider) { slider.value = val; updateEqSliderFill(slider); }
+        if (label) label.textContent = formatDb(val);
+    });
+    setEqControlsDisabled(false);
+    saveEqSettings();
+    resumeAudioGraph();
     applyEqGains();
 }
 

@@ -172,10 +172,10 @@
             </form>
         </div>
 
-        <!-- Onglet Égaliseur : chaîne de 5 BiquadFilterNode (peaking) partagée avec le graphe audio du
-             Visualizer (voir initAudioGraph()/EQ_BANDS dans app.js -- un seul createMediaElementSource()
-             pour toute la durée de vie de <audio id="mainAudio">, donc EQ et Visualizer lisent/écrivent
-             le même graphe plutôt que d'en créer chacun le leur). Réglages persistés en localStorage
+        <!-- Onglet Égaliseur : chaîne de 6 BiquadFilterNode partagée avec le graphe audio du Visualizer
+             (voir initAudioGraph()/EQ_BANDS dans core.js -- un seul createMediaElementSource() pour toute
+             la durée de vie de <audio id="mainAudio">, donc EQ et Visualizer lisent/écrivent le même graphe
+             plutôt que d'en créer chacun le leur). Réglages persistés en localStorage
              (purpleMusicEqEnabled/purpleMusicEqBands, même convention que purpleMusicVolume) et réappliqués
              au chargement (restoreEqUI()). Curseurs .vol-slider réutilisés tels quels (identité visuelle
              volume) sur une plage bipolaire -12..+12 dB -- l'activation/désactivation ne réinitialise pas
@@ -188,8 +188,16 @@
                     <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
                 </label>
             </div>
+            <!-- Préréglages (EQ_PRESETS dans core.js, appliqués via applyEqPreset() dans player-controls.js)
+                 -- réutilise le style pilule déjà en place pour le sélecteur de langue. -->
+            <div class="lang-switch-row">
+                <?php $eqPresets = ['flat', 'bass', 'treble', 'vocal', 'rock', 'pop']; ?>
+                <?php foreach ($eqPresets as $preset): ?>
+                    <button type="button" class="lang-switch-btn" onclick="applyEqPreset('<?php echo $preset; ?>')"><?php echo t('eq_preset_' . $preset); ?></button>
+                <?php endforeach; ?>
+            </div>
             <div class="eq-bands" id="eq-bands">
-                <?php $eqBandLabels = ['60 Hz', '230 Hz', '910 Hz', '3.6 kHz', '14 kHz']; ?>
+                <?php $eqBandLabels = ['60 Hz', '100 Hz', '230 Hz', '910 Hz', '3.6 kHz', '14 kHz']; ?>
                 <?php foreach ($eqBandLabels as $eqI => $eqLabel): ?>
                 <div class="eq-band-row">
                     <span class="eq-band-freq"><?php echo $eqLabel; ?></span>
