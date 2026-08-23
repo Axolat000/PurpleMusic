@@ -49,10 +49,11 @@ function closeModal(id) {
     if (window.Alpine) Alpine.store('ui').closeModal(id);
 }
 
-function openEditTrackModal(id, title, artist, genre) {
+function openEditTrackModal(id, title, artist, genre, album = '') {
     document.getElementById('edit-track-id').value = id;
     document.getElementById('edit-track-title').value = title;
     document.getElementById('edit-track-artist').value = artist;
+    document.getElementById('edit-track-album').value = album;
     const gSelect = document.getElementById('edit-track-genre');
     if (gSelect && genre) gSelect.value = genre;
     openModal('editTrackModal');

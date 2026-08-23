@@ -306,28 +306,28 @@ function calculateAudioDuration($path) {
 
 // --- HELPER METADATA (ROBUSTE) ---
 function extractMp3Data($path) {
-    if (!file_exists($path)) return ['artist'=>null, 'title'=>null, 'cover'=>null];
+    if (!file_exists($path)) return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null];
     $f = fopen($path, 'rb');
-    if (!$f) return ['artist'=>null, 'title'=>null, 'cover'=>null];
-    
+    if (!$f) return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null];
+
     $header = fread($f, 10);
-    if (substr($header, 0, 3) !== 'ID3') { fclose($f); return ['artist'=>null, 'title'=>null, 'cover'=>null]; }
-    
+    if (substr($header, 0, 3) !== 'ID3') { fclose($f); return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null]; }
+
     $b = unpack('C*', substr($header, 6, 4));
     $tagSize = ($b[1] << 21) | ($b[2] << 14) | ($b[3] << 7) | $b[4];
     $tagData = fread($f, $tagSize);
     fclose($f);
-    
-    $result = ['cover' => null, 'artist' => null, 'title' => null];
+
+    $result = ['cover' => null, 'artist' => null, 'title' => null, 'album' => null];
     $pos = 0;
     while ($pos < strlen($tagData) - 10) {
         $frameHeader = substr($tagData, $pos, 10);
         $frameName = substr($frameHeader, 0, 4);
         $s = unpack('N', substr($frameHeader, 4, 4));
         $frameSize = $s[1];
-        
+
         if ($frameSize == 0 || $frameName == "\x00\x00\x00\x00") break;
-        
+
         if ($frameName === 'TPE1') {
             $body = substr($tagData, $pos + 10, $frameSize);
             if(strlen($body) > 1) $result['artist'] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', substr($body, 1)));
@@ -335,6 +335,10 @@ function extractMp3Data($path) {
         if ($frameName === 'TIT2') {
             $body = substr($tagData, $pos + 10, $frameSize);
             if(strlen($body) > 1) $result['title'] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', substr($body, 1)));
+        }
+        if ($frameName === 'TALB') {
+            $body = substr($tagData, $pos + 10, $frameSize);
+            if(strlen($body) > 1) $result['album'] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', substr($body, 1)));
         }
         if ($frameName === 'APIC') {
             $body = substr($tagData, $pos + 10, $frameSize);

@@ -433,6 +433,8 @@ function updateUrl() {
     const params = new URLSearchParams();
     if (currentSection !== 'accueil') params.set('page', currentSection);
     if (currentSection === 'browse' && browseSort) params.set('sort', browseSort);
+    if (currentSection === 'artist-page' && currentArtistName) params.set('name', currentArtistName);
+    if (currentSection === 'album-page' && currentAlbumName) params.set('name', currentAlbumName);
     if (queue[currentIndex] && queue[currentIndex].id) params.set('v', queue[currentIndex].id);
     if (currentPlaylistId) params.set('list', currentPlaylistId);
     const newUrl = window.location.pathname + '?' + params.toString();

@@ -139,3 +139,40 @@
         <div class="track-list" id="browse-list"></div>
         <div id="browse-load-more-trigger"></div>
     </main>
+
+    <!-- Page Artiste : regroupe les pistes dont le champ artiste correspond (voir splitArtistNames() dans
+         library.js), pas de nouvel appel réseau -- filtrage de ALL_MUSIC_DATA côté client. Peuplée par
+         showArtistPage()/fetchArtistBio() (JS), pas de réactivité Alpine ici (comme #browse). -->
+    <main id="artist-page" x-show="$store.ui.section === 'artist-page'" x-cloak>
+        <button class="btn btn-outline" style="margin-bottom:20px;" onclick="showSection('accueil')"><?php echo t('btn_back'); ?></button>
+        <div class="entity-page-hero">
+            <img id="artist-hero-bg-img" class="entity-page-hero-bg" alt="">
+            <div class="entity-page-hero-content">
+                <img id="artist-pfp" class="entity-page-pfp" alt="">
+                <div>
+                    <h2 class="section-title" id="artist-page-title" style="margin-bottom:6px;"></h2>
+                    <p id="artist-page-count" style="color:var(--text-muted); font-size:0.9em; margin:0;"></p>
+                </div>
+            </div>
+        </div>
+        <p id="artist-page-bio" class="entity-page-bio"></p>
+        <div class="track-list" id="artist-track-list"></div>
+    </main>
+
+    <!-- Page Album : regroupe les pistes dont le champ album correspond (insensible à la casse) -- pas de
+         table albums séparée, le nom sert de clé de regroupement (voir Track.album). -->
+    <main id="album-page" x-show="$store.ui.section === 'album-page'" x-cloak>
+        <button class="btn btn-outline" style="margin-bottom:20px;" onclick="showSection('accueil')"><?php echo t('btn_back'); ?></button>
+        <div class="entity-page-hero">
+            <img id="album-hero-bg-img" class="entity-page-hero-bg" alt="">
+            <div class="entity-page-hero-content">
+                <img id="album-pfp" class="entity-page-pfp" alt="">
+                <div>
+                    <h2 class="section-title" id="album-page-title" style="margin-bottom:6px;"></h2>
+                    <p id="album-page-count" style="color:var(--text-muted); font-size:0.9em; margin:0 0 4px;"></p>
+                    <p id="album-page-artists" style="color:var(--text-muted); font-size:0.9em; margin:0;"></p>
+                </div>
+            </div>
+        </div>
+        <div class="track-list" id="album-track-list"></div>
+    </main>

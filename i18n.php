@@ -124,6 +124,10 @@ $I18N = [
         'home_your_mixes' => 'Tes Mixs',
         'home_see_all' => 'Voir tout',
         'no_tracks_found' => 'Aucune piste trouvée.',
+        'tracks_count_label' => '{n} piste(s)',
+        'loading_bio' => 'Chargement de la biographie...',
+        'no_bio_available' => 'Aucune biographie disponible.',
+        'wikipedia_link' => 'Voir sur Wikipédia',
 
         // Playlists
         'created_by' => 'Créé par',
@@ -176,6 +180,7 @@ $I18N = [
         // Modale upload
         'upload_title_placeholder' => 'Titre (Optionnel - sinon détecté auto)',
         'upload_artist_placeholder' => 'Artiste (Optionnel - sinon détecté auto)',
+        'upload_album_placeholder' => 'Album (Optionnel - sinon détecté auto)',
         'select_genre_label' => 'Sélectionnez le genre',
         'audio_file_label' => 'Fichier Audio (MP3/WAV/FLAC)',
         'cover_file_label' => 'Cover (Laissez vide pour auto-detect)',
@@ -185,6 +190,7 @@ $I18N = [
         'edit_track_title' => 'Modifier Piste',
         'title_placeholder' => 'Titre',
         'artist_placeholder' => 'Artiste',
+        'album_placeholder' => 'Album (optionnel)',
         'edit_genre_label' => 'Modifier le genre',
         'change_cover_label' => 'Changer la cover',
 
@@ -364,6 +370,10 @@ $I18N = [
         'home_your_mixes' => 'Your Mixes',
         'home_see_all' => 'See all',
         'no_tracks_found' => 'No tracks found.',
+        'tracks_count_label' => '{n} track(s)',
+        'loading_bio' => 'Loading biography...',
+        'no_bio_available' => 'No biography available.',
+        'wikipedia_link' => 'View on Wikipedia',
 
         'created_by' => 'Created by',
         'btn_view_mix' => '▶ View mix',
@@ -411,6 +421,7 @@ $I18N = [
 
         'upload_title_placeholder' => 'Title (Optional — auto-detected otherwise)',
         'upload_artist_placeholder' => 'Artist (Optional — auto-detected otherwise)',
+        'upload_album_placeholder' => 'Album (Optional — auto-detected otherwise)',
         'select_genre_label' => 'Select genre',
         'audio_file_label' => 'Audio File (MP3/WAV/FLAC)',
         'cover_file_label' => 'Cover (Leave empty for auto-detect)',
@@ -419,6 +430,7 @@ $I18N = [
         'edit_track_title' => 'Edit Track',
         'title_placeholder' => 'Title',
         'artist_placeholder' => 'Artist',
+        'album_placeholder' => 'Album (optional)',
         'edit_genre_label' => 'Edit genre',
         'change_cover_label' => 'Change cover',
 
@@ -594,6 +606,10 @@ $I18N = [
         'home_your_mixes' => 'Tus mixes',
         'home_see_all' => 'Ver todo',
         'no_tracks_found' => 'No se encontraron pistas.',
+        'tracks_count_label' => '{n} pista(s)',
+        'loading_bio' => 'Cargando biografía...',
+        'no_bio_available' => 'No hay biografía disponible.',
+        'wikipedia_link' => 'Ver en Wikipedia',
 
         'created_by' => 'Creado por',
         'btn_view_mix' => '▶ Ver el mix',
@@ -641,6 +657,7 @@ $I18N = [
 
         'upload_title_placeholder' => 'Título (opcional; si no, se detecta automáticamente)',
         'upload_artist_placeholder' => 'Artista (opcional; si no, se detecta automáticamente)',
+        'upload_album_placeholder' => 'Álbum (opcional; si no, se detecta automáticamente)',
         'select_genre_label' => 'Selecciona el género',
         'audio_file_label' => 'Archivo de audio (MP3/WAV/FLAC)',
         'cover_file_label' => 'Portada (déjalo vacío para detección automática)',
@@ -649,6 +666,7 @@ $I18N = [
         'edit_track_title' => 'Editar pista',
         'title_placeholder' => 'Título',
         'artist_placeholder' => 'Artista',
+        'album_placeholder' => 'Álbum (opcional)',
         'edit_genre_label' => 'Editar género',
         'change_cover_label' => 'Cambiar portada',
 
@@ -824,6 +842,10 @@ $I18N = [
         'home_your_mixes' => 'Deine Mixe',
         'home_see_all' => 'Alle anzeigen',
         'no_tracks_found' => 'Keine Titel gefunden.',
+        'tracks_count_label' => '{n} Titel',
+        'loading_bio' => 'Biografie wird geladen...',
+        'no_bio_available' => 'Keine Biografie verfügbar.',
+        'wikipedia_link' => 'Auf Wikipedia ansehen',
 
         'created_by' => 'Erstellt von',
         'btn_view_mix' => '▶ Mix ansehen',
@@ -871,6 +893,7 @@ $I18N = [
 
         'upload_title_placeholder' => 'Titel (optional – wird sonst automatisch erkannt)',
         'upload_artist_placeholder' => 'Interpret (optional – wird sonst automatisch erkannt)',
+        'upload_album_placeholder' => 'Album (optional – wird sonst automatisch erkannt)',
         'select_genre_label' => 'Genre auswählen',
         'audio_file_label' => 'Audiodatei (MP3/WAV/FLAC)',
         'cover_file_label' => 'Cover (leer lassen für automatische Erkennung)',
@@ -879,6 +902,7 @@ $I18N = [
         'edit_track_title' => 'Titel bearbeiten',
         'title_placeholder' => 'Titel',
         'artist_placeholder' => 'Interpret',
+        'album_placeholder' => 'Album (optional)',
         'edit_genre_label' => 'Genre ändern',
         'change_cover_label' => 'Cover ändern',
 
@@ -998,6 +1022,11 @@ const I18N_CLIENT_KEYS = [
     'sort_recent',
     'err_action_failed',
     'settings_password_changed',
+    // Pages Artiste/Album (générées côté client, voir showArtistPage()/showAlbumPage() dans library.js)
+    'tracks_count_label',
+    'loading_bio',
+    'no_bio_available',
+    'wikipedia_link',
 ];
 
 function i18n_client_table() {

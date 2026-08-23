@@ -5,7 +5,7 @@ switch ($action) {
         // le nombre de pistes reste modeste sur ce type d'instance auto-hébergée, pas besoin d'optimiser
         // davantage. Pour savoir LESQUELLES l'utilisateur courant a lui-même likées, voir action=my_likes
         // (authentifié, séparé exprès pour ne pas complexifier/casser ce endpoint public existant).
-        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.play_count, tracks.duration, tracks.uploader_id, (SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id) as like_count FROM tracks ORDER BY play_count DESC, id DESC");
+        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.cover, tracks.genre, tracks.play_count, tracks.duration, tracks.uploader_id, (SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id) as like_count FROM tracks ORDER BY play_count DESC, id DESC");
         $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach($tracks as &$t) {
             $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
@@ -125,11 +125,13 @@ switch ($action) {
             $ti = !empty($_POST['title']) ? $_POST['title'] : (!empty($meta['title']) ? $meta['title'] : pathinfo($file['name'], PATHINFO_FILENAME));
             $ar = !empty($_POST['artist']) ? $_POST['artist'] : (!empty($meta['artist']) ? $meta['artist'] : "Inconnu");
             $ge = !empty($_POST['genre']) ? $_POST['genre'] : 'Autre';
-            
+            $al = !empty($_POST['album']) ? $_POST['album'] : (!empty($meta['album']) ? $meta['album'] : null);
+
             $ti = sanitize_text($ti);
             $ar = sanitize_text($ar);
             $ge = sanitize_text($ge, 50);
-            
+            $al = $al !== null ? sanitize_text($al) : null;
+
             $cn = "default.png";
             
             if(!empty($_FILES['cover']['name'])) {
@@ -154,7 +156,7 @@ switch ($action) {
             $duration = calculateAudioDuration($file['tmp_name']);
             
             if(move_uploaded_file($file['tmp_name'], $musicDir.'/'.$fn)) {
-                $db->prepare("INSERT INTO tracks (filename, title, artist, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $cn, $ge, $auth['id'], $duration]);
+                $db->prepare("INSERT INTO tracks (filename, title, artist, album, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $al, $cn, $ge, $auth['id'], $duration]);
                 echo json_encode(["status" => "success"]);
             } else echo json_encode(["status" => "error", "message" => "Erreur de déplacement du fichier"]);
         } else echo json_encode(["status" => "error", "message" => "Fichier audio manquant"]);
@@ -172,9 +174,10 @@ switch ($action) {
         if($curr && ($auth['is_admin'] || $curr['uploader_id'] == $auth['id'])) {
             $cleanTitle  = sanitize_text($_POST['title']  ?? '');
             $cleanArtist = sanitize_text($_POST['artist'] ?? '');
+            $cleanAlbum  = isset($_POST['album']) && $_POST['album'] !== '' ? sanitize_text($_POST['album']) : null;
 
-            $sets = ["title = ?", "artist = ?"]; $params = [$cleanTitle, $cleanArtist];
-            
+            $sets = ["title = ?", "artist = ?", "album = ?"]; $params = [$cleanTitle, $cleanArtist, $cleanAlbum];
+
             if(isset($_POST['new_genre'])) {
                 $sets[] = "genre = ?";
                 $params[] = sanitize_text($_POST['new_genre'], 50);

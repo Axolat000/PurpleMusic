@@ -59,6 +59,7 @@ docker stop purplemusic && docker rm purplemusic</code>
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="text" name="title" placeholder="<?php echo htmlspecialchars(t('upload_title_placeholder')); ?>">
             <input type="text" name="artist" placeholder="<?php echo htmlspecialchars(t('upload_artist_placeholder')); ?>">
+            <input type="text" name="album" placeholder="<?php echo htmlspecialchars(t('upload_album_placeholder')); ?>">
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('select_genre_label'); ?></label>
             <select name="genre">
                 <?php foreach($genresList as $g): ?>
@@ -83,6 +84,7 @@ docker stop purplemusic && docker rm purplemusic</code>
             <input type="hidden" name="track_id" id="edit-track-id">
             <input type="text" name="title" id="edit-track-title" placeholder="<?php echo htmlspecialchars(t('title_placeholder')); ?>" required>
             <input type="text" name="artist" id="edit-track-artist" placeholder="<?php echo htmlspecialchars(t('artist_placeholder')); ?>">
+            <input type="text" name="album" id="edit-track-album" placeholder="<?php echo htmlspecialchars(t('album_placeholder')); ?>">
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('edit_genre_label'); ?></label>
             <select name="new_genre" id="edit-track-genre">
                 <?php foreach($genresList as $g): ?>

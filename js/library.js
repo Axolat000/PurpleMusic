@@ -1,3 +1,33 @@
+// Regroupement multi-artiste ("David Guetta, Sia", "A feat. B") : chaque nom individuel doit avoir son
+// propre lien vers sa page Artiste plutôt qu'un seul lien vers la chaîne complète (voir showArtistPage()
+// plus bas). Ordre important : les séparateurs les plus spécifiques/longs doivent être essayés avant les
+// plus courts qui pourraient en être un préfixe.
+const ARTIST_SPLIT_REGEX = /\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+et\s+/gi;
+function splitArtistNames(str) {
+    if (!str) return [];
+    return str.split(ARTIST_SPLIT_REGEX).map(s => s.trim()).filter(Boolean);
+}
+
+// Rend le champ artiste d'une piste sous forme de lien(s) cliquables vers showArtistPage() -- un span par
+// artiste si plusieurs figurent dans le champ (voir splitArtistNames() ci-dessus). Les valeurs stockées
+// sont déjà échappées HTML côté serveur (sanitize_text()/htmlspecialchars) -- même convention que
+// safeArtist plus bas dans ce fichier, pas de ré-échappement supplémentaire ici.
+function artistLinksHTML(rawArtist) {
+    const names = splitArtistNames(rawArtist);
+    if (names.length <= 1) {
+        const n = names[0] || rawArtist || '';
+        return `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${n.replace(/'/g, "\\'")}')">${n}</span>`;
+    }
+    return names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${n.replace(/'/g, "\\'")}')">${n}</span>`).join(', ');
+}
+
+// Rend le nom d'album d'une piste sous forme de lien cliquable vers showAlbumPage() -- rien n'est rendu
+// si la piste n'a pas d'album renseigné (album optionnel, contrairement à artist).
+function albumLinkHTML(t) {
+    if (!t.album) return '';
+    return ` <span style="opacity:0.6;">•</span> <span class="artist-link" onclick="event.stopPropagation();showAlbumPage('${t.album.replace(/'/g, "\\'")}')">${t.album}</span>`;
+}
+
 // Construit la rangée DOM d'une piste pour une liste triée/paginée (bibliothèque complète, page "Voir
 // tout") -- factorisé pour être partagé entre renderTracksChunk() (#global-list) et renderBrowseChunk()
 // (#browse-list), qui n'ont que leur conteneur/état de pagination de différent.
@@ -9,11 +39,12 @@ function buildTrackRowElement(t, onClick) {
     const jsSafeTitle = safeTitle.replace(/'/g, "\\'");
     const jsSafeArtist = safeArtist.replace(/'/g, "\\'");
     const jsSafeGenre = safeGenre.replace(/'/g, "\\'");
+    const jsSafeAlbum = escapeHTML(t.album || '').replace(/'/g, "\\'");
 
     let editButtons = '';
     if(t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
         editButtons = `
-            <button class="btn btn-outline" style="font-size:0.7em; padding:6px 10px; border-radius:8px;" onclick="openEditTrackModal(${t.id}, '${jsSafeTitle}', '${jsSafeArtist}', '${jsSafeGenre}')">✎</button>
+            <button class="btn btn-outline" style="font-size:0.7em; padding:6px 10px; border-radius:8px;" onclick="openEditTrackModal(${t.id}, '${jsSafeTitle}', '${jsSafeArtist}', '${jsSafeGenre}', '${jsSafeAlbum}')">✎</button>
             <button type="button" class="btn btn-danger" style="border-radius:8px;" onclick="confirmPostAction('${T('confirm_delete_generic')}', 'delete_track', {track_id: ${t.id}})">✕</button>
         `;
     }
@@ -28,7 +59,7 @@ function buildTrackRowElement(t, onClick) {
         <div style="overflow:hidden;">
             <div class="marquee-wrap" style="font-weight:700; font-size:1.05em; margin-bottom:3px;"><span>${safeTitle}</span></div>
             <div style="font-size:0.85em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                ${safeArtist} <span style="opacity:0.6;font-size:0.9em;">• ${safeGenre} • ▶ ${t.play_count || 0}</span>
+                ${artistLinksHTML(t.artist)}${albumLinkHTML(t)} <span style="opacity:0.6;font-size:0.9em;">• ${safeGenre} • ▶ ${t.play_count || 0}</span>
             </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center;" onclick="event.stopPropagation()">
@@ -144,6 +175,134 @@ function openBrowseAll(sortValue, title, pushState = true) {
     if (trigger) _browseObserver.observe(trigger);
 }
 
+let currentArtistName = null;
+let currentAlbumName = null;
+let artistBioToken = 0;
+
+// Rend une liste de pistes (déjà filtrée/triée par l'appelant) dans un conteneur -- même
+// buildTrackRowElement() que la bibliothèque, pas de gabarit HTML séparé pour ces pages.
+function renderTrackListInto(containerId, tracks) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    if (!tracks.length) {
+        container.innerHTML = `<div style="padding:40px; text-align:center; color:#666;">${T('no_tracks_found')}</div>`;
+        return;
+    }
+    const fragment = document.createDocumentFragment();
+    tracks.forEach(t => fragment.appendChild(buildTrackRowElement(t, () => playTrackById(t.id))));
+    container.appendChild(fragment);
+}
+
+// Page Artiste : regroupe toutes les pistes dont le champ artiste contient ce nom (voir
+// splitArtistNames()) -- comparaison insensible à la casse pour tolérer les variations de saisie.
+function showArtistPage(name, pushState = true) {
+    currentArtistName = name;
+    const norm = name.trim().toLowerCase();
+    const tracks = ALL_MUSIC_DATA.filter(t => splitArtistNames(t.artist).some(n => n.toLowerCase() === norm))
+        .sort((a, b) => b.id - a.id);
+
+    document.getElementById('artist-page-title').innerText = name;
+    document.getElementById('artist-page-count').innerText = T('tracks_count_label', { n: tracks.length });
+
+    // Pochette de la piste la plus récente (id le plus élevé) utilisée comme photo de profil + fond flouté.
+    const heroCover = 'covers/' + (tracks.length ? (tracks[0].cover || 'default.png') : 'default.png');
+    const pfpImg = document.getElementById('artist-pfp');
+    const heroBgImg = document.getElementById('artist-hero-bg-img');
+    if (pfpImg) pfpImg.src = heroCover;
+    if (heroBgImg) heroBgImg.src = heroCover;
+
+    renderTrackListInto('artist-track-list', tracks);
+    fetchArtistBio(name);
+    showSection('artist-page', pushState);
+}
+
+// Page Album : regroupe toutes les pistes dont le champ album correspond (insensible à la casse) --
+// pas de table albums séparée, le nom lui-même sert de clé de regroupement (voir Track.album).
+function showAlbumPage(name, pushState = true) {
+    currentAlbumName = name;
+    const norm = name.trim().toLowerCase();
+    const tracks = ALL_MUSIC_DATA.filter(t => (t.album || '').trim().toLowerCase() === norm)
+        .sort((a, b) => b.id - a.id);
+
+    document.getElementById('album-page-title').innerText = name;
+    document.getElementById('album-page-count').innerText = T('tracks_count_label', { n: tracks.length });
+
+    const artistMap = new Map();
+    tracks.forEach(t => {
+        splitArtistNames(t.artist).forEach(n => {
+            const key = n.toLowerCase();
+            if (!artistMap.has(key)) artistMap.set(key, n);
+        });
+    });
+    const artistsEl = document.getElementById('album-page-artists');
+    if (artistsEl) {
+        artistsEl.innerHTML = [...artistMap.values()]
+            .map(n => `<span class="artist-link" onclick="showArtistPage('${n.replace(/'/g, "\\'")}')">${n}</span>`)
+            .join(', ');
+    }
+
+    const heroCover = 'covers/' + (tracks.length ? (tracks[0].cover || 'default.png') : 'default.png');
+    const pfpImg = document.getElementById('album-pfp');
+    const heroBgImg = document.getElementById('album-hero-bg-img');
+    if (pfpImg) pfpImg.src = heroCover;
+    if (heroBgImg) heroBgImg.src = heroCover;
+
+    renderTrackListInto('album-track-list', tracks);
+    showSection('album-page', pushState);
+}
+
+// Biographie Wikipedia : appel REST public direct depuis le navigateur (CORS ouvert), aucune dépendance
+// serveur. Un jeton évite qu'une réponse tardive d'une ancienne recherche n'écrase la bio de l'artiste
+// affiché entre-temps si l'utilisateur navigue vite entre plusieurs artistes.
+async function fetchArtistBio(name) {
+    const bioEl = document.getElementById('artist-page-bio');
+    if (!bioEl) return;
+    const myToken = ++artistBioToken;
+    bioEl.innerText = T('loading_bio');
+    const lang = (typeof LANG !== 'undefined' && LANG === 'en') ? 'en' : 'fr';
+    try {
+        let data = await fetchWikipediaSummary(name, lang);
+        if ((!data || !data.extract) && lang !== 'en') data = await fetchWikipediaSummary(name, 'en');
+        if (myToken !== artistBioToken) return;
+        if (data && data.extract) {
+            const pageUrl = data.content_urls?.desktop?.page;
+            bioEl.innerHTML = escapeHTML(data.extract) +
+                (pageUrl ? ` <a href="${escapeHTML(pageUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(T('wikipedia_link'))}</a>` : '');
+        } else {
+            bioEl.innerText = T('no_bio_available');
+        }
+    } catch (e) {
+        if (myToken === artistBioToken) bioEl.innerText = T('no_bio_available');
+    }
+}
+
+async function fetchWikipediaSummary(name, lang) {
+    try {
+        const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.type !== 'disambiguation' && data.extract) return data;
+        }
+    } catch (e) { /* on retente via la recherche ci-dessous */ }
+    // Nom ambigu (page d'homonymie) ou introuvable tel quel : on cherche parmi les résultats la première
+    // page "standard" correspondante (ex. "Drake" -> page d'homonymie -> "Drake (musician)").
+    try {
+        const searchRes = await fetch(`https://${lang}.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(name)}&limit=5`);
+        if (!searchRes.ok) return null;
+        const searchData = await searchRes.json();
+        const candidates = (searchData.pages || []).map(p => p.title).filter(t => t.toLowerCase() !== name.toLowerCase());
+        for (const title of candidates) {
+            const res2 = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+            if (res2.ok) {
+                const data2 = await res2.json();
+                if (data2.type !== 'disambiguation' && data2.extract) return data2;
+            }
+        }
+    } catch (e) { /* pas de bio trouvée */ }
+    return null;
+}
+
 const _observer = new IntersectionObserver((entries) => {
     if (entries[0].isIntersecting && renderedCount < CURRENT_VIEW_DATA.length) {
         renderTracksChunk();
@@ -180,11 +339,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const videoParam = urlParams.get('v');
     const listParam = urlParams.get('list');
 
+    const nameParam = urlParams.get('name');
+
     if (pageParam === 'playlist-detail' && listParam) {
         openPlaylistDetail(listParam);
     } else if (pageParam === 'browse') {
         const sv = sortParam || 'date_desc';
         openBrowseAll(sv, T(sv === 'popular' ? 'sort_popular' : 'sort_recent'), false);
+    } else if (pageParam === 'artist-page' && nameParam) {
+        showArtistPage(nameParam, false);
+    } else if (pageParam === 'album-page' && nameParam) {
+        showAlbumPage(nameParam, false);
     } else if (pageParam) {
         showSection(pageParam, false);
     }

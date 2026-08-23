@@ -59,6 +59,14 @@ try {
     if(!$hasLyricsPlain) $db->exec("ALTER TABLE tracks ADD COLUMN lyrics_plain TEXT");
     if(!$hasLyricsCheckedAt) $db->exec("ALTER TABLE tracks ADD COLUMN lyrics_checked_at INTEGER");
 
+    // --- MIGRATIONS AUTOMATIQUES (ALBUM) ---
+    // Regroupement par texte (comme "artist"), pas de table albums séparée -- voir pages Artiste/Album.
+    $hasAlbum = false;
+    foreach($cols as $c) {
+        if($c['name'] == 'album') $hasAlbum = true;
+    }
+    if(!$hasAlbum) $db->exec("ALTER TABLE tracks ADD COLUMN album TEXT DEFAULT NULL");
+
     // --- MIGRATIONS AUTOMATIQUES (USERS) ---
     $colsUsers = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_ASSOC);
     $hasIsAdmin = false;

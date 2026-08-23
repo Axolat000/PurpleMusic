@@ -93,7 +93,7 @@ function extractMp3Data($path) {
     $header = fread($f, 10); if (substr($header, 0, 3) !== 'ID3') { fclose($f); return []; }
     $b = unpack('C*', substr($header, 6, 4)); $tagSize = ($b[1] << 21) | ($b[2] << 14) | ($b[3] << 7) | $b[4];
     $tagData = fread($f, $tagSize); fclose($f);
-    $result = ['cover' => null, 'artist' => null, 'title' => null]; $pos = 0;
+    $result = ['cover' => null, 'artist' => null, 'title' => null, 'album' => null]; $pos = 0;
     while ($pos < $tagSize) {
         if ($pos + 10 > strlen($tagData)) break;
         $frameHeader = substr($tagData, $pos, 10); $frameName = substr($frameHeader, 0, 4);
@@ -126,6 +126,13 @@ function extractMp3Data($path) {
             if (strlen($frameBody) > 1) {
                 $rawText = substr($frameBody, 1); $cleanText = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', $rawText));
                 if (!empty($cleanText)) $result['title'] = $cleanText;
+            }
+        }
+        if ($frameName === 'TALB') {
+            $frameBody = substr($tagData, $pos + 10, $frameSize);
+            if (strlen($frameBody) > 1) {
+                $rawText = substr($frameBody, 1); $cleanText = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', $rawText));
+                if (!empty($cleanText)) $result['album'] = $cleanText;
             }
         }
         $pos += 10 + $frameSize;
