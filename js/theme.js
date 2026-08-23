@@ -75,6 +75,15 @@ const THEME_PRESETS = {
         '--text': '#E4E7EA', '--text-muted': '#8C949C', '--border-color': '#2A2E34', '--search-bg': '#191C20',
         '--header-bg': 'rgba(18,20,23,0.85)', '--player-bg': 'rgba(28,31,36,0.85)', '--mob-nav-bg': 'rgba(18,20,23,0.95)',
         '--fp-gradient-1': '#262A30', '--fp-gradient-2': '#121417'
+    },
+    // Seul preset clair du site -- accent assombri par rapport au violet par défaut (#BB86FC est pensé pour
+    // un fond sombre ; sur fond quasi blanc il perdrait tout contraste utilisé tel quel en couleur de texte
+    // pour nav/liens actifs).
+    light: {
+        '--bg-dark': '#F5F3F8', '--bg-panel': '#FFFFFF', '--primary': '#8E44AD', '--accent': '#6C2E8C',
+        '--text': '#1A1420', '--text-muted': '#6B6076', '--border-color': '#E0DAE8', '--search-bg': '#F0ECF5',
+        '--header-bg': 'rgba(255,255,255,0.85)', '--player-bg': 'rgba(255,255,255,0.9)', '--mob-nav-bg': 'rgba(255,255,255,0.95)',
+        '--fp-gradient-1': '#E8E0F0', '--fp-gradient-2': '#F5F3F8'
     }
 };
 // Alias de compatibilité ascendante : un utilisateur avec 'amoled'/'midnight' déjà en localStorage
@@ -191,6 +200,110 @@ function initCustomThemeBuilder() {
         if (!input) return;
         input.value = colorToHex(computed.getPropertyValue(v).trim()) || '#000000';
     });
+}
+
+// --- GÉNÉRATION ALGORITHMIQUE D'UN THÈME COMPLET À PARTIR D'UNE SEULE COULEUR ---
+// S'intègre dans le constructeur de thème personnalisé ci-dessus plutôt que de créer un mode de thème
+// séparé : pré-remplit les mêmes <input type="color"> que prefillCustomThemeFromCurrent(), juste depuis
+// une couleur de base choisie plutôt que depuis le thème actuellement affiché.
+
+function hslToRgb(h, s, l) {
+    h = ((h % 360) + 360) % 360;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+function rgbToHex(rgb) {
+    return '#' + rgb.map(c => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0')).join('');
+}
+
+// Luminance relative WCAG (sRGB -> linéaire) -- sert au calcul du ratio de contraste ci-dessous.
+function relLuminance(rgb) {
+    const [r, g, b] = rgb.map(v => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// Ratio de contraste WCAG entre deux couleurs (1 = aucun contraste, 21 = noir/blanc). Utilisé pour garantir
+// que l'accent généré reste visible sur le fond généré, plutôt que de se fier uniquement à la formule HSL.
+function contrastRatio(rgb1, rgb2) {
+    const l1 = relLuminance(rgb1), l2 = relLuminance(rgb2);
+    const lighter = Math.max(l1, l2), darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Dérive les 13 variables de THEME_VAR_NAMES à partir d'une seule couleur hex -- la couleur de base devient
+// --bg-dark, tout le reste (panel/primary/accent/texte/bordures/dégradés) est calculé par décalages HSL
+// autour de sa teinte, avec un repli violet (identité visuelle du site) si la couleur est quasi grise
+// (saturation < 0.08, la formule HSL seule produirait un résultat instable/terne dans ce cas).
+function generateThemeFromBaseColor(hex) {
+    const baseRgb = parseColorToRgb(hex);
+    if (!baseRgb) return null;
+    const [h, s, l] = rgbToHsl(baseRgb[0], baseRgb[1], baseRgb[2]);
+    const isLight = l > 0.5;
+    const isAchromatic = s < 0.08;
+    const hue = isAchromatic ? 262 : h;
+
+    const panelRgb = hslToRgb(hue, isAchromatic ? 0.15 : s, isLight ? Math.max(0, l - 0.05) : Math.min(1, l + 0.05));
+    const searchRgb = hslToRgb(hue, isAchromatic ? 0.15 : s, isLight ? Math.max(0, l - 0.09) : Math.min(1, l + 0.09));
+    const borderRgb = hslToRgb(hue, isAchromatic ? 0.1 : s * 0.6, isLight ? Math.max(0, l - 0.12) : Math.min(1, l + 0.14));
+    const primaryRgb = hslToRgb(hue, Math.min(1, (isAchromatic ? 0.5 : s) + 0.15), isLight ? 0.42 : 0.48);
+
+    let accentS = Math.min(1, (isAchromatic ? 0.55 : s) + (isLight ? 0.35 : 0.3));
+    let accentL = isLight ? 0.38 : 0.72;
+    let accentRgb = hslToRgb(hue, accentS, accentL);
+    let guard = 0;
+    while (contrastRatio(accentRgb, baseRgb) < 2.5 && guard < 10) {
+        accentL = isLight ? Math.max(0.15, accentL - 0.05) : Math.min(0.9, accentL + 0.05);
+        accentRgb = hslToRgb(hue, accentS, accentL);
+        guard++;
+    }
+
+    const textRgb = contrastRatio([230, 230, 230], baseRgb) >= contrastRatio([20, 20, 20], baseRgb) ? [230, 230, 230] : [20, 20, 20];
+    const textMutedRgb = hslToRgb(hue, isAchromatic ? 0.1 : s * 0.4, isLight ? 0.35 : 0.65);
+    const fpGradient1Rgb = hslToRgb(hue, isAchromatic ? 0.3 : Math.min(1, s + 0.1), isLight ? Math.max(0, l - 0.08) : Math.min(1, l + 0.12));
+
+    return {
+        '--bg-dark': rgbToHex(baseRgb),
+        '--bg-panel': rgbToHex(panelRgb),
+        '--primary': rgbToHex(primaryRgb),
+        '--accent': rgbToHex(accentRgb),
+        '--text': rgbToHex(textRgb),
+        '--text-muted': rgbToHex(textMutedRgb),
+        '--border-color': rgbToHex(borderRgb),
+        '--search-bg': rgbToHex(searchRgb),
+        '--header-bg': `rgba(${panelRgb[0]}, ${panelRgb[1]}, ${panelRgb[2]}, 0.85)`,
+        '--player-bg': `rgba(${panelRgb[0]}, ${panelRgb[1]}, ${panelRgb[2]}, 0.85)`,
+        '--mob-nav-bg': `rgba(${baseRgb[0]}, ${baseRgb[1]}, ${baseRgb[2]}, 0.95)`,
+        '--fp-gradient-1': rgbToHex(fpGradient1Rgb),
+        '--fp-gradient-2': rgbToHex(baseRgb)
+    };
+}
+
+// Appelé par le bouton "Générer" du constructeur de thème (voir modal-settings.php) : calcule le thème
+// complet, l'écrit dans les <input type="color"> (même conversion en hex opaque que
+// prefillCustomThemeFromCurrent(), l'alpha des rgba() est perdu au passage -- même compromis assumé), le
+// persiste et l'active.
+function generateAndApplyCustomTheme(baseHex) {
+    const custom = generateThemeFromBaseColor(baseHex);
+    if (!custom) return;
+    localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(custom));
+    THEME_VAR_NAMES.forEach(v => {
+        const input = document.getElementById(customThemeInputId(v));
+        if (input) input.value = colorToHex(custom[v]) || '#000000';
+    });
+    applyThemePreset('custom');
 }
 
 // --- THÈME DYNAMIQUE (surcouche par piste, PAR-DESSUS le preset statique actif -- voir THEME_PRESETS

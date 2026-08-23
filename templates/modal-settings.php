@@ -104,6 +104,10 @@
                     <span class="theme-swatch-label">Slate</span>
                 </div>
                 <div class="theme-swatch-item">
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'light' }" style="--sw-primary:#F5F3F8; --sw-accent:#8E44AD;" title="<?php echo htmlspecialchars(t('theme_light_label')); ?>" @click="applyThemePreset('light')"></button>
+                    <span class="theme-swatch-label"><?php echo t('theme_light_label'); ?></span>
+                </div>
+                <div class="theme-swatch-item">
                     <button type="button" class="theme-swatch theme-swatch-custom" :class="{ active: $store.ui.themePreset === 'custom' }" title="<?php echo htmlspecialchars(t('theme_custom')); ?>" @click="activateCustomTheme()"></button>
                     <span class="theme-swatch-label"><?php echo t('theme_custom'); ?></span>
                 </div>
@@ -120,6 +124,17 @@
                  c'est un compromis UX volontaire (voir commentaire dans app.js). -->
             <div x-show="$store.ui.themePreset === 'custom'" x-cloak>
                 <p class="settings-section-label"><?php echo t('custom_theme_label'); ?></p>
+
+                <!-- Génération algorithmique : une seule couleur de base -> les 13 variables ci-dessous
+                     dérivées automatiquement (generateThemeFromBaseColor() dans theme.js), plus rapide que
+                     de régler les 12 couleurs une par une. Reste dans ce même bloc "custom" : ça pré-remplit
+                     juste la grille ci-dessous plutôt que de créer un mode de thème séparé. -->
+                <p style="color:var(--text-muted); font-size:0.85em; margin:0 0 10px;"><?php echo t('custom_theme_generate_hint'); ?></p>
+                <div style="display:flex; gap:12px; align-items:center; margin-bottom:20px;">
+                    <input type="color" id="theme-gen-base-color" value="#8E44AD" style="width:50px; height:40px; padding:2px; flex-shrink:0;">
+                    <button type="button" class="btn btn-outline" @click="generateAndApplyCustomTheme(document.getElementById('theme-gen-base-color').value)"><?php echo t('custom_theme_generate_btn'); ?></button>
+                </div>
+
                 <div class="extended-color-grid">
                     <div class="extended-color-item"><span><?php echo t('admin_color_bg'); ?></span><input type="color" id="custom-color-bg-dark" oninput="updateCustomThemeColor('--bg-dark', this.value)"></div>
                     <div class="extended-color-item"><span><?php echo t('admin_color_panel'); ?></span><input type="color" id="custom-color-bg-panel" oninput="updateCustomThemeColor('--bg-panel', this.value)"></div>
