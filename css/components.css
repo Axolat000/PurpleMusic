@@ -159,16 +159,3 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focu
 .fp-lyrics-btn.active { background: var(--primary); color: white; }
 .fp-lyrics-btn:active { transform: scale(0.96); }
 
-/* Minuteur de sommeil : popover de préréglages ancré sous son bouton déclencheur (mobile #full-player
-   ET desktop #desktop-player, même markup dupliqué -- voir index.php). Même fond "verre" que
-   #queue-panel/#lyrics-panel/.modal-content, mais volontairement plus léger qu'une vraie modale pour une
-   simple liste de 7 options, vit uniquement dans Paramètres > Général désormais (plus de bouton/popover
-   dans les lecteurs) -- rangée de pilules, même langage visuel que .lang-switch-btn. */
-.sleep-timer-settings-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
-.sleep-timer-option-settings { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.15); color: var(--text-muted); font-size: 0.85em; font-weight: 600; cursor: pointer; transition: transform 0.2s, border-color 0.2s, color 0.2s, background 0.2s; }
-.sleep-timer-option-settings:hover { transform: scale(1.05); color: var(--text); }
-.sleep-timer-option-settings.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.06); }
-/* Dernier préréglage choisi (localStorage) : simple repère visuel supplémentaire quand il n'est pas déjà
-   la sélection active elle-même. */
-.sleep-timer-option-recent:not(.active) { color: var(--accent); }
-
