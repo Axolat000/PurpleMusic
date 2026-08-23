@@ -89,9 +89,19 @@ function loadTrack(autoPlay = true) {
     // serveur revérifie aussi ce seuil, jamais confiance aveugle au client).
     startListenTracking(track.id);
 
+    // Navigue vers la page du premier artiste du champ (voir splitArtistNames() dans library.js) --
+    // stopPropagation empêche le clic de remonter jusqu'au conteneur parent (ex: .player-info ouvre le
+    // lecteur plein écran au clic). Réassigné à chaque piste plutôt qu'une fois pour toutes : le nom
+    // affiché change, et .onclick (pas addEventListener) écrase proprement le précédent sans fuite.
+    const goToTrackArtist = (e) => {
+        e.stopPropagation();
+        const name = splitArtistNames(track.artist)[0] || track.artist;
+        if (name) showArtistPage(name);
+    };
+
     if (playTitle) playTitle.innerText = track.title;
     if (playCover) playCover.src = 'covers/' + (track.cover || 'default.png');
-    if (playStatus) playStatus.innerText = track.artist || 'Artiste inconnu';
+    if (playStatus) { playStatus.innerText = track.artist || 'Artiste inconnu'; playStatus.onclick = goToTrackArtist; }
 
     const fpTitle = document.getElementById('fp-title');
     const fpArtist = document.getElementById('fp-artist');
@@ -109,12 +119,12 @@ function loadTrack(autoPlay = true) {
             titleSpan.classList.add('scrolling-active');
         }
     }
-    if (fpArtist) fpArtist.innerText = track.artist || 'Artiste inconnu';
+    if (fpArtist) { fpArtist.innerText = track.artist || 'Artiste inconnu'; fpArtist.onclick = goToTrackArtist; }
     if (fpCover) fpCover.src = 'covers/' + (track.cover || 'default.png');
 
     // Carte desktop : pas de marquee (largeur confortable), simple troncature CSS (ellipsis).
     if (dpTitle) dpTitle.innerText = track.title;
-    if (dpArtist) dpArtist.innerText = track.artist || 'Artiste inconnu';
+    if (dpArtist) { dpArtist.innerText = track.artist || 'Artiste inconnu'; dpArtist.onclick = goToTrackArtist; }
     if (dpCover) dpCover.src = 'covers/' + (track.cover || 'default.png');
 
     document.getElementById('curr-time').innerText = "0:00";

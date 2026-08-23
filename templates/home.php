@@ -43,7 +43,7 @@
                                 <div class="home-track-card" @click="playTrackById(t.id)">
                                     <img :src="'covers/' + (t.cover || 'default.png')" loading="lazy" @error="$event.target.src = 'covers/default.png'">
                                     <div class="marquee-wrap home-track-card-title"><span x-text="t.title"></span></div>
-                                    <div class="home-track-card-sub" x-text="t.artist"></div>
+                                    <div class="home-track-card-sub home-track-card-artist" x-text="t.artist" @click.stop="showArtistPage(splitArtistNames(t.artist)[0] || t.artist)"></div>
                                 </div>
                             </template>
                         </div>
@@ -68,7 +68,7 @@
                                 <div class="home-track-card" @click="playTrackById(t.id)">
                                     <img :src="'covers/' + (t.cover || 'default.png')" loading="lazy" @error="$event.target.src = 'covers/default.png'">
                                     <div class="marquee-wrap home-track-card-title"><span x-text="t.title"></span></div>
-                                    <div class="home-track-card-sub" x-text="t.artist"></div>
+                                    <div class="home-track-card-sub home-track-card-artist" x-text="t.artist" @click.stop="showArtistPage(splitArtistNames(t.artist)[0] || t.artist)"></div>
                                 </div>
                             </template>
                         </div>
@@ -93,7 +93,7 @@
                                 <div class="home-track-card" @click="playTrackById(t.id)">
                                     <img :src="'covers/' + (t.cover || 'default.png')" loading="lazy" @error="$event.target.src = 'covers/default.png'">
                                     <div class="marquee-wrap home-track-card-title"><span x-text="t.title"></span></div>
-                                    <div class="home-track-card-sub" x-text="t.artist"></div>
+                                    <div class="home-track-card-sub home-track-card-artist" x-text="t.artist" @click.stop="showArtistPage(splitArtistNames(t.artist)[0] || t.artist)"></div>
                                 </div>
                             </template>
                         </div>

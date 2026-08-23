@@ -95,6 +95,10 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 .home-track-card > img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 10px; margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: block; }
 .home-track-card-title { font-weight: 700; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-track-card-sub { font-size: 0.75em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+/* Sous-titre artiste cliquable (voir showArtistPage() dans library.js) -- @click.stop empêche le clic de
+   remonter jusqu'au @click de lecture de la carte parente (.home-track-card). */
+.home-track-card-artist { cursor: pointer; }
+.home-track-card-artist:hover { color: var(--accent); text-decoration: underline; }
 
 /* Cover de playlist (image réelle si définie, sinon fallback dégradé + icône musicale) — réutilisée dans la
    rangée d'accueil "Tes Mixs", la grille "Mixes" et l'en-tête du détail de playlist. */

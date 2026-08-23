@@ -174,3 +174,9 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focu
 .artist-link { cursor: pointer; }
 .artist-link:hover { color: var(--accent); text-decoration: underline; }
 
+/* Nom d'artiste cliquable dans la mini-barre et les deux lecteurs plein écran (mobile/desktop) -- écouteur
+   posé dynamiquement dans loadTrack() (js/playback.js), pas de couleur d'accent forcée ici (chaque contexte
+   a déjà la sienne en style inline/classe), juste le survol. */
+.player-artist-link { cursor: pointer; }
+.player-artist-link:hover { text-decoration: underline; }
+
