@@ -85,11 +85,17 @@ document.addEventListener('alpine:init', () => {
             if (typeof ALL_PLAYLISTS_DATA !== 'undefined') {
                 this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 10);
             }
+            // recentTracks/popularTracks/playlistsPreview rendus par le x-for ci-dessus : mesurables une
+            // fois la micro-tâche Alpine passée (voir refreshHomeRowMarquees() dans ui-modals.js).
+            if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
             // Recommandations : calcul serveur (build_recommendations(), api.php), chargé une fois
             // au démarrage comme le reste de l'accueil -- échec réseau non bloquant, la rangée reste
             // simplement absente (x-if sur .length > 0 dans index.php) plutôt que de casser la page.
             fetch('api.php?action=recommendations').then(r => r.json()).then(data => {
                 if (Array.isArray(data)) this.recommendedTracks = data;
+                // Rangée conditionnée par x-if="recommendedTracks.length > 0" : n'existe dans le DOM
+                // qu'une fois cette affectation faite, donc la mesure doit attendre ce même tick.
+                if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
             }).catch(e => console.error(e));
             // Classement complet (pas juste le top 20 ci-dessus) : alimente le mode de tri 'recommended',
             // par défaut sur la bibliothèque -- arrive après le premier rendu, donc on retrie une fois prêt

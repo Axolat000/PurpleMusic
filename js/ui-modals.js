@@ -34,6 +34,14 @@ function applyMarqueeIfOverflowing(wrapperEl) {
     if (span.scrollWidth > wrapperEl.clientWidth) span.classList.add('scrolling-active');
 }
 
+// Rangées d'accueil (Ajouts récents/Recommandé pour toi/Les plus écoutés/Tes Mixs) : rendues par Alpine
+// (x-for réactif sur $store.ui.recentTracks etc., voir templates/home.php), donc pas mesurables tant que
+// le DOM n'a pas réellement été mis à jour -- appelé après chaque affectation de ces listes dans init()
+// (js/core.js), toujours via Alpine.nextTick pour la même raison que la page Playlists ci-dessus.
+function refreshHomeRowMarquees() {
+    document.querySelectorAll('#home-sections .marquee-wrap').forEach(applyMarqueeIfOverflowing);
+}
+
 function openModal(id) {
     if (window.Alpine) Alpine.store('ui').openModal(id);
 }

@@ -42,7 +42,7 @@
                             <template x-for="t in $store.ui.recentTracks" :key="'recent-' + t.id">
                                 <div class="home-track-card" @click="playTrackById(t.id)">
                                     <img :src="'covers/' + (t.cover || 'default.png')" loading="lazy" @error="$event.target.src = 'covers/default.png'">
-                                    <div class="home-track-card-title" x-text="t.title"></div>
+                                    <div class="marquee-wrap home-track-card-title"><span x-text="t.title"></span></div>
                                     <div class="home-track-card-sub" x-text="t.artist"></div>
                                 </div>
                             </template>
@@ -67,7 +67,7 @@
                             <template x-for="t in $store.ui.recommendedTracks" :key="'reco-' + t.id">
                                 <div class="home-track-card" @click="playTrackById(t.id)">
                                     <img :src="'covers/' + (t.cover || 'default.png')" loading="lazy" @error="$event.target.src = 'covers/default.png'">
-                                    <div class="home-track-card-title" x-text="t.title"></div>
+                                    <div class="marquee-wrap home-track-card-title"><span x-text="t.title"></span></div>
                                     <div class="home-track-card-sub" x-text="t.artist"></div>
                                 </div>
                             </template>
@@ -92,7 +92,7 @@
                             <template x-for="t in $store.ui.popularTracks" :key="'popular-' + t.id">
                                 <div class="home-track-card" @click="playTrackById(t.id)">
                                     <img :src="'covers/' + (t.cover || 'default.png')" loading="lazy" @error="$event.target.src = 'covers/default.png'">
-                                    <div class="home-track-card-title" x-text="t.title"></div>
+                                    <div class="marquee-wrap home-track-card-title"><span x-text="t.title"></span></div>
                                     <div class="home-track-card-sub" x-text="t.artist"></div>
                                 </div>
                             </template>
@@ -114,7 +114,7 @@
                             <template x-for="p in $store.ui.playlistsPreview" :key="'pl-' + p.id">
                                 <div class="home-track-card" @click="openPlaylistDetail(p.id)">
                                     <div class="playlist-cover">🎵<img x-show="p.cover" :src="'covers/' + p.cover" loading="lazy" @error="$event.target.remove()"></div>
-                                    <div class="home-track-card-title" x-text="p.name"></div>
+                                    <div class="marquee-wrap home-track-card-title"><span x-text="p.name"></span></div>
                                     <div class="home-track-card-sub" x-text="p.username"></div>
                                 </div>
                             </template>
