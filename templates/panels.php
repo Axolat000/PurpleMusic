@@ -2,7 +2,7 @@
         <button class="close-queue-mobile" onclick="toggleQueue()"><?php echo t('queue_close'); ?></button>
         <h3 style="margin-top:0; color:var(--accent); font-size:1.2em; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;"><?php echo t('queue_title'); ?></h3>
         <div id="queue-list" style="margin-top:15px;">
-            <p style="color:#666; font-size:0.9em;"><?php echo t('queue_waiting_empty'); ?></p>
+            <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('queue_waiting_empty'); ?></p>
         </div>
     </div>
 

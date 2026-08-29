@@ -254,13 +254,13 @@ main { display: block; }
 .search-row { display: flex; align-items: center; gap: 15px; width: 100%; position: relative; }
 .search-container { flex-grow: 1; position: relative; }
 .search-input { width: 100%; height: 50px; padding: 0 25px; border-radius: 50px; border: 1px solid rgba(61, 43, 86, 0.5); background: var(--search-bg); color: white; font-size: 1em; outline: none; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.2); line-height: 48px; }
-.search-input:focus { border-color: var(--accent); background: #2d2444; box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.2); }
-.search-input::placeholder { color: #6b5e85; }
+.search-input:focus { border-color: var(--accent); background: var(--surface-raised); box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.2); }
+.search-input::placeholder { color: var(--text-muted); }
 
 .filter-wrapper { position: relative; width: 50px; height: 50px; flex-shrink: 0; }
 .filter-icon-visual { width: 100%; height: 100%; background: var(--search-bg); border: 1px solid rgba(61, 43, 86, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: 0.3s; }
 .filter-select-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; z-index: 10; }
-.filter-wrapper:hover .filter-icon-visual { border-color: var(--accent); background: #32264d; transform: translateY(-2px); }
+.filter-wrapper:hover .filter-icon-visual { border-color: var(--accent); background: var(--surface-raised); transform: translateY(-2px); }
 
 .track-list { background: var(--bg-panel); border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--hairline); min-height: 120px; box-shadow: var(--elev-1); }
 .track-item { display:grid; grid-template-columns: 48px 1fr auto; align-items:center; padding: var(--space-3) var(--space-5); border-bottom:1px solid rgba(255,255,255,0.03); gap: var(--space-4); transition: background var(--dur-fast) var(--ease-out); cursor: pointer; }

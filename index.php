@@ -283,9 +283,16 @@ try {
          d'onglets du bas, cet en-tête ne porte plus que l'identité et les réglages. -->
     <header class="mobile-header">
         <div class="logo"><?php echo htmlspecialchars($site_name); ?></div>
-        <button class="mobile-settings-btn" onclick="openModal('settingsModal')" aria-label="<?php echo htmlspecialchars(t('btn_settings')); ?>">
-            <svg class="ico" aria-hidden="true"><use href="#ico-admin"></use></svg>
-        </button>
+        <div class="mobile-header-actions">
+            <?php if ($is_admin): ?>
+            <button class="mobile-settings-btn mobile-admin-btn" onclick="showSection('admin')" aria-label="<?php echo htmlspecialchars(t('nav_admin_panel')); ?>">
+                <svg class="ico" aria-hidden="true"><use href="#ico-stats"></use></svg>
+            </button>
+            <?php endif; ?>
+            <button class="mobile-settings-btn" onclick="openModal('settingsModal')" aria-label="<?php echo htmlspecialchars(t('btn_settings')); ?>">
+                <svg class="ico" aria-hidden="true"><use href="#ico-admin"></use></svg>
+            </button>
+        </div>
     </header>
 
 <?php include __DIR__ . '/templates/panels.php'; ?>
@@ -303,25 +310,28 @@ try {
         </div>
     </div>
 
-    <div id="mobile-bottom-nav">
+    <!-- Barre d'onglets mobile : 5 entrées maximum (au-delà, les libellés se
+         tronquent et les cibles tactiles passent sous 44px). Artistes remplace
+         l'ancienne entrée Admin, désormais accessible depuis l'en-tête mobile —
+         un admin navigue dans sa bibliothèque bien plus souvent qu'il n'ouvre
+         le panneau de configuration. -->
+    <nav id="mobile-bottom-nav" aria-label="<?php echo htmlspecialchars(t('sidebar_browse')); ?>">
         <button class="mob-nav-item active" id="mob-nav-accueil" onclick="showSection('accueil')">
-            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><?php echo t('mob_nav_library'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-library"></use></svg><?php echo t('mob_nav_library'); ?>
+        </button>
+        <button class="mob-nav-item" id="mob-nav-artists-page" onclick="showArtistsIndex()">
+            <svg class="ico" aria-hidden="true"><use href="#ico-artist"></use></svg><?php echo t('nav_artists'); ?>
         </button>
         <button class="mob-nav-item" id="mob-nav-playlists" onclick="showSection('playlists')">
-            <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><?php echo t('mob_nav_mixes'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-playlist"></use></svg><?php echo t('mob_nav_mixes'); ?>
         </button>
-        <?php if($is_admin): ?>
-            <button class="mob-nav-item" id="mob-nav-admin" onclick="showSection('admin')" style="color:#e67e22;">
-                <svg viewBox="0 0 24 24"><path d="M19.4 13c.0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6l-2.1-1.7zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg><?php echo t('mob_nav_admin'); ?>
-            </button>
-        <?php endif; ?>
         <button class="mob-nav-item" onclick="toggleQueue()">
-            <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg><?php echo t('btn_queue'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-queue"></use></svg><?php echo t('btn_queue'); ?>
         </button>
         <button class="mob-nav-item" onclick="openModal('uploadModal')">
-            <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg><?php echo t('btn_upload'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg><?php echo t('btn_upload'); ?>
         </button>
-    </div>
+    </nav>
 
 <?php include __DIR__ . '/templates/modal-settings.php'; ?>
 

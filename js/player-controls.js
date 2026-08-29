@@ -476,7 +476,21 @@ function updateUrl() {
     if (currentSection === 'artist-page' && currentArtistName) params.set('name', currentArtistName);
     if (currentSection === 'album-page' && currentAlbumName) params.set('name', currentAlbumName);
     if (queue[currentIndex] && queue[currentIndex].id) params.set('v', queue[currentIndex].id);
-    if (currentPlaylistId) params.set('list', currentPlaylistId);
+
+    // `list` identifie la playlist AFFICHÉE, pas celle en cours de lecture.
+    //
+    // Auparavant il venait uniquement de currentPlaylistId, une variable de
+    // lecture : ouvrir le détail d'une playlist sans la lancer (ou lancer entre
+    // temps un morceau hors playlist, ce qui remet currentPlaylistId à null)
+    // produisait une URL "?page=playlist-detail" sans identifiant. Recharger
+    // cette URL affichait alors une page vide, avec pour seul contenu le bouton
+    // Retour — la restauration au chargement exige `list` (voir library.js).
+    const shownPlaylistId = (window.Alpine && Alpine.store('ui').playlistDetail)
+        ? Alpine.store('ui').playlistDetail.id
+        : null;
+    const listId = (currentSection === 'playlist-detail') ? shownPlaylistId : currentPlaylistId;
+    if (listId) params.set('list', listId);
+
     const newUrl = window.location.pathname + '?' + params.toString();
     window.history.pushState({ path: newUrl }, '', newUrl);
 }

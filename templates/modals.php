@@ -77,7 +77,7 @@ docker stop purplemusic && docker rm purplemusic</code>
                 <p x-show="$store.ui.updateTriggerState === 'error'" x-cloak style="color:var(--danger); font-size:0.85em; margin-top:12px;" x-text="$store.ui.updateTriggerError"></p>
 
                 <div style="display:flex; gap:15px; margin-top:20px;">
-                    <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" @click="$store.ui.dismissUpdateNotice()"><?php echo t('btn_later'); ?></button>
+                    <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" @click="$store.ui.dismissUpdateNotice()"><?php echo t('btn_later'); ?></button>
                 </div>
             </div>
         </template>
@@ -106,7 +106,7 @@ docker stop purplemusic && docker rm purplemusic</code>
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('cover_file_label'); ?></label>
             <input type="file" name="cover" accept="image/*">
             <div style="display:flex; gap:15px; margin-top:20px;">
-                <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" onclick="closeModal('uploadModal')"><?php echo t('btn_cancel'); ?></button>
+                <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" onclick="closeModal('uploadModal')"><?php echo t('btn_cancel'); ?></button>
                 <button type="submit" name="upload" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_publish'); ?></button>
             </div>
         </form>
@@ -129,7 +129,7 @@ docker stop purplemusic && docker rm purplemusic</code>
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('change_cover_label'); ?></label>
             <input type="file" name="new_cover" accept="image/*">
             <div style="display:flex; gap:15px; margin-top:20px;">
-                <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')"><?php echo t('btn_cancel'); ?></button>
+                <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')"><?php echo t('btn_cancel'); ?></button>
                 <button type="submit" name="edit_track" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
             </div>
         </form>
@@ -163,13 +163,13 @@ docker stop purplemusic && docker rm purplemusic</code>
                         <img src="covers/<?php echo htmlspecialchars($t['cover']); ?>" loading="lazy" style="width:40px; height:40px; border-radius:8px; margin-right:12px; object-fit:cover;" onerror="this.src='covers/default.png'">
                         <div style="flex:1; overflow:hidden;">
                             <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($t['title']); ?></div>
-                            <div style="font-size:0.85em; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($t['artist']); ?></div>
+                            <div style="font-size:0.85em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($t['artist']); ?></div>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
             <div style="display:flex; gap:15px; margin-top:20px;">
-                 <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" onclick="closeModal('playlistModal')"><?php echo t('btn_cancel'); ?></button>
+                 <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" onclick="closeModal('playlistModal')"><?php echo t('btn_cancel'); ?></button>
                 <button type="submit" name="save_playlist" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
             </div>
         </form>

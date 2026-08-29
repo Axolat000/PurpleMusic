@@ -2,10 +2,56 @@
 // propre lien vers sa page Artiste plutôt qu'un seul lien vers la chaîne complète (voir showArtistPage()
 // plus bas). Ordre important : les séparateurs les plus spécifiques/longs doivent être essayés avant les
 // plus courts qui pourraient en être un préfixe.
-const ARTIST_SPLIT_REGEX = /\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+et\s+/gi;
+const ARTIST_SPLIT_REGEX = /\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+et\s+|\s*;\s*/gi;
+
+// Mention de featuring encadrée : "(feat. X)", "[ft. Y]". Les parenthèses étaient
+// conservées telles quelles, si bien que le découpage produisait des fiches
+// artiste nommées "(feat. X" ou "Y)". On les retire avant le découpage, en
+// gardant leur contenu — c'est bien un artiste supplémentaire.
+const FEATURE_BRACKET_REGEX = /[([]\s*((?:feat|ft|featuring|avec|with)\b\.?\s*[^)\]]*)[)\]]/gi;
+
+// Marqueur de featuring resté en tête d'un fragment après découpage. Cas observé
+// dans l'index Artistes : "A, ft B" se découpait sur la virgule et produisait une
+// fiche littéralement nommée "ft B" — le motif de découpage exige un espace AVANT
+// "ft", absent en début de fragment. On nettoie donc chaque fragment séparément.
+const LEADING_FEATURE_REGEX = /^(?:feat|ft|featuring|avec|with|and|et|x)\b\.?\s*/i;
+
+// Retire UNIQUEMENT les parenthèses/crochets orphelins, c'est-à-dire ceux dont
+// le pendant est parti dans un autre fragment lors du découpage.
+//
+// Un décapage inconditionnel des extrémités serait une régression : sur un alias
+// légitime comme "Nightmargin (Casey Gu)" — une seule entité, pas un featuring —
+// il retirerait la parenthèse fermante et laisserait "Nightmargin (Casey Gu".
+function stripOrphanBrackets(s) {
+    let out = s;
+    let changed = true;
+    while (changed) {
+        changed = false;
+        const opens = (out.match(/[([]/g) || []).length;
+        const closes = (out.match(/[)\]]/g) || []).length;
+        if (closes > opens && /^[)\]]/.test(out)) { out = out.slice(1).trim(); changed = true; }
+        else if (opens > closes && /[([]$/.test(out)) { out = out.slice(0, -1).trim(); changed = true; }
+        else if (closes > opens && /[)\]]$/.test(out)) { out = out.slice(0, -1).trim(); changed = true; }
+        else if (opens > closes && /^[([]/.test(out)) { out = out.slice(1).trim(); changed = true; }
+    }
+    return out;
+}
+
 function splitArtistNames(str) {
     if (!str) return [];
-    return str.split(ARTIST_SPLIT_REGEX).map(s => s.trim()).filter(Boolean);
+    return str
+        .replace(FEATURE_BRACKET_REGEX, ' $1 ')
+        .split(ARTIST_SPLIT_REGEX)
+        .map(s => stripOrphanBrackets(
+                s.trim()
+                 .replace(LEADING_FEATURE_REGEX, '')
+                 // Les remplacements ci-dessus laissent des espaces multiples
+                 // (" $1 " autour d'un featuring extrait) : sans ça, deux noms
+                 // identiques à un espace près créeraient deux fiches artiste.
+                 .replace(/\s{2,}/g, ' ')
+                 .trim()
+            ))
+        .filter(Boolean);
 }
 
 // Rend le champ artiste d'une piste sous forme de lien(s) cliquables vers showArtistPage() -- un span par
@@ -360,6 +406,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (pageParam === 'playlist-detail' && listParam) {
         openPlaylistDetail(listParam);
+    } else if (pageParam === 'playlist-detail') {
+        // URL de détail sans identifiant de playlist (ancien lien, ou partage
+        // tronqué) : on retombe sur la liste des playlists plutôt que d'afficher
+        // la coquille vide du détail, qui n'aurait que son bouton Retour.
+        showSection('playlists', false);
     } else if (pageParam === 'browse') {
         const sv = sortParam || 'date_desc';
         openBrowseAll(sv, T(sv === 'popular' ? 'sort_popular' : 'sort_recent'), false);

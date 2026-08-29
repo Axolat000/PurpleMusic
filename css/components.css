@@ -1,4 +1,4 @@
-.close-queue-mobile { display: none; width: 100%; margin-bottom: 20px; background: #2d2444; border:none; color: white; padding: 12px; border-radius: var(--radius-sm); font-weight:bold; }
+.close-queue-mobile { display: none; width: 100%; margin-bottom: 20px; background: var(--surface-raised); border:none; color: white; padding: 12px; border-radius: var(--radius-sm); font-weight:bold; }
 
 #lyrics-panel { position: fixed; right: -360px; top: 70px; width: 340px; height: calc(100vh - 70px); background: rgba(27, 20, 41, 0.95); backdrop-filter: blur(20px); border-left: 1px solid rgba(255,255,255,0.1); z-index: 999; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 25px; padding-bottom: 120px; box-shadow: -10px 0 40px rgba(0,0,0,0.5); overflow-y: auto; }
 #lyrics-panel.open { right: 0; }
@@ -9,7 +9,11 @@
 .lyrics-panel-body .lyrics-plain-text { text-align: left; font-size: 0.9em; }
 
 /* Paroles : styles partagés entre le lecteur plein écran (.fp-lyrics-view, mobile) et le panneau latéral (#lyrics-panel, desktop). */
-.lyrics-line { padding: 9px 6px; color: rgba(255,255,255,0.55); font-size: 1em; line-height: 1.5; text-align: center; border-radius: 8px; transition: color 0.2s, transform 0.2s; overflow-wrap: break-word; }
+/* Chaque ligne est cliquable pour sauter à son horodatage (seekToLyricLine) —
+   comportement déjà en place mais que rien n'indiquait : ni curseur, ni survol.
+   Un survol discret suffit à le faire découvrir sans alourdir la vue. */
+.lyrics-line { padding: 9px 6px; color: rgba(255,255,255,0.55); font-size: 1em; line-height: 1.5; text-align: center; border-radius: 8px; transition: color 0.2s, transform 0.2s, background 0.2s; overflow-wrap: break-word; cursor: pointer; }
+.lyrics-line:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.07); }
 .lyrics-line.active { color: #fff; font-weight: 700; transform: scale(1.05); }
 .lyrics-plain-text { white-space: pre-wrap; overflow-wrap: break-word; color: rgba(255,255,255,0.85); line-height: 1.8; font-size: 0.95em; text-align: center; }
 
@@ -86,19 +90,19 @@ input[type="range"].vol-slider:hover::-moz-range-thumb, input[type="range"].vol-
 
 [x-cloak] { display: none !important; }
 .modal { position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
-.modal-content { background: #1e162e; margin: 5% auto; padding:30px; width:90%; max-width:550px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 80px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.modal-content { background: var(--surface-overlay); margin: 5% auto; padding:30px; width:90%; max-width:550px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 80px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 @keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-input[type="text"], input[type="password"], input[type="email"], input[type="file"], select { width:100%; padding:14px; margin:10px 0 20px 0; background:#140f1f; border:1px solid var(--border-color); color:#fff; border-radius: 12px; outline:none; transition: 0.3s; }
+input[type="text"], input[type="password"], input[type="email"], input[type="file"], select { width:100%; padding:14px; margin:10px 0 20px 0; background:var(--surface-sunken); border:1px solid var(--border-color); color:#fff; border-radius: 12px; outline:none; transition: 0.3s; }
 input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(142, 68, 173, 0.2); }
 
 /* --- CORRECTION ET ENRICHISSEMENT DE LA GRILLE DE COULEURS ADM --- */
 .extended-color-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 10px; }
-.extended-color-item { background: #140f1f; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.extended-color-item { background: var(--surface-sunken); padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .extended-color-item span { font-size: 0.85em; color: var(--text-muted); font-weight: 500; }
 .extended-color-item input[type="color"] { border: none; width: 45px !important; height: 35px !important; background: transparent; cursor: pointer; padding: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border-radius: 6px; margin: 0; flex-shrink: 0; }
 
-.song-select-container { max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid var(--border-color); border-radius: 16px; background: #140f1f; }
+.song-select-container { max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid var(--border-color); border-radius: 16px; background: var(--surface-sunken); }
 .song-select-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s; }
 .song-select-item:hover { background: rgba(255,255,255,0.05); }
 .song-select-item.selected { background: rgba(142, 68, 173, 0.2); }

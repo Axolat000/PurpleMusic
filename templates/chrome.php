@@ -91,7 +91,7 @@
             <div class="progress-bg" id="fp-progress-area" style="height:6px; background:rgba(255,255,255,0.2);">
                 <div class="progress-fill" id="fp-progress-bar" style="background:white;"></div>
             </div>
-            <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:0.85em; color:#ccc; font-family:monospace;">
+            <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:0.85em; color:var(--text); font-family:monospace;">
                 <span id="fp-curr-time">0:00</span>
                 <span id="fp-total-time">0:00</span>
             </div>
@@ -246,7 +246,7 @@
                     <h3 class="dfp-subcard-title"><?php echo t('queue_title'); ?></h3>
                 </div>
                 <div class="dfp-queue-body" id="dp-queue-list">
-                    <p style="color:#666; font-size:0.9em;"><?php echo t('queue_waiting_empty'); ?></p>
+                    <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('queue_waiting_empty'); ?></p>
                 </div>
             </div>
         </div>
@@ -258,7 +258,7 @@
         <div class="modal-content" style="max-width:420px; text-align:center;">
             <p style="font-size:1.1em; margin:0 0 25px 0;" x-text="$store.ui.confirmState.message"></p>
             <div style="display:flex; gap:15px;">
-                <button type="button" class="btn" style="flex:1; justify-content:center; border:1px solid var(--border-color); color:#888;" @click="$store.ui.confirmNo()"><?php echo t('btn_cancel'); ?></button>
+                <button type="button" class="btn" style="flex:1; justify-content:center; border:1px solid var(--border-color); color:var(--text-muted);" @click="$store.ui.confirmNo()"><?php echo t('btn_cancel'); ?></button>
                 <button type="button" class="btn btn-danger" style="flex:1; justify-content:center; padding:10px 20px; font-size:0.9em;" @click="$store.ui.confirmYes()"><?php echo t('btn_confirm'); ?></button>
             </div>
         </div>

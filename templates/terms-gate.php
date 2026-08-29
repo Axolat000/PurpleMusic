@@ -7,7 +7,7 @@
 <header>
     <div class="logo"><?php echo htmlspecialchars($site_name); ?></div>
     <div class="header-actions">
-        <a href="?logout=1" class="btn" style="color:#a196b4;"><?php echo t('btn_logout'); ?></a>
+        <a href="?logout=1" class="btn" style="color:var(--text-muted);"><?php echo t('btn_logout'); ?></a>
     </div>
 </header>
 

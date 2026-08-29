@@ -36,7 +36,7 @@
 .dfp-eyebrow { font-size: 0.78em; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
 .dfp-title { font-size: 2em; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -12px; }
 .dfp-artist { font-size: 1.15em; color: var(--accent); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -14px; }
-.dfp-time-row { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.85em; color: #ccc; font-family: monospace; }
+.dfp-time-row { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.85em; color: var(--text); font-family: monospace; }
 .dfp-controls { display: flex; align-items: center; gap: 14px; }
 .dfp-controls .control-btn svg { width: 26px; height: 26px; }
 .dfp-skip-btn svg { width: 30px; height: 30px; }
@@ -68,12 +68,17 @@
 .dfp-queue-body { flex: 1; overflow-y: auto; }
 
 #mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; width: 100%; background: var(--mob-nav-bg); backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.05); z-index: 3000; justify-content: space-around; padding: 10px 0 15px 0; height: 70px; box-sizing: border-box; box-shadow: 0 -10px 30px rgba(0,0,0,0.2); }
-.mob-nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.7em; background: none; border: none; gap: 5px; font-weight: 600; width: 20%; }
-.mob-nav-item svg { width: 24px; height: 24px; fill: currentColor; transition: transform 0.2s; }
+/* min-height 44px : cible tactile minimale. Le libellé est tronqué plutôt que
+   renvoyé à la ligne — sur deux lignes il déséquilibrerait la hauteur des
+   onglets voisins. */
+.mob-nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.7em; background: none; border: none; gap: 5px; font-weight: 600; width: 20%; min-height: 44px; padding: 0 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+.mob-nav-item svg, .mob-nav-item .ico { width: 24px; height: 24px; fill: currentColor; transition: transform 0.2s; }
 .mob-nav-item.active { color: var(--accent); }
-.mob-nav-item:active svg { transform: scale(0.9); }
+.mob-nav-item:active svg, .mob-nav-item:active .ico { transform: scale(0.9); }
 
 .mobile-settings-btn { display:none; }
+.mobile-header-actions { display: flex; align-items: center; gap: var(--space-1); }
+.mobile-admin-btn { color: var(--signal) !important; }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
 .settings-grid label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.95em; }
 .settings-grid input[type="checkbox"] { width: 18px; height: 18px; margin: 0; }

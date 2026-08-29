@@ -50,6 +50,26 @@ function findActiveLyricIndex(lines, currentTime) {
     return ans;
 }
 
+// Cache mémoire des paroles, par identifiant de piste.
+//
+// Le serveur les met déjà en cache en base (colonnes lyrics_synced/lyrics_plain),
+// mais le garde-fou existant ne couvrait QUE la piste courante : revenir sur un
+// morceau déjà consulté relançait une requête complète à chaque fois. En mémoire
+// et non en localStorage : des paroles complètes pour une longue session
+// pourraient saturer le quota, alors qu'ici tout disparaît à la fermeture de
+// l'onglet — le cache serveur prend le relais au rechargement.
+const LYRICS_CACHE = new Map();
+const LYRICS_CACHE_MAX = 80;
+
+function cacheLyrics(trackId, payload) {
+    // Éviction du plus ancien inséré (Map conserve l'ordre d'insertion) : borne
+    // simple, les entrées étant toutes de taille comparable.
+    if (LYRICS_CACHE.size >= LYRICS_CACHE_MAX) {
+        LYRICS_CACHE.delete(LYRICS_CACHE.keys().next().value);
+    }
+    LYRICS_CACHE.set(String(trackId), payload);
+}
+
 async function loadLyricsForCurrentTrack(force = false) {
     if (!window.Alpine) return;
     const store = Alpine.store('ui');
@@ -68,20 +88,38 @@ async function loadLyricsForCurrentTrack(force = false) {
     if (!force && store.lyricsTrackId === track.id && store.lyricsFound !== null) return;
 
     store.lyricsTrackId = track.id;
+    store.lyricsActiveIndex = -1;
+
+    // Piste déjà consultée dans cette session : restitution immédiate, sans
+    // requête ni état de chargement visible.
+    const cached = !force ? LYRICS_CACHE.get(String(track.id)) : null;
+    if (cached) {
+        store.lyricsSynced = cached.synced;
+        store.lyricsPlain = cached.plain;
+        store.lyricsFound = cached.found;
+        store.lyricsLoading = false;
+        return;
+    }
+
     store.lyricsLoading = true;
     store.lyricsFound = null;
     store.lyricsSynced = [];
     store.lyricsPlain = '';
-    store.lyricsActiveIndex = -1;
 
     try {
         const res = await fetch('api.php?action=get_lyrics&q=' + track.id);
         const data = await res.json();
         // La piste a pu changer pendant l'attente de la réponse : on ignore un résultat périmé.
         if (store.lyricsTrackId !== track.id) return;
-        store.lyricsSynced = data.synced ? parseLRC(data.synced) : [];
-        store.lyricsPlain = data.plain || '';
-        store.lyricsFound = !!data.found;
+        const synced = data.synced ? parseLRC(data.synced) : [];
+        const plain = data.plain || '';
+        const found = !!data.found;
+        store.lyricsSynced = synced;
+        store.lyricsPlain = plain;
+        store.lyricsFound = found;
+        // Une absence de paroles est mise en cache elle aussi : sans ça, un
+        // morceau instrumental relancerait une requête à chaque réécoute.
+        cacheLyrics(track.id, { synced, plain, found });
     } catch (e) {
         console.error(e);
         if (store.lyricsTrackId === track.id) store.lyricsFound = false;
