@@ -119,6 +119,31 @@ function split_artist_names($raw) {
 }
 
 /**
+ * Découpe un champ genre multi-valeurs en genres individuels.
+ *
+ * Une piste peut porter plusieurs genres, stockés séparés par des virgules dans
+ * la même colonne `tracks.genre`. Ce choix plutôt qu'une table de liaison :
+ * la colonne reste une chaîne, donc le contrat de l'API Android (qui lit `genre`
+ * comme un texte) est inchangé, et aucune migration n'est nécessaire — une piste
+ * mono-genre existante est simplement une liste d'un seul élément.
+ *
+ * @return string[] genres nettoyés, sans doublon (comparaison insensible à la casse)
+ */
+function split_genres($raw) {
+    $out = [];
+    $seen = [];
+    foreach (preg_split('/\s*[,;\/]\s*/u', (string) $raw) as $g) {
+        $g = trim($g);
+        if ($g === '') continue;
+        $key = mb_strtolower($g);
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $out[] = $g;
+    }
+    return $out;
+}
+
+/**
  * Enregistre un genre dans la table `genres` s'il n'y est pas déjà.
  *
  * Le genre se saisit désormais librement à l'import et à l'édition d'une piste
@@ -130,17 +155,21 @@ function split_artist_names($raw) {
  * Comparaison insensible à la casse : "phonk" et "Phonk" ne doivent pas créer deux
  * entrées. "Autre" n'est jamais enregistré — c'est la valeur de repli, pas un genre.
  */
-function register_genre($db, $name) {
-    $name = trim((string) $name);
-    if ($name === '' || mb_strtolower($name) === 'autre') return;
-
+function register_genre($db, $raw) {
     $stmt = $db->prepare("SELECT 1 FROM genres WHERE LOWER(name) = LOWER(?)");
-    $stmt->execute([$name]);
-    if ($stmt->fetch()) return;
+    $ins = $db->prepare("INSERT OR IGNORE INTO genres (name) VALUES (?)");
 
-    // INSERT OR IGNORE : deux imports simultanés du même genre nouveau ne doivent
-    // pas faire échouer le second sur une contrainte d'unicité.
-    $db->prepare("INSERT OR IGNORE INTO genres (name) VALUES (?)")->execute([$name]);
+    // Le champ pouvant contenir plusieurs genres ("Phonk, Nightcore"), chacun
+    // doit rejoindre la liste séparément — sinon la chaîne entière deviendrait
+    // une entrée bâtarde proposée telle quelle dans les suggestions.
+    foreach (split_genres($raw) as $name) {
+        if (mb_strtolower($name) === 'autre') continue;
+        $stmt->execute([$name]);
+        if ($stmt->fetch()) continue;
+        // INSERT OR IGNORE : deux imports simultanés du même genre nouveau ne
+        // doivent pas faire échouer le second sur une contrainte d'unicité.
+        $ins->execute([$name]);
+    }
 }
 
 /**

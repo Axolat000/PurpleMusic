@@ -1,3 +1,35 @@
+// Découpe un champ genre multi-valeurs ("Phonk, Nightcore") en genres individuels.
+//
+// Portage JS de split_genres() (api/helpers.php) : les deux doivent rester
+// alignés, sinon une piste serait rangée sous des genres différents selon que le
+// calcul vient du serveur (statistiques) ou du client (pastilles, filtres).
+//
+// La barre oblique est un séparateur elle aussi : elle absorbe les anciennes
+// valeurs composées du type "Phonk/Funk", qui n'étaient qu'un seul genre faute de
+// pouvoir en attribuer plusieurs.
+const GENRE_SPLIT_REGEX = /\s*[,;/]\s*/;
+function splitGenres(raw) {
+    if (!raw) return [];
+    const out = [];
+    const seen = new Set();
+    for (const g of String(raw).split(GENRE_SPLIT_REGEX)) {
+        const name = g.trim();
+        if (!name) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(name);
+    }
+    return out;
+}
+
+// Genres d'une piste, avec repli sur "Autre" pour une piste non étiquetée —
+// pour que tout appelant reçoive toujours au moins un genre à afficher/compter.
+function trackGenres(t) {
+    const g = splitGenres(t && t.genre);
+    return g.length ? g : ['Autre'];
+}
+
 // Regroupement multi-artiste ("David Guetta, Sia", "A feat. B") : chaque nom individuel doit avoir son
 // propre lien vers sa page Artiste plutôt qu'un seul lien vers la chaîne complète (voir showArtistPage()
 // plus bas). Ordre important : les séparateurs les plus spécifiques/longs doivent être essayés avant les
@@ -122,7 +154,7 @@ function buildTrackRowElement(t, onClick) {
             <div class="marquee-wrap track-row-title"><span>${safeTitle}</span></div>
             <div class="track-row-meta">
                 ${artistLinksHTML(t.artist)}${albumLinkHTML(t)}
-                <span class="track-row-dim">• ${safeGenre} • <span class="tabular">${t.play_count || 0}</span> ▶</span>
+                <span class="track-row-dim">• ${escapeHTML(trackGenres(t).join(' · '))} • <span class="tabular">${t.play_count || 0}</span> ▶</span>
             </div>
         </div>
         <div class="track-row-actions" onclick="event.stopPropagation()">

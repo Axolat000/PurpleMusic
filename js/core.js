@@ -130,10 +130,11 @@ document.addEventListener('alpine:init', () => {
         // il n'y a donc qu'un seul endroit qui décide de ce qui est visible.
         rebuildHomeRows() {
             if (typeof ALL_MUSIC_DATA === 'undefined') return;
+            // Une piste peut porter plusieurs genres : elle correspond à la
+            // pastille dès que l'UN d'eux correspond.
             const pool = ALL_MUSIC_DATA.filter(t => {
-                const g = t.genre || 'Autre';
-                if (this.activeGenre !== null && g !== this.activeGenre) return false;
-                return true;
+                if (this.activeGenre === null) return true;
+                return trackGenres(t).some(g => g.toLowerCase() === this.activeGenre.toLowerCase());
             });
 
             this.recentTracks = [...pool].sort((a, b) => b.id - a.id).slice(0, 12);
@@ -197,10 +198,12 @@ document.addEventListener('alpine:init', () => {
             // bibliothèque (et non masqués), pas la liste complète configurée en admin —
             // proposer un filtre qui ne renverrait rien n'a pas de sens.
             if (typeof ALL_MUSIC_DATA !== 'undefined') {
+                // Chaque genre d'une piste multi-genres compte pour lui-même :
+                // une piste "Phonk, Nightcore" doit apparaître sous les deux
+                // pastilles, pas sous une pastille "Phonk, Nightcore" bâtarde.
                 const counts = new Map();
                 ALL_MUSIC_DATA.forEach(t => {
-                    const g = t.genre || 'Autre';
-                    counts.set(g, (counts.get(g) || 0) + 1);
+                    trackGenres(t).forEach(g => counts.set(g, (counts.get(g) || 0) + 1));
                 });
                 this.genrePills = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
             }

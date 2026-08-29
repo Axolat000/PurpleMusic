@@ -419,7 +419,10 @@ function buildRadioQueue(seed) {
     if (typeof ALL_MUSIC_DATA === 'undefined' || !seed) return [];
 
     const seedArtists = new Set(splitArtistNames(seed.artist).map(n => n.toLowerCase()));
-    const seedGenre = (seed.genre || 'Autre').toLowerCase();
+    // Multi-genres : une piste est "du même genre" dès qu'elle en partage AU
+    // MOINS un avec le morceau de départ — c'est bien ce qu'on attend d'une
+    // radio, une piste "Phonk, Nightcore" devant nourrir les deux radios.
+    const seedGenres = new Set(trackGenres(seed).map(g => g.toLowerCase()));
 
     const pool = ALL_MUSIC_DATA.filter(t =>
         t.id !== seed.id);
@@ -430,7 +433,7 @@ function buildRadioQueue(seed) {
     pool.forEach(t => {
         const artists = splitArtistNames(t.artist).map(n => n.toLowerCase());
         if (artists.some(a => seedArtists.has(a))) sameArtist.push(t);
-        else if ((t.genre || 'Autre').toLowerCase() === seedGenre) sameGenre.push(t);
+        else if (trackGenres(t).some(g => seedGenres.has(g.toLowerCase()))) sameGenre.push(t);
         else rest.push(t);
     });
 

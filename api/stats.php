@@ -61,15 +61,32 @@ switch ($action) {
         $topTracks = $topTracksStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // --- Top genres ---
-        $topGenresStmt = $db->prepare(
-            "SELECT COALESCE(NULLIF(t.genre, ''), 'Autre') AS genre,
-                    COUNT(*) AS plays, SUM(le.listened_seconds) AS seconds
+        // Une piste peut porter plusieurs genres ("Phonk, Nightcore") : comme
+        // pour les artistes, SQL ne sait pas découper la chaîne, l'agrégation se
+        // fait donc en PHP avec split_genres() — le même découpage que côté
+        // client, pour que les deux comptages concordent.
+        $genreRowsStmt = $db->prepare(
+            "SELECT t.genre, COUNT(*) AS plays, SUM(le.listened_seconds) AS seconds
              FROM listen_events le JOIN tracks t ON t.id = le.track_id
-             WHERE $where
-             GROUP BY genre ORDER BY plays DESC LIMIT 8"
+             WHERE $where GROUP BY t.genre"
         );
-        $topGenresStmt->execute($params);
-        $topGenres = $topGenresStmt->fetchAll(PDO::FETCH_ASSOC);
+        $genreRowsStmt->execute($params);
+
+        $genreTotals = [];
+        foreach ($genreRowsStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $names = split_genres($row['genre']);
+            if (!$names) $names = ['Autre'];
+            foreach ($names as $name) {
+                $key = mb_strtolower($name);
+                if (!isset($genreTotals[$key])) {
+                    $genreTotals[$key] = ['genre' => $name, 'plays' => 0, 'seconds' => 0];
+                }
+                $genreTotals[$key]['plays'] += (int) $row['plays'];
+                $genreTotals[$key]['seconds'] += (int) $row['seconds'];
+            }
+        }
+        usort($genreTotals, fn($a, $b) => $b['plays'] <=> $a['plays']);
+        $topGenres = array_slice(array_values($genreTotals), 0, 8);
 
         // --- Répartition par heure de la journée ---
         // Renvoyée en 24 créneaux toujours présents (même à zéro) : un histogramme
