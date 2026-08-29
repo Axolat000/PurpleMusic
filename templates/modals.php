@@ -1,3 +1,38 @@
+    <!-- Aide des raccourcis clavier (touche « ? » ou icône de la barre supérieure).
+         Les touches sont listées ici et non dans un fichier d'aide séparé : la table
+         reste à côté du code qui les gère (js/shortcuts.js). -->
+    <div id="shortcutsModal" class="modal" x-show="$store.ui.activeModal === 'shortcutsModal'" x-transition.opacity.duration.200ms x-cloak
+         @click.self="$store.ui.closeModal('shortcutsModal')" @keydown.escape.window="$store.ui.closeModal('shortcutsModal')">
+        <div class="modal-content" style="max-width:480px;">
+            <h2 style="margin-top:0;"><?php echo t('shortcuts_title'); ?></h2>
+            <div class="shortcut-list">
+                <?php
+                // [libellé, touches] — l'ordre suit la fréquence d'usage attendue.
+                $shortcuts = [
+                    [t('shortcut_playpause'), ['Espace', 'K']],
+                    [t('shortcut_next'), ['N']],
+                    [t('shortcut_prev'), ['P']],
+                    [t('shortcut_seek'), ['←', '→']],
+                    [t('shortcut_volume'), ['↑', '↓']],
+                    [t('shortcut_mute'), ['M']],
+                    [t('shortcut_shuffle'), ['S']],
+                    [t('shortcut_loop'), ['R']],
+                    [t('shortcut_search'), ['/', 'Ctrl+K']],
+                    [t('shortcut_help'), ['?']],
+                ];
+                foreach ($shortcuts as [$label, $keys]): ?>
+                <div class="shortcut-row">
+                    <span><?php echo htmlspecialchars($label); ?></span>
+                    <span class="shortcut-keys">
+                        <?php foreach ($keys as $k): ?><kbd><?php echo htmlspecialchars($k); ?></kbd><?php endforeach; ?>
+                    </span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <button type="button" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:20px;" onclick="closeModal('shortcutsModal')"><?php echo t('btn_close'); ?></button>
+        </div>
+    </div>
+
     <!-- Révélation du mot de passe temporaire généré par un admin (Admin Panel > Utilisateurs > Réinitialiser).
          Reste affiché jusqu'à fermeture manuelle (pas de toast auto-dismiss) pour laisser le temps de le copier. -->
     <div id="adminResetPasswordModal" class="modal" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('adminResetPasswordModal')"><div class="modal-content" style="max-width:420px;">

@@ -126,6 +126,16 @@ function applyThemePreset(name) {
 // Application la plus précoce possible (avant même Alpine) pour éviter un flash des couleurs par défaut.
 setThemeVars(localStorage.getItem('purpleMusicTheme') || 'violet');
 
+// Même logique pour l'état réduit de la barre latérale : la classe .collapsed est
+// posée par Alpine (:class), c'est-à-dire seulement après le démarrage d'Alpine.
+// Sans ce pré-marquage, une barre réduite s'affichait brièvement déployée puis se
+// repliait d'un coup à chaque chargement de page. La classe est posée sur <html>
+// (l'aside n'existe pas encore à ce stade), et la règle CSS correspondante dans
+// base.css applique la largeur réduite avant qu'Alpine ne prenne le relais.
+if (localStorage.getItem('purpleMusicSidebarCollapsed') === '1') {
+    document.documentElement.classList.add('sidebar-collapsed-preload');
+}
+
 // --- THÈME PERSONNALISÉ (constructeur dans Paramètres > Général) ---
 // Contrairement aux presets statiques ci-dessus, le thème personnalisé est un objet {varName: '#hex'}
 // stocké en localStorage (CUSTOM_THEME_STORAGE_KEY) et édité via des <input type="color"> (voir

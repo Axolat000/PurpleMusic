@@ -12,9 +12,36 @@ document.addEventListener('alpine:init', () => {
         popularTracks: [],
         playlistsPreview: [],
         recommendedTracks: [], // rempli de façon asynchrone (voir init()) -- calcul serveur, pas instantané comme les autres rangées
+        continueTracks: [],    // "Reprendre l'écoute" : dérivé de l'historique local (voir pushListenHistory())
+        hiddenGemTracks: [],   // "Pépites oubliées" : les moins écoutées, hors jamais-jouées
+        homeLoaded: false,     // passe à true quand les rangées serveur ont répondu -> retire les squelettes
         confirmState: { open: false, message: '', onConfirm: null },
-        toastState: { visible: false, message: '' },
+        toastState: { visible: false, message: '', kind: 'info' },
         toastTimer: null,
+
+        // --- BARRE LATÉRALE (desktop) : état réduit/déployé, persisté par navigateur.
+        // Lu très tôt (voir applySidebarStatePreAlpine() dans theme.js) pour que la
+        // barre ne s'affiche pas déployée avant de se replier au premier rendu Alpine.
+        sidebarCollapsed: false,
+
+        // --- RECHERCHE : historique local des termes validés (10 max, plus récent en tête).
+        // Purement navigateur : rien n'est envoyé au serveur, contrairement à ce que
+        // ferait une "recherche récente" côté compte.
+        recentSearches: [],
+
+        // --- FILTRE DE GENRE DE L'ACCUEIL : recompose les rangées sans recharger.
+        // null = aucun filtre. Distinct de hiddenGenres (Paramètres > Bibliothèque),
+        // qui masque durablement des genres partout dans l'app.
+        genrePills: [],
+        activeGenre: null,
+
+        // --- ÉTAT DE LECTURE EXPOSÉ À ALPINE ---
+        // La lecture est pilotée par des variables globales hors store (queue,
+        // currentIndex...). Ces deux miroirs existent uniquement pour que le markup
+        // puisse réagir (indicateur "en cours" sur les cartes/lignes) sans que chaque
+        // composant ait à interroger l'élément <audio>. Tenus à jour par syncPlaybackState().
+        currentTrackId: null,
+        isPlaying: false,
 
         // --- THÈME VISUEL (preset par utilisateur, stocké en localStorage) ---
         themePreset: 'violet',
@@ -80,17 +107,88 @@ document.addEventListener('alpine:init', () => {
         updateTriggerState: null, // null | 'updating' | 'error'
         updateTriggerError: '',
 
-        init() {
-            if (typeof ALL_MUSIC_DATA !== 'undefined') {
-                this.recentTracks = [...ALL_MUSIC_DATA].sort((a, b) => b.id - a.id).slice(0, 10);
-                this.popularTracks = [...ALL_MUSIC_DATA]
-                    .filter(t => (parseInt(t.play_count) || 0) > 0)
-                    .sort((a, b) => (parseInt(b.play_count) || 0) - (parseInt(a.play_count) || 0))
-                    .slice(0, 10);
-            }
+        // Recompose les rangées de l'accueil. Rappelée à chaque changement de filtre
+        // de genre : les rangées se dérivent toutes du même sous-ensemble filtré,
+        // il n'y a donc qu'un seul endroit qui décide de ce qui est visible.
+        rebuildHomeRows() {
+            if (typeof ALL_MUSIC_DATA === 'undefined') return;
+            const pool = ALL_MUSIC_DATA.filter(t => {
+                const g = t.genre || 'Autre';
+                if (typeof hiddenGenres !== 'undefined' && hiddenGenres.includes(g)) return false;
+                if (this.activeGenre !== null && g !== this.activeGenre) return false;
+                return true;
+            });
+
+            this.recentTracks = [...pool].sort((a, b) => b.id - a.id).slice(0, 12);
+            this.popularTracks = [...pool]
+                .filter(t => (parseInt(t.play_count) || 0) > 0)
+                .sort((a, b) => (parseInt(b.play_count) || 0) - (parseInt(a.play_count) || 0))
+                .slice(0, 12);
+            // Pépites : les moins écoutées PARMI celles déjà écoutées au moins une fois.
+            // Inclure les jamais-jouées ferait doublon avec "Ajouts récents" et
+            // remplirait la rangée de morceaux que personne n'a validés.
+            this.hiddenGemTracks = [...pool]
+                .filter(t => (parseInt(t.play_count) || 0) > 0)
+                .sort((a, b) => (parseInt(a.play_count) || 0) - (parseInt(b.play_count) || 0))
+                .slice(0, 12);
+            // "Reprendre l'écoute" : historique local, dédoublonné, borné aux pistes
+            // encore présentes dans la bibliothèque (une piste supprimée depuis reste
+            // dans l'historique du navigateur mais ne doit plus être proposée).
+            const byId = new Map(pool.map(t => [String(t.id), t]));
+            this.continueTracks = readListenHistory()
+                .map(id => byId.get(String(id)))
+                .filter(Boolean)
+                .slice(0, 12);
+
             if (typeof ALL_PLAYLISTS_DATA !== 'undefined') {
-                this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 10);
+                this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 12);
             }
+        },
+
+        setGenreFilter(genre) {
+            this.activeGenre = genre;
+            this.rebuildHomeRows();
+            if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
+        },
+
+        toggleSidebar() {
+            this.sidebarCollapsed = !this.sidebarCollapsed;
+            localStorage.setItem('purpleMusicSidebarCollapsed', this.sidebarCollapsed ? '1' : '0');
+        },
+
+        addRecentSearch(term) {
+            const q = (term || '').trim();
+            if (q.length < 2) return;
+            // Dédoublonnage insensible à la casse, le terme validé remonte en tête.
+            this.recentSearches = [q, ...this.recentSearches.filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 10);
+            try { localStorage.setItem('purpleMusicRecentSearches', JSON.stringify(this.recentSearches)); } catch (e) { /* quota plein : l'historique est un confort, jamais bloquant */ }
+        },
+
+        clearRecentSearches() {
+            this.recentSearches = [];
+            try { localStorage.removeItem('purpleMusicRecentSearches'); } catch (e) { /* idem */ }
+        },
+
+        init() {
+            this.sidebarCollapsed = localStorage.getItem('purpleMusicSidebarCollapsed') === '1';
+            try {
+                const rs = JSON.parse(localStorage.getItem('purpleMusicRecentSearches') || '[]');
+                if (Array.isArray(rs)) this.recentSearches = rs.filter(x => typeof x === 'string').slice(0, 10);
+            } catch (e) { /* historique corrompu : on repart d'une liste vide */ }
+
+            // Pastilles de genre : uniquement les genres réellement présents dans la
+            // bibliothèque (et non masqués), pas la liste complète configurée en admin —
+            // proposer un filtre qui ne renverrait rien n'a pas de sens.
+            if (typeof ALL_MUSIC_DATA !== 'undefined') {
+                const counts = new Map();
+                ALL_MUSIC_DATA.forEach(t => {
+                    const g = t.genre || 'Autre';
+                    if (typeof hiddenGenres !== 'undefined' && hiddenGenres.includes(g)) return;
+                    counts.set(g, (counts.get(g) || 0) + 1);
+                });
+                this.genrePills = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+            }
+            this.rebuildHomeRows();
             // recentTracks/popularTracks/playlistsPreview rendus par le x-for ci-dessus : mesurables une
             // fois la micro-tâche Alpine passée (voir refreshHomeRowMarquees() dans ui-modals.js).
             if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
@@ -102,7 +200,12 @@ document.addEventListener('alpine:init', () => {
                 // Rangée conditionnée par x-if="recommendedTracks.length > 0" : n'existe dans le DOM
                 // qu'une fois cette affectation faite, donc la mesure doit attendre ce même tick.
                 if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
-            }).catch(e => console.error(e));
+            }).catch(e => console.error(e)).finally(() => {
+                // Retire les squelettes que la requête ait abouti ou non : en cas d'échec
+                // réseau, laisser des squelettes pulser indéfiniment ferait croire à un
+                // chargement toujours en cours.
+                this.homeLoaded = true;
+            });
             // Classement complet (pas juste le top 20 ci-dessus) : alimente le mode de tri 'recommended',
             // par défaut sur la bibliothèque -- arrive après le premier rendu, donc on retrie une fois prêt
             // si l'utilisateur est toujours sur ce tri (voir compareTracksBySort()/filterAndSortTracks()).
@@ -227,9 +330,15 @@ document.addEventListener('alpine:init', () => {
             this.confirmState = { open: false, message: '', onConfirm: null };
         },
 
-        showToast(message, duration = 3000) {
+        // kind : 'info' (défaut) | 'success' | 'error' — porté par un liseré coloré à
+        // gauche du toast (voir .toast-typed dans css/ui.css) plutôt que par la seule
+        // couleur du texte, pour rester lisible sans distinction de couleur.
+        showToast(message, kind = 'info', duration = 3000) {
+            // Rétrocompat : showToast(msg, 5000) était appelé avec une durée en 2e
+            // argument avant l'introduction des types.
+            if (typeof kind === 'number') { duration = kind; kind = 'info'; }
             clearTimeout(this.toastTimer);
-            this.toastState = { visible: true, message };
+            this.toastState = { visible: true, message, kind };
             this.toastTimer = setTimeout(() => { this.toastState.visible = false; }, duration);
         }
     });

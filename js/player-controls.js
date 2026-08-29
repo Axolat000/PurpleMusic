@@ -445,9 +445,28 @@ function escapeHTML(str) {
 }
 
 let searchTimeout;
+let recentSearchTimeout;
 function onSearchInput() {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(filterAndSortTracks, 250);
+    searchTimeout = setTimeout(() => {
+        // La recherche est désormais globale (barre supérieure permanente) : taper
+        // depuis Playlists, une page artiste ou l'admin doit montrer les résultats,
+        // pas filtrer en silence un écran qu'on ne regarde pas.
+        const term = window.Alpine ? Alpine.store('ui').searchTerm : '';
+        if (term.trim() !== '' && typeof currentSection !== 'undefined' && currentSection !== 'accueil') {
+            showSection('accueil');
+        }
+        filterAndSortTracks();
+        if (typeof renderSearchResults === 'function') renderSearchResults();
+    }, 250);
+
+    // Historique des recherches : enregistré seulement après une vraie pause de
+    // frappe (1,2 s), sinon chaque préfixe intermédiaire ("d", "dr", "dra"...)
+    // se retrouverait dans les recherches récentes.
+    clearTimeout(recentSearchTimeout);
+    recentSearchTimeout = setTimeout(() => {
+        if (window.Alpine) Alpine.store('ui').addRecentSearch(Alpine.store('ui').searchTerm);
+    }, 1200);
 }
 
 function updateUrl() {

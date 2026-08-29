@@ -222,29 +222,110 @@ function backToDesktopPlayer() {
 // Construit le rendu de la file d'attente dans un conteneur donné. Extrait de updateQueueUI() pour être
 // réutilisable : la file existe maintenant dans 2 endroits du DOM (#queue-list, panneau latéral existant ;
 // #dp-queue-list, carte "file d'attente" du carrousel #desktop-player) qui doivent rester synchronisés.
+// File d'attente : liste manipulable (réordonnancement par glisser-déposer,
+// retrait d'une piste), et non plus une simple liste consultable.
+//
+// Structurée en trois blocs — déjà joué / en cours / à suivre — plutôt qu'une
+// suite plate où seule une pastille distinguait la piste courante : on voit d'un
+// coup d'œil ce qui reste à venir.
 function renderQueueListInto(container) {
     if (!container) return;
     container.innerHTML = '';
-    if(queue.length === 0) {
-        container.innerHTML = `<p style="color:#666;">${T('queue_empty')}</p>`;
+    if (queue.length === 0) {
+        container.innerHTML = typeof emptyStateHTML === 'function'
+            ? emptyStateHTML('ico-queue', T('empty_queue_title'), T('empty_queue_hint'))
+            : `<p style="color:var(--text-muted);">${T('queue_empty')}</p>`;
         return;
     }
+
+    const addLabel = (text, extraClass = '') => {
+        const p = document.createElement('p');
+        p.className = 'queue-group-label ' + extraClass;
+        p.textContent = text;
+        container.appendChild(p);
+    };
+
+    if (currentIndex > 0) addLabel(T('queue_history'));
+
     queue.forEach((track, index) => {
-        const safeTitle = escapeHTML(track.title);
-        const safeArtist = escapeHTML(track.artist);
-        const safeCover = escapeHTML(track.cover);
+        if (index === currentIndex) addLabel(T('queue_now_playing'), 'queue-group-current');
+        if (index === currentIndex + 1) addLabel(T('queue_up_next'));
+
+        const isCurrent = index === currentIndex;
+        const isPast = index < currentIndex;
+
         const div = document.createElement('div');
-        div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
+        div.className = 'queue-item' + (isCurrent ? ' active' : '') + (isPast ? ' past' : '');
+        // Seules les pistes à venir se réordonnent : déplacer un morceau déjà joué
+        // ou celui en cours n'a pas de sens et compliquerait le suivi de currentIndex.
+        div.draggable = !isCurrent && !isPast;
+        div.dataset.index = String(index);
+
         div.innerHTML = `
-            <img src="covers/${safeCover}" loading="lazy" style="width:36px; height:36px; border-radius:8px; object-fit:cover;">
-            <div style="flex:1; overflow:hidden;">
-                <div style="font-size:0.9em; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeTitle}</div>
-                <div style="font-size:0.75em; color:#888;">${safeArtist}</div>
+            <span class="queue-drag-handle" aria-hidden="true">
+                <svg class="ico ico-sm"><use href="#ico-drag"></use></svg>
+            </span>
+            <img src="covers/${escapeHTML(track.cover)}" loading="lazy" alt="" class="queue-item-cover" onerror="this.src='covers/default.png'">
+            <div class="queue-item-body">
+                <div class="queue-item-title">${escapeHTML(track.title)}</div>
+                <div class="queue-item-artist">${escapeHTML(track.artist)}</div>
             </div>
-            ${index === currentIndex ? '<span style="color:var(--accent); font-size:1.5em;">•</span>' : ''}
+            ${isCurrent ? '<span class="now-playing-bars"><span></span><span></span><span></span></span>' : ''}
+            ${isCurrent ? '' : `<button type="button" class="queue-item-remove" aria-label="${escapeHTML(T('queue_remove'))}" title="${escapeHTML(T('queue_remove'))}">
+                <svg class="ico ico-sm"><use href="#ico-close"></use></svg>
+            </button>`}
         `;
+
         div.onclick = () => { currentIndex = index; loadTrack(true); };
+        const removeBtn = div.querySelector('.queue-item-remove');
+        if (removeBtn) {
+            removeBtn.onclick = (e) => {
+                // Sans cette coupure, le clic remonterait au conteneur et lancerait
+                // la piste qu'on vient de demander à retirer.
+                e.stopPropagation();
+                removeFromQueue(index);
+            };
+        }
         container.appendChild(div);
+    });
+
+    attachQueueDragHandlers(container);
+}
+
+// Glisser-déposer HTML5 natif (pas de bibliothèque tierce) : l'app n'a aucune
+// dépendance JS hors Alpine, en ajouter une pour un seul écran serait
+// disproportionné.
+function attachQueueDragHandlers(container) {
+    let dragFrom = null;
+
+    container.querySelectorAll('.queue-item[draggable="true"]').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            dragFrom = parseInt(item.dataset.index, 10);
+            item.classList.add('dragging');
+            // Firefox n'amorce pas de glisser sans données transférées.
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(dragFrom));
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        item.addEventListener('dragover', (e) => {
+            // preventDefault est obligatoire : sans lui l'élément refuse le dépôt.
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (!item.classList.contains('dragging')) item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            const to = parseInt(item.dataset.index, 10);
+            if (dragFrom === null || Number.isNaN(to)) return;
+            moveQueueItem(dragFrom, to);
+            dragFrom = null;
+            if (window.Alpine) Alpine.store('ui').showToast(T('toast_queue_reordered'), 'success');
+        });
     });
 }
 

@@ -149,9 +149,19 @@ function loadTrack(autoPlay = true) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: track.title,
             artist: track.artist || 'Purple Music',
-            artwork: [{ src: 'covers/' + (track.cover || 'default.png'), sizes: '96x96', type: 'image/png' }]
+            album: track.album || '',
+            // Plusieurs tailles : Android/Windows choisissent la plus proche de leur
+            // besoin. Une seule entrée 96x96 donnait une vignette floue sur l'écran
+            // verrouillé et dans le panneau média de Chrome.
+            artwork: [96, 128, 192, 256, 384, 512].map(px => ({
+                src: 'covers/' + (track.cover || 'default.png'),
+                sizes: `${px}x${px}`,
+                type: 'image/png'
+            }))
         });
+        setupMediaSessionHandlers();
     }
+    pushListenHistory(track.id);
     updateUrl();
     applyDynamicThemeForCurrentTrack();
     applyAppDynamicThemeForCurrentTrack();
@@ -174,9 +184,49 @@ function loadTrack(autoPlay = true) {
         if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
     }
     updateQueueUI();
+    syncPlaybackState();
+}
+
+// Contrôles média du système (écran verrouillé, panneau média du navigateur,
+// touches multimédia du clavier, boutons d'un casque Bluetooth).
+//
+// Seules les métadonnées étaient renseignées jusqu'ici : le titre s'affichait bien
+// sur l'écran verrouillé mais les boutons Lecture/Suivant n'y faisaient rien, car
+// aucun gestionnaire d'action n'était déclaré. Posé une seule fois (les
+// gestionnaires survivent aux changements de piste) plutôt qu'à chaque loadTrack().
+let _mediaSessionReady = false;
+function setupMediaSessionHandlers() {
+    if (_mediaSessionReady || !('mediaSession' in navigator)) return;
+    _mediaSessionReady = true;
+    const set = (action, handler) => {
+        // Un navigateur qui ne connaît pas une action lève NotSupportedError :
+        // chaque déclaration est isolée pour qu'un manque n'annule pas les autres.
+        try { navigator.mediaSession.setActionHandler(action, handler); } catch (e) { /* action non supportée */ }
+    };
+    set('play', () => { if (audio.paused) togglePlay(); });
+    set('pause', () => { if (!audio.paused) togglePlay(); });
+    set('previoustrack', prevTrack);
+    set('nexttrack', nextTrack);
+    set('seekbackward', (d) => { audio.currentTime = Math.max(0, audio.currentTime - (d.seekOffset || 10)); });
+    set('seekforward', (d) => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + (d.seekOffset || 10)); });
+    set('seekto', (d) => { if (d.fastSeek && 'fastSeek' in audio) audio.fastSeek(d.seekTime); else audio.currentTime = d.seekTime; });
+    set('stop', () => { audio.pause(); audio.currentTime = 0; });
 }
 
 if (audio) {
+    // L'état "en cours de lecture" alimente l'indicateur des cartes/lignes : il doit
+    // suivre TOUTES les origines de changement (bouton de l'app, contrôles système,
+    // fin de piste, coupure réseau), pas seulement togglePlay().
+    //
+    // Appel indirect (et non `addEventListener('play', syncPlaybackState)`) : ce bloc
+    // s'exécute à l'évaluation de playback.js, alors que syncPlaybackState est
+    // déclarée dans discovery.js, chargé APRÈS — passer la référence directement
+    // lèverait un ReferenceError ici. L'enveloppe ne résout le nom qu'au moment où
+    // l'événement se produit, quand tous les fichiers sont chargés.
+    audio.addEventListener('play', () => syncPlaybackState());
+    audio.addEventListener('pause', () => syncPlaybackState());
+    audio.addEventListener('ended', () => syncPlaybackState());
+
     audio.onloadedmetadata = () => {
         const t = formatTime(audio.duration);
         document.getElementById('total-time').innerText = t;

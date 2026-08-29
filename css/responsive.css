@@ -63,15 +63,36 @@
 .auth-terms-check a, .auth-terms-footer a { color: var(--accent); }
 .auth-terms-footer { text-align: center; color: var(--text-muted); font-size: 0.78em; margin: 18px 0 0; line-height: 1.5; }
 
+/* --- Palier intermédiaire : la barre latérale disparaît avant le reste --------
+   À 900px elle mange déjà un quart de la largeur utile alors que le contenu
+   (rangées de pochettes, grilles) a besoin de place ; la navigation repasse par
+   l'en-tête + la barre d'onglets du bas, comme sur mobile. Séparé du palier 768px
+   qui, lui, réorganise le lecteur et les panneaux. */
+@media (max-width: 900px) {
+    #app-sidebar { display: none; }
+    .app-main, .app-shell:has(#app-sidebar.collapsed) .app-main { margin-left: 0; }
+    .mobile-header {
+        display: flex; align-items: center; justify-content: space-between;
+        height: 56px; padding: 0 var(--space-5);
+        background: var(--header-bg); backdrop-filter: blur(15px);
+        border-bottom: 1px solid var(--hairline);
+        position: sticky; top: 0; z-index: 210;
+    }
+    .mobile-header .logo { font-weight: var(--weight-black); font-size: var(--text-md); color: var(--accent); letter-spacing: var(--tracking-tight); }
+    .mobile-settings-btn { background: none; border: none; padding: var(--space-2); cursor: pointer; color: var(--text-muted); display: flex; }
+    /* La barre supérieure se cale sous l'en-tête mobile, qui est lui-même collant. */
+    #app-topbar { top: 56px; padding: 0 var(--space-5); gap: var(--space-3); height: 60px; }
+    .topbar-search { max-width: none; }
+    .app-content { padding: var(--space-5); }
+}
+
 @media (max-width: 768px) {
     body { padding-bottom: 240px; }
-    header { display: flex; justify-content: center; align-items: center; height: 60px; padding: 10px 20px; position: relative; }
-    nav, .header-actions { display: none; }
-    .mobile-settings-btn { display: block; position: absolute; right: 20px; background: none; border: none; padding: 5px; cursor: pointer; }
-    .mobile-settings-btn svg { width: 24px; height: 24px; fill: #a196b4; }
-    main { padding: 20px; width: 100%; box-sizing: border-box; }
-    .search-row { gap: 10px; }
-    .search-input { padding: 0 20px; font-size: 0.95em; height: 50px; line-height: 48px; }
+    main { width: 100%; box-sizing: border-box; }
+    /* Le tri prend trop de place à côté de la recherche sur un écran étroit :
+       il reste accessible via le menu de tri de la bibliothèque. */
+    .topbar-sort { display: none !important; }
+    .entity-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-4); }
     .track-item { padding: 12px 10px; gap: 12px; }
     #player-bar { width: calc(100% - 20px); max-width: 100%; bottom: 80px; left: 50%; transform: translateX(-50%); border-radius: 16px; flex-direction: column; padding: 12px 15px; box-sizing: border-box; height: auto; background: var(--player-bg); border: 1px solid rgba(255,255,255,0.08); }
     .player-info { width: 100%; justify-content: flex-start; margin-bottom: 5px; }

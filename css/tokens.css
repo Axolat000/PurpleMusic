@@ -1,0 +1,159 @@
+/* =============================================================================
+   TOKENS — socle du système de design
+   =============================================================================
+   Chargé AVANT base.css (voir $appStyles dans index.php) : ce fichier ne définit
+   que des variables, jamais de règles visuelles, donc son ordre dans la cascade
+   n'a aucun effet de bord — il rend juste les tokens disponibles à tous les
+   fichiers suivants.
+
+   Ne contient PAS les couleurs de thème (--primary, --accent, --bg-*...) : celles-ci
+   restent pilotées par la BDD (bloc <style> inline d'index.php) et surchargées par
+   les presets utilisateur (js/theme.js). Ici on ne trouve que ce qui ne dépend
+   d'aucun thème : espacement, typographie, élévation, mouvement.
+   ========================================================================== */
+
+:root {
+    /* --- ESPACEMENT ---------------------------------------------------------
+       Échelle 4px, non linéaire au-delà de space-6 (les grands écarts servent à
+       séparer des blocs entiers, pas à ajuster finement). Avant : des marges au
+       pixel près (20px, 35px 0 25px, -12px...) éparpillées en style="" dans les
+       templates, impossibles à harmoniser. */
+    --space-0: 0;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+
+    /* --- TYPOGRAPHIE --------------------------------------------------------
+       En rem (pas en em) : un em se compose avec la taille du parent, ce qui
+       faisait dériver les tailles selon la profondeur d'imbrication — deux
+       ".home-row-title" pouvaient rendre différemment selon leur conteneur. */
+    --text-2xs: 0.6875rem;  /* 11px — badges, compteurs */
+    --text-xs: 0.75rem;     /* 12px — légendes, méta */
+    --text-sm: 0.8125rem;   /* 13px — sous-titres de carte */
+    --text-base: 0.9375rem; /* 15px — texte courant */
+    --text-md: 1.0625rem;   /* 17px — titres de carte, libellés forts */
+    --text-lg: 1.25rem;     /* 20px — titres de rangée */
+    --text-xl: 1.5rem;      /* 24px — titres de section */
+    --text-2xl: 2rem;       /* 32px — titre de page/entité */
+    --text-3xl: 2.75rem;    /* 44px — hero (page artiste/album) */
+
+    --weight-normal: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+    --weight-black: 800;
+
+    --leading-tight: 1.15;
+    --leading-snug: 1.35;
+    --leading-normal: 1.55;
+    --leading-loose: 1.75;
+
+    /* Interlettrage : négatif sur les grandes tailles (les grandes graisses
+       paraissent trop aérées sans ça), positif sur les micro-libellés en capitales. */
+    --tracking-tight: -0.02em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.04em;
+    --tracking-caps: 0.08em;
+
+    --font-sans: 'Segoe UI', system-ui, -apple-system, 'Inter', Roboto, sans-serif;
+    /* Chiffres alignés pour tout ce qui se lit en colonne ou change en place
+       (durées, compteurs, gains d'égaliseur) : sans ça la largeur variable des
+       chiffres fait "sauter" le texte à chaque seconde écoulée. */
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+
+    /* --- RAYONS -------------------------------------------------------------
+       --radius-sm/md/lg/full existaient déjà dans base.css ; repris ici pour
+       centraliser, plus deux intermédiaires (xs/xl) qui étaient jusque-là écrits
+       en dur (10px, 12px, 14px, 18px, 20px, 28px selon les composants). */
+    --radius-xs: 6px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    --radius-2xl: 28px;
+    --radius-full: 9999px;
+
+    /* --- ÉLÉVATION ----------------------------------------------------------
+       3 niveaux nommés au lieu d'ombres ad hoc légèrement différentes à chaque
+       composant (0 15px 50px /.6, 0 25px 80px /.5, 0 10px 30px /.2, 0 4px 10px /.3...).
+       Chaque niveau combine un contact net (petite ombre courte) et une diffusion
+       large — une seule ombre large donne un rendu "flou détaché" du fond. */
+    --elev-1: 0 1px 2px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.22);
+    --elev-2: 0 2px 6px rgba(0, 0, 0, 0.32), 0 10px 28px rgba(0, 0, 0, 0.34);
+    --elev-3: 0 4px 12px rgba(0, 0, 0, 0.38), 0 24px 64px rgba(0, 0, 0, 0.46);
+    /* Halo coloré, réservé aux éléments réellement actifs (bouton primaire, piste
+       en cours) — jamais décoratif. */
+    --elev-glow: 0 4px 20px color-mix(in srgb, var(--primary) 38%, transparent);
+
+    /* --- MOUVEMENT ----------------------------------------------------------
+       Deux courbes seulement : "out" pour tout ce qui apparaît/se déplace,
+       "spring" (léger dépassement) réservé aux entrées de modale/pop-in. */
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --dur-instant: 0.12s;
+    --dur-fast: 0.18s;
+    --dur-base: 0.25s;
+    --dur-slow: 0.4s;
+
+    /* --- COULEURS HORS THÈME -----------------------------------------------
+       "Signal" : accent chaud cuivré, volontairement en dehors de la famille
+       violette du thème. Sert uniquement aux marqueurs d'état "vivant" (piste en
+       cours de lecture, VU-mètre, badge admin) — c'est la signature visuelle qui
+       distingue Purple Music des clones tout-violet ou tout-vert. Fixe : ne suit
+       pas les presets, sinon il se fondrait dans le thème et perdrait sa fonction. */
+    --signal: #e0913f;
+    --signal-dim: rgba(224, 145, 63, 0.16);
+
+    /* Surfaces neutres dérivées du fond de thème plutôt que codées en dur
+       (#1e162e, #140f1f, #2d2444 étaient répétés dans une dizaine de règles et
+       ne suivaient donc AUCUN changement de preset). */
+    --surface-raised: color-mix(in srgb, var(--bg-panel) 88%, #fff 4%);
+    --surface-sunken: color-mix(in srgb, var(--bg-dark) 82%, #000 18%);
+    --surface-overlay: color-mix(in srgb, var(--bg-panel) 92%, #fff 6%);
+    --hairline: color-mix(in srgb, var(--border-color) 60%, transparent);
+
+    /* --- LAYOUT -------------------------------------------------------------
+       Largeurs de chrome réutilisées par plusieurs fichiers (base/responsive). */
+    --sidebar-w: 232px;
+    --sidebar-w-collapsed: 72px;
+    --topbar-h: 68px;
+    --content-max: 1180px;
+}
+
+/* Repli pour les navigateurs sans color-mix() (Safari < 16.2, Firefox < 113) :
+   les surfaces ci-dessus seraient invalides et l'élément n'aurait plus AUCUN fond.
+   Valeurs figées équivalentes au thème violet par défaut. */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+    :root {
+        --surface-raised: #241b33;
+        --surface-sunken: #0b0916;
+        --surface-overlay: #261d38;
+        --hairline: rgba(61, 43, 86, 0.6);
+        --elev-glow: 0 4px 20px rgba(142, 68, 173, 0.38);
+    }
+}
+
+/* Accessibilité : coupe les animations non essentielles. Les transitions de
+   couleur/opacité restent (elles ne provoquent pas de gêne vestibulaire), mais
+   tout ce qui bouge réellement — marquee, slide de panneau, pop-in — est neutralisé. */
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --dur-instant: 0.01ms;
+        --dur-fast: 0.01ms;
+        --dur-base: 0.01ms;
+        --dur-slow: 0.01ms;
+    }
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

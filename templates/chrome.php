@@ -264,6 +264,11 @@
         </div>
     </div>
 
-    <div id="toast" x-show="$store.ui.toastState.visible" x-transition.opacity.duration.200ms x-cloak x-text="$store.ui.toastState.message"
-         style="position:fixed; bottom:110px; left:50%; transform:translateX(-50%); background:#1e162e; color:#fff; padding:14px 26px; border-radius:14px; border:1px solid var(--border-color); box-shadow:0 15px 40px rgba(0,0,0,0.5); z-index:6000; font-size:0.9em; font-weight:600; max-width:90%; text-align:center;">
-    </div>
+    <!-- role="status" + aria-live : un lecteur d'écran annonce le message sans
+         voler le focus (contrairement à role="alert", trop intrusif pour une
+         confirmation d'action). -->
+    <div id="toast" role="status" aria-live="polite"
+         class="toast-typed"
+         :class="'toast-' + $store.ui.toastState.kind"
+         x-show="$store.ui.toastState.visible" x-transition.opacity.duration.200ms x-cloak
+         x-text="$store.ui.toastState.message"></div>
