@@ -107,7 +107,12 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focu
 .song-select-item:hover { background: var(--tint-1); }
 .song-select-item.selected { background: rgba(142, 68, 173, 0.2); }
 
-#full-player { position: fixed; top: 100%; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at top right, var(--fp-gradient-1), var(--fp-gradient-2)); z-index: 5000; transition: top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; padding: 30px; box-sizing: border-box; color: var(--player-fg); justify-content: space-between; }
+/* overflow:hidden OBLIGATOIRE : le fond d'ambiance (.fp-ambient) est agrandi en
+   scale(1.25) puis flouté sur 52px, il déborde donc largement de son conteneur.
+   Sans clipping, ce halo sortait du lecteur — pourtant fermé, à top:100% juste
+   sous le viewport — et remontait par-dessus le bas de la page en z-index 5000 :
+   une large tache colorée sur les dernières rangées et la barre de lecture. */
+#full-player { position: fixed; top: 100%; left: 0; width: 100%; height: 100%; overflow: hidden; background: radial-gradient(circle at top right, var(--fp-gradient-1), var(--fp-gradient-2)); z-index: 5000; transition: top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; padding: 30px; box-sizing: border-box; color: var(--player-fg); justify-content: space-between; }
 #full-player.active { top: 0; }
 .fp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .fp-btn { background: none; border: none; cursor: pointer; padding: 10px; border-radius:50%; }
