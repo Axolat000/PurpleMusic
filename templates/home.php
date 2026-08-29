@@ -170,6 +170,10 @@ function home_row(string $storeKey, string $title, string $keyPrefix, ?string $s
                             <svg class="ico" aria-hidden="true"><use href="#ico-shuffle"></use></svg>
                             <?php echo t('entity_shuffle'); ?>
                         </button>
+                        <button type="button" class="btn btn-outline" onclick="startEntityRadio()">
+                            <svg class="ico" aria-hidden="true"><use href="#ico-cast"></use></svg>
+                            <?php echo t('entity_radio'); ?>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -199,6 +203,10 @@ function home_row(string $storeKey, string $title, string $keyPrefix, ?string $s
                         <button type="button" class="btn btn-outline" onclick="playEntityAll(true)">
                             <svg class="ico" aria-hidden="true"><use href="#ico-shuffle"></use></svg>
                             <?php echo t('entity_shuffle'); ?>
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="startEntityRadio()">
+                            <svg class="ico" aria-hidden="true"><use href="#ico-cast"></use></svg>
+                            <?php echo t('entity_radio'); ?>
                         </button>
                     </div>
                 </div>

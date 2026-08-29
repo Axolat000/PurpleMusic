@@ -406,6 +406,124 @@ function playEntityAll(shuffled) {
 }
 
 // -----------------------------------------------------------------------------
+// RADIO — file générée autour d'un morceau
+// -----------------------------------------------------------------------------
+// Entièrement côté client : ALL_MUSIC_DATA est déjà chargé, un aller-retour
+// serveur n'apporterait rien de plus qu'un tri que le navigateur sait faire.
+//
+// Trois cercles concentriques autour du morceau de départ, du plus proche au
+// plus lointain : même artiste, même genre, puis le reste de la bibliothèque.
+const RADIO_MAX = 50;
+// Au-delà de 2 titres consécutifs du même artiste, ça ne s'entend plus comme une
+// radio mais comme la discographie d'un artiste jouée d'affilée.
+const RADIO_MAX_CONSECUTIVE_SAME_ARTIST = 2;
+
+function buildRadioQueue(seed) {
+    if (typeof ALL_MUSIC_DATA === 'undefined' || !seed) return [];
+
+    const seedArtists = new Set(splitArtistNames(seed.artist).map(n => n.toLowerCase()));
+    const seedGenre = (seed.genre || 'Autre').toLowerCase();
+
+    const pool = ALL_MUSIC_DATA.filter(t =>
+        t.id !== seed.id && !hiddenGenres.includes(t.genre || 'Autre'));
+
+    const sameArtist = [];
+    const sameGenre = [];
+    const rest = [];
+    pool.forEach(t => {
+        const artists = splitArtistNames(t.artist).map(n => n.toLowerCase());
+        if (artists.some(a => seedArtists.has(a))) sameArtist.push(t);
+        else if ((t.genre || 'Autre').toLowerCase() === seedGenre) sameGenre.push(t);
+        else rest.push(t);
+    });
+
+    // Chaque cercle est mélangé : sans ça, une radio relancée sur le même morceau
+    // rejouerait exactement la même liste dans le même ordre.
+    shuffleArray(sameArtist);
+    shuffleArray(sameGenre);
+    // Le cercle extérieur est le plus large : on le biaise vers les titres déjà
+    // écoutés par d'autres, plutôt que de piocher uniformément dans tout le fonds.
+    rest.sort((a, b) => (parseInt(b.play_count) || 0) - (parseInt(a.play_count) || 0));
+    const restTop = rest.slice(0, 60);
+    shuffleArray(restTop);
+
+    // Proportions : la radio reste ancrée sur l'artiste de départ sans s'y
+    // enfermer, et s'ouvre progressivement.
+    const picked = [
+        ...sameArtist.slice(0, 8),
+        ...sameGenre.slice(0, 25),
+        ...restTop.slice(0, 20),
+    ];
+    shuffleArray(picked);
+
+    // Dernier passage : on écarte les répétitions d'artiste. Un titre qui
+    // dépasserait la limite est repoussé plus loin plutôt que supprimé.
+    const out = [seed];
+    const deferred = [];
+    const consecutiveOf = (list) => {
+        const last = list[list.length - 1];
+        return last ? splitArtistNames(last.artist).map(n => n.toLowerCase()) : [];
+    };
+    let streak = 1;
+    for (const t of picked) {
+        const artists = splitArtistNames(t.artist).map(n => n.toLowerCase());
+        const prev = consecutiveOf(out);
+        const sameAsPrev = artists.some(a => prev.includes(a));
+        if (sameAsPrev && streak >= RADIO_MAX_CONSECUTIVE_SAME_ARTIST) {
+            deferred.push(t);
+            continue;
+        }
+        streak = sameAsPrev ? streak + 1 : 1;
+        out.push(t);
+        if (out.length >= RADIO_MAX) break;
+    }
+    // Les titres repoussés complètent la fin si la file est encore courte.
+    for (const t of deferred) {
+        if (out.length >= RADIO_MAX) break;
+        out.push(t);
+    }
+    return out;
+}
+
+// Radio depuis une page Artiste/Album : le point de départ est le titre le plus
+// écouté de l'entité, plus représentatif qu'une piste prise au hasard.
+function startEntityRadio() {
+    if (!window.Alpine) return;
+    const isAlbum = Alpine.store('ui').section === 'album-page';
+    const source = isAlbum
+        ? ALL_MUSIC_DATA.filter(t => (t.album || '').trim().toLowerCase() === (currentAlbumName || '').trim().toLowerCase())
+        : ALL_MUSIC_DATA.filter(t => splitArtistNames(t.artist).some(n => n.toLowerCase() === (currentArtistName || '').trim().toLowerCase()));
+    const tracks = source.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+    if (!tracks.length) {
+        Alpine.store('ui').showToast(T('toast_no_music'), 'error');
+        return;
+    }
+    const seed = tracks.reduce((best, t) =>
+        (parseInt(t.play_count) || 0) > (parseInt(best.play_count) || 0) ? t : best, tracks[0]);
+    startRadio(seed.id);
+}
+
+function startRadio(seedTrackId) {
+    const seed = findTrackById(seedTrackId);
+    if (!seed) return;
+    const radio = buildRadioQueue(seed);
+    if (radio.length <= 1) {
+        // Bibliothèque trop petite pour une radio : on lit simplement le morceau
+        // plutôt que d'annoncer une radio d'un seul titre.
+        playTrackById(seedTrackId);
+        return;
+    }
+    // currentPlaylistId à null : la radio n'est pas une playlist enregistrée, et
+    // le laisser pointer sur une playlist ferait diverger la file de son contexte.
+    currentPlaylistId = null;
+    originalQueue = [...radio];
+    queue = [...radio];
+    currentIndex = 0;
+    loadTrack(true);
+    if (window.Alpine) Alpine.store('ui').showToast(T('radio_started', { name: seed.title }), 'success');
+}
+
+// -----------------------------------------------------------------------------
 // OPÉRATIONS SUR LA FILE D'ATTENTE
 // -----------------------------------------------------------------------------
 function findTrackById(id) {
@@ -522,6 +640,7 @@ function openTrackContextMenu(event, trackId) {
         { icon: 'ico-play', label: T('ctx_play'), action: () => playTrackById(t.id) },
         { icon: 'ico-play-next', label: T('ctx_play_next'), action: () => playNextInQueue(t.id) },
         { icon: 'ico-queue-add', label: T('ctx_add_queue'), action: () => addToQueue(t.id) },
+        { icon: 'ico-cast', label: T('ctx_start_radio'), action: () => startRadio(t.id) },
         { separator: true },
         { icon: 'ico-artist', label: T('ctx_go_artist'), action: () => showArtistPage(splitArtistNames(t.artist)[0] || t.artist) },
     ];

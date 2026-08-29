@@ -36,6 +36,10 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Paramètres',
         'btn_logout' => 'Sortir',
+        // --- Radio ---
+        'ctx_start_radio' => 'Démarrer une radio',
+        'radio_started' => 'Radio lancée à partir de « {name} »',
+        'entity_radio' => 'Radio',
         // --- Gestion des genres (Panel Admin) ---
         'admin_genre_rename' => 'Renommer',
         'admin_genre_merge' => 'Fusionner',
@@ -392,6 +396,10 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Settings',
         'btn_logout' => 'Log Out',
+        // --- Radio ---
+        'ctx_start_radio' => 'Start radio',
+        'radio_started' => 'Radio started from “{name}”',
+        'entity_radio' => 'Radio',
         // --- Gestion des genres (Panel Admin) ---
         'admin_genre_rename' => 'Rename',
         'admin_genre_merge' => 'Merge',
@@ -733,6 +741,10 @@ $I18N = [
         'btn_upload' => 'Subir',
         'btn_settings' => 'Ajustes',
         'btn_logout' => 'Salir',
+        // --- Radio ---
+        'ctx_start_radio' => 'Iniciar radio',
+        'radio_started' => 'Radio iniciada desde «{name}»',
+        'entity_radio' => 'Radio',
         // --- Gestion des genres (Panel Admin) ---
         'admin_genre_rename' => 'Renombrar',
         'admin_genre_merge' => 'Fusionar',
@@ -1074,6 +1086,10 @@ $I18N = [
         'btn_upload' => 'Hochladen',
         'btn_settings' => 'Einstellungen',
         'btn_logout' => 'Abmelden',
+        // --- Radio ---
+        'ctx_start_radio' => 'Radio starten',
+        'radio_started' => 'Radio gestartet ab „{name}“',
+        'entity_radio' => 'Radio',
         // --- Gestion des genres (Panel Admin) ---
         'admin_genre_rename' => 'Umbenennen',
         'admin_genre_merge' => 'Zusammenführen',
@@ -1447,6 +1463,9 @@ const I18N_CLIENT_KEYS = [
     'loading_bio',
     'no_bio_available',
     'wikipedia_link',
+    'ctx_start_radio',
+    'radio_started',
+    'entity_radio',
     'admin_genre_rename_prompt',
     'admin_genre_merge_prompt',
     'admin_genre_merge_none',
