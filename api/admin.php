@@ -48,7 +48,11 @@ switch ($action) {
             if (in_array($ext, ['png', 'jpg', 'jpeg'])) move_uploaded_file($_FILES['adm_default_cover']['tmp_name'], $coverDir . '/default.png');
         }
         if (!empty($_POST['adm_new_genre'])) {
-            $db->prepare("INSERT OR IGNORE INTO genres (name) VALUES (?)")->execute([trim($_POST['adm_new_genre'])]);
+            // register_genre() plutôt qu'un INSERT direct : il découpe sur les
+            // séparateurs et dédoublonne. Sans lui, saisir "OST / Jeu vidéo" ici
+            // créait UNE entrée que l'app éclatait ensuite en deux à l'affichage —
+            // un genre impossible à retrouver tel quel dans les filtres.
+            register_genre($db, $_POST['adm_new_genre']);
         }
         echo json_encode(['status' => 'success']);
         break;
