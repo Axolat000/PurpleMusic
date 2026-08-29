@@ -236,6 +236,11 @@ if (audio) {
         if (dpTotalTime) dpTotalTime.innerText = t;
     };
     audio.ontimeupdate = () => {
+        // Pendant un glissement sur la barre, c'est le curseur qui pilote
+        // l'affichage : laisser la lecture réécrire la largeur ferait revenir la
+        // barre à la position réelle entre deux mouvements, donc clignoter.
+        // Voir attachSeekHandlers() plus bas.
+        if (scrubbing) return;
         const pct = (audio.currentTime / audio.duration) * 100;
         progressBar.style.width = (pct || 0) + "%";
         document.getElementById('curr-time').innerText = formatTime(audio.currentTime);
@@ -369,26 +374,78 @@ function shuffleArray(arr) {
     return arr;
 }
 
-if (progressArea) {
-    progressArea.onclick = (e) => {
-        const rect = progressArea.getBoundingClientRect();
-        audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+// --- BARRE DE PROGRESSION : clic ET glissement ------------------------------
+// Le comportement précédent était un simple clic-pour-sauter : maintenir le
+// bouton et faire glisser ne suivait pas le curseur, il fallait recliquer pour
+// ajuster. On ajoute un vrai scrub continu, avec aperçu en direct.
+//
+// Pendant le glissement, `scrubbing` empêche audio.ontimeupdate de réécrire la
+// largeur de la barre : sans ce verrou, la barre repartait à la position réelle
+// de lecture entre deux mouvements de souris et clignotait.
+let scrubbing = false;
+
+function attachSeekHandlers(areaEl, barEl, timeLabelId) {
+    if (!areaEl) return;
+
+    const ratioFromEvent = (e) => {
+        const rect = areaEl.getBoundingClientRect();
+        // clientX est borné aux limites de la barre : glisser au-delà de ses
+        // extrémités doit saturer à 0% / 100%, pas produire une valeur négative
+        // ou supérieure à la durée (ce qui ferait échouer l'affectation).
+        const x = Math.min(Math.max(e.clientX, rect.left), rect.right);
+        return rect.width ? (x - rect.left) / rect.width : 0;
     };
+
+    const preview = (ratio) => {
+        if (barEl) barEl.style.width = (ratio * 100) + '%';
+        const label = timeLabelId ? document.getElementById(timeLabelId) : null;
+        if (label && audio.duration) label.innerText = formatTime(ratio * audio.duration);
+    };
+
+    const commit = (e) => {
+        if (!audio.duration) return;
+        audio.currentTime = ratioFromEvent(e) * audio.duration;
+    };
+
+    areaEl.addEventListener('pointerdown', (e) => {
+        if (!audio.duration) return;
+        scrubbing = true;
+        // setPointerCapture : les mouvements continuent d'être reçus même quand
+        // le curseur sort de la barre (cas courant, la barre ne fait que 6px de
+        // haut) — sans lui le glissement s'interrompt dès qu'on la quitte.
+        areaEl.setPointerCapture(e.pointerId);
+        preview(ratioFromEvent(e));
+    });
+
+    areaEl.addEventListener('pointermove', (e) => {
+        if (!scrubbing) return;
+        preview(ratioFromEvent(e));
+    });
+
+    const finish = (e) => {
+        if (!scrubbing) return;
+        scrubbing = false;
+        try { areaEl.releasePointerCapture(e.pointerId); } catch (err) { /* pointeur déjà relâché */ }
+        commit(e);
+    };
+    areaEl.addEventListener('pointerup', finish);
+    areaEl.addEventListener('pointercancel', finish);
+
+    // Accessibilité clavier : la barre est focalisable et se pilote aux flèches,
+    // ce qui était impossible auparavant (aucun gestionnaire clavier).
+    areaEl.setAttribute('tabindex', '0');
+    areaEl.setAttribute('role', 'slider');
+    areaEl.addEventListener('keydown', (e) => {
+        if (!audio.duration) return;
+        const step = e.shiftKey ? 30 : 5;
+        if (e.key === 'ArrowRight') { e.preventDefault(); audio.currentTime = Math.min(audio.duration, audio.currentTime + step); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); audio.currentTime = Math.max(0, audio.currentTime - step); }
+        else if (e.key === 'Home') { e.preventDefault(); audio.currentTime = 0; }
+        else if (e.key === 'End') { e.preventDefault(); audio.currentTime = audio.duration; }
+    });
 }
 
-const fpProgressArea = document.getElementById('fp-progress-area');
-if (fpProgressArea) {
-    fpProgressArea.onclick = (e) => {
-        const rect = fpProgressArea.getBoundingClientRect();
-        audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
-    };
-}
-
-const dpProgressArea = document.getElementById('dp-progress-area');
-if (dpProgressArea) {
-    dpProgressArea.onclick = (e) => {
-        const rect = dpProgressArea.getBoundingClientRect();
-        audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
-    };
-}
+attachSeekHandlers(progressArea, progressBar, 'curr-time');
+attachSeekHandlers(document.getElementById('fp-progress-area'), document.getElementById('fp-progress-bar'), 'fp-curr-time');
+attachSeekHandlers(document.getElementById('dp-progress-area'), document.getElementById('dp-progress-bar'), 'dp-curr-time');
 

@@ -7,6 +7,12 @@ document.addEventListener('alpine:init', () => {
         section: 'accueil',
         searchTerm: '',
         playlistDetail: null,
+        // Renommage sur place du titre d'une playlist (voir startPlaylistTitleEdit()
+        // dans player-ui.js). Le brouillon est séparé du nom affiché : annuler avec
+        // Échap doit restaurer l'ancien nom, ce qu'un x-model direct sur
+        // playlistDetail.name rendrait impossible.
+        playlistTitleEditing: false,
+        playlistTitleDraft: '',
         browseTitle: '', // titre de la page "Voir tout" (page dédiée, voir openBrowseAll())
         recentTracks: [],
         popularTracks: [],

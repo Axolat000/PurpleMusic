@@ -1327,6 +1327,9 @@ const I18N_CLIENT_KEYS = [
     'loading_bio',
     'no_bio_available',
     'wikipedia_link',
+    'btn_edit',
+    'btn_delete_short',
+    'tooltip_like',
     // Refonte : chaines generees cote client (recherche categorisee, file, menus contextuels)
     'search_cat_artists',
     'search_cat_albums',

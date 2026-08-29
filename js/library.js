@@ -41,11 +41,21 @@ function buildTrackRowElement(t, onClick) {
     const jsSafeGenre = safeGenre.replace(/'/g, "\\'");
     const jsSafeAlbum = escapeHTML(t.album || '').replace(/'/g, "\\'");
 
+    // Modifier/Supprimer : réservés au déposant et aux admins, comme avant. Ils
+    // passent d'une paire de boutons toujours visibles (deux pilules ✎/✕ sur
+    // chaque ligne, très bruyantes sur une liste de 200 titres) à des boutons
+    // icône révélés au survol/focus, cohérents avec le reste des listes.
     let editButtons = '';
-    if(t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
+    if (t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
         editButtons = `
-            <button class="btn btn-outline" style="font-size:0.7em; padding:6px 10px; border-radius:8px;" onclick="openEditTrackModal(${t.id}, '${jsSafeTitle}', '${jsSafeArtist}', '${jsSafeGenre}', '${jsSafeAlbum}')">✎</button>
-            <button type="button" class="btn btn-danger" style="border-radius:8px;" onclick="confirmPostAction('${T('confirm_delete_generic')}', 'delete_track', {track_id: ${t.id}})">✕</button>
+            <button type="button" class="track-row-btn" aria-label="${escapeHTML(T('btn_edit'))}" title="${escapeHTML(T('btn_edit'))}"
+                    onclick="openEditTrackModal(${t.id}, '${jsSafeTitle}', '${jsSafeArtist}', '${jsSafeGenre}', '${jsSafeAlbum}')">
+                <svg class="ico ico-sm"><use href="#ico-edit"></use></svg>
+            </button>
+            <button type="button" class="track-row-btn danger" aria-label="${escapeHTML(T('btn_delete_short'))}" title="${escapeHTML(T('btn_delete_short'))}"
+                    onclick="confirmPostAction('${T('confirm_delete_generic')}', 'delete_track', {track_id: ${t.id}})">
+                <svg class="ico ico-sm"><use href="#ico-trash"></use></svg>
+            </button>
         `;
     }
 
@@ -53,19 +63,26 @@ function buildTrackRowElement(t, onClick) {
 
     const div = document.createElement('div');
     div.className = 'track-item';
+    div.dataset.trackId = String(t.id);
     div.onclick = onClick;
+    // Clic droit (desktop) : mêmes actions que le menu contextuel des cartes.
+    div.oncontextmenu = (e) => { e.preventDefault(); openTrackContextMenu(e, t.id); };
     div.innerHTML = `
-        <img src="covers/${safeCover}" loading="lazy" class="mini-cover" onerror="this.src='covers/default.png'">
-        <div style="overflow:hidden;">
-            <div class="marquee-wrap" style="font-weight:700; font-size:1.05em; margin-bottom:3px;"><span>${safeTitle}</span></div>
-            <div style="font-size:0.85em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                ${artistLinksHTML(t.artist)}${albumLinkHTML(t)} <span style="opacity:0.6;font-size:0.9em;">• ${safeGenre} • ▶ ${t.play_count || 0}</span>
+        <div class="track-row-art">
+            <img src="covers/${safeCover}" loading="lazy" alt="" class="mini-cover" onerror="this.src='covers/default.png'">
+            <span class="track-row-play" aria-hidden="true"><svg class="ico ico-sm"><use href="#ico-play"></use></svg></span>
+        </div>
+        <div class="track-row-body">
+            <div class="marquee-wrap track-row-title"><span>${safeTitle}</span></div>
+            <div class="track-row-meta">
+                ${artistLinksHTML(t.artist)}${albumLinkHTML(t)}
+                <span class="track-row-dim">• ${safeGenre} • <span class="tabular">${t.play_count || 0}</span> ▶</span>
             </div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;" onclick="event.stopPropagation()">
-            <button type="button" class="like-btn${isLiked ? ' active' : ''}" title="${T('tooltip_like')}" onclick="toggleLikeUI(${t.id}, this)">
+        <div class="track-row-actions" onclick="event.stopPropagation()">
+            <button type="button" class="like-btn${isLiked ? ' active' : ''}" aria-label="${escapeHTML(T('tooltip_like'))}" title="${escapeHTML(T('tooltip_like'))}" onclick="toggleLikeUI(${t.id}, this)">
                 <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                <span class="like-count">${t.like_count || 0}</span>
+                <span class="like-count tabular">${t.like_count || 0}</span>
             </button>
             ${editButtons}
         </div>

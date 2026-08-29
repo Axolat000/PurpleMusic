@@ -262,13 +262,48 @@ main { display: block; }
 .filter-select-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; z-index: 10; }
 .filter-wrapper:hover .filter-icon-visual { border-color: var(--accent); background: #32264d; transform: translateY(-2px); }
 
-.track-list { background: var(--bg-panel); border-radius: 24px; overflow: hidden; border: 1px solid #2d2444; min-height: 200px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-.track-item { display:grid; grid-template-columns: 50px 1fr auto; align-items:center; padding:15px 25px; border-bottom:1px solid rgba(255,255,255,0.03); gap:20px; transition: background 0.2s; cursor: pointer; }
+.track-list { background: var(--bg-panel); border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--hairline); min-height: 120px; box-shadow: var(--elev-1); }
+.track-item { display:grid; grid-template-columns: 48px 1fr auto; align-items:center; padding: var(--space-3) var(--space-5); border-bottom:1px solid rgba(255,255,255,0.03); gap: var(--space-4); transition: background var(--dur-fast) var(--ease-out); cursor: pointer; }
 .track-item:last-child { border-bottom: none; }
-.track-item:hover { background: rgba(255,255,255,0.07); }
+.track-item:hover { background: rgba(255,255,255,0.06); }
 
-.mini-cover { width: 50px; height: 50px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
-#load-more-trigger { height: 40px; text-align: center; color: #6b5e85; padding-top: 15px; font-size: 0.9em; }
+/* Pochette + voile de lecture au survol : indique que la ligne est cliquable,
+   ce que rien ne signalait auparavant en dehors du curseur. */
+.track-row-art { position: relative; width: 48px; height: 48px; }
+.mini-cover { width: 48px; height: 48px; border-radius: var(--radius-sm); object-fit: cover; box-shadow: var(--elev-1); display: block; }
+.track-row-play {
+    position: absolute; inset: 0;
+    display: grid; place-content: center;
+    border-radius: var(--radius-sm);
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+}
+.track-item:hover .track-row-play { opacity: 1; }
+
+.track-row-body { overflow: hidden; min-width: 0; }
+.track-row-title { font-weight: var(--weight-bold); font-size: var(--text-md); margin-bottom: 2px; }
+.track-row-meta { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-row-dim { opacity: 0.6; font-size: var(--text-xs); }
+
+.track-row-actions { display: flex; gap: var(--space-2); align-items: center; }
+/* Boutons Modifier/Supprimer : masqués tant qu'on ne survole pas la ligne. Deux
+   pilules visibles en permanence sur chaque ligne saturaient visuellement une
+   liste de 200 titres. Réapparaissent au focus clavier, sinon ils seraient
+   inatteignables sans souris. */
+.track-row-btn {
+    background: none; border: none; padding: var(--space-2);
+    border-radius: 50%; cursor: pointer; color: var(--text-muted);
+    display: flex;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.track-item:hover .track-row-btn, .track-row-btn:focus-visible { opacity: 1; }
+.track-row-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.track-row-btn.danger:hover { color: var(--danger); }
+
+#load-more-trigger { height: 40px; text-align: center; color: var(--text-muted); padding-top: var(--space-4); font-size: var(--text-sm); }
 
 .home-row { margin-bottom: 30px; }
 .home-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }

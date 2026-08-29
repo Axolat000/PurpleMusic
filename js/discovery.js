@@ -628,6 +628,19 @@ window.addEventListener('resize', closeContextMenu);
 // collé à l'écran au lieu de suivre la ligne à laquelle il se rapporte.
 window.addEventListener('scroll', closeContextMenu, { passive: true });
 
+// Service worker : uniquement en contexte sécurisé (HTTPS ou localhost). Une
+// instance servie en HTTP simple sur le réseau local n'y a pas droit — l'appel
+// lèverait une erreur au lieu d'être simplement ignoré, d'où la garde explicite.
+if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(e => {
+            // Échec d'enregistrement : l'app fonctionne exactement comme avant,
+            // seule l'installabilité est perdue. Jamais d'erreur visible.
+            console.warn('Service worker non enregistré', e);
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof ALL_MUSIC_DATA === 'undefined') return;
     // Sur un chargement direct de ?page=..., la section est restaurée par

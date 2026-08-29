@@ -391,18 +391,242 @@ async function openPlaylistDetail(id) {
     };
     showSection('playlist-detail');
 
+    renderPlaylistDetailTracks(true);
+
     try {
         const res = await fetch('api.php?action=get_playlist_tracks&q=' + playlist.song_ids);
         const data = await res.json();
         if (store.playlistDetail && store.playlistDetail.id == playlist.id) {
             store.playlistDetail.tracks = data;
             store.playlistDetail.loading = false;
+            renderPlaylistDetailTracks(false);
         }
     } catch (e) {
         console.error(e);
         if (store.playlistDetail && store.playlistDetail.id == playlist.id) {
             store.playlistDetail.loading = false;
+            renderPlaylistDetailTracks(false);
         }
+    }
+}
+
+// Rend la liste du détail d'une playlist. En JS et non via un x-for Alpine : le
+// glisser-déposer manipule le DOM directement, et un re-rendu réactif au milieu
+// d'un glissement remplacerait les éléments en cours de déplacement.
+function renderPlaylistDetailTracks(loading) {
+    const container = document.getElementById('playlist-detail-list');
+    if (!container || !window.Alpine) return;
+    const pd = Alpine.store('ui').playlistDetail;
+    if (!pd) return;
+
+    container.innerHTML = '';
+
+    if (loading) {
+        // Squelettes plutôt qu'un « Chargement... » : la liste garde sa hauteur,
+        // le contenu ne saute pas quand les vraies lignes arrivent.
+        for (let i = 0; i < 5; i++) {
+            const row = document.createElement('div');
+            row.className = 'track-item';
+            row.innerHTML = `
+                <div class="skeleton" style="width:48px; height:48px; border-radius:var(--radius-sm);"></div>
+                <div style="width:100%;">
+                    <div class="skeleton skeleton-line" style="width:45%;"></div>
+                    <div class="skeleton skeleton-line short"></div>
+                </div>
+                <div></div>`;
+            container.appendChild(row);
+        }
+        return;
+    }
+
+    if (!pd.tracks.length) {
+        container.innerHTML = emptyStateHTML('ico-music-off', T('empty_queue_title'), T('empty_queue_hint'));
+        return;
+    }
+
+    const frag = document.createDocumentFragment();
+    pd.tracks.forEach((t, i) => {
+        const row = buildTrackRowElement(t, () => playTrackInPlaylistDetail(t.id));
+        row.classList.add('fade-in-row');
+        row.style.setProperty('--i', Math.min(i, 24));
+        if (pd.canEdit) {
+            row.draggable = true;
+            row.dataset.plIndex = String(i);
+            // Poignée insérée en tête de ligne : signale que la ligne est
+            // déplaçable, ce qu'un draggable seul ne montre pas.
+            const handle = document.createElement('span');
+            handle.className = 'queue-drag-handle playlist-drag-handle';
+            handle.setAttribute('aria-hidden', 'true');
+            handle.innerHTML = '<svg class="ico ico-sm"><use href="#ico-drag"></use></svg>';
+            row.insertBefore(handle, row.firstChild);
+        }
+        frag.appendChild(row);
+    });
+    container.appendChild(frag);
+    container.querySelectorAll('.marquee-wrap').forEach(applyMarqueeIfOverflowing);
+    if (pd.canEdit) attachPlaylistDragHandlers(container);
+}
+
+function attachPlaylistDragHandlers(container) {
+    let dragFrom = null;
+
+    container.querySelectorAll('.track-item[draggable="true"]').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            dragFrom = parseInt(item.dataset.plIndex, 10);
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(dragFrom));
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (!item.classList.contains('dragging')) item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            const to = parseInt(item.dataset.plIndex, 10);
+            if (dragFrom === null || Number.isNaN(to) || dragFrom === to) return;
+            movePlaylistTrack(dragFrom, to);
+            dragFrom = null;
+        });
+    });
+}
+
+// Déplace une piste puis persiste le nouvel ordre. L'affichage est mis à jour
+// immédiatement (optimiste) : attendre l'aller-retour réseau donnerait
+// l'impression que le glisser-déposer n'a pas fonctionné.
+async function movePlaylistTrack(from, to) {
+    if (!window.Alpine) return;
+    const store = Alpine.store('ui');
+    const pd = store.playlistDetail;
+    if (!pd || !pd.canEdit) return;
+
+    const tracks = [...pd.tracks];
+    if (from < 0 || to < 0 || from >= tracks.length || to >= tracks.length) return;
+    const previous = [...tracks];
+    const [moved] = tracks.splice(from, 1);
+    tracks.splice(to, 0, moved);
+    pd.tracks = tracks;
+    const newIds = tracks.map(t => t.id).join(',');
+    pd.song_ids = newIds;
+    renderPlaylistDetailTracks(false);
+
+    try {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        fd.append('playlist_id', pd.id);
+        fd.append('song_ids', newIds);
+        const res = await fetch('api.php?action=playlist_reorder', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message || 'reorder failed');
+        // Le cache client sert à rouvrir la playlist sans requête : sans cette
+        // mise à jour, revenir dessus réafficherait l'ancien ordre.
+        const cached = ALL_PLAYLISTS_DATA.find(p => p.id == pd.id);
+        if (cached) cached.song_ids = newIds;
+        store.showToast(T('toast_queue_reordered'), 'success');
+    } catch (e) {
+        // Échec serveur : on remet l'ordre précédent plutôt que de laisser
+        // l'affichage mentir sur ce qui est réellement enregistré.
+        pd.tracks = previous;
+        pd.song_ids = previous.map(t => t.id).join(',');
+        renderPlaylistDetailTracks(false);
+        store.showToast(T('err_action_failed'), 'error');
+    }
+}
+
+// --- RENOMMAGE SUR PLACE DU TITRE ---
+function startPlaylistTitleEdit() {
+    if (!window.Alpine) return;
+    const store = Alpine.store('ui');
+    if (!store.playlistDetail || !store.playlistDetail.canEdit) return;
+    store.playlistTitleDraft = store.playlistDetail.name;
+    store.playlistTitleEditing = true;
+    // Le champ est masqué par x-show au moment de l'appel : focus() sur un élément
+    // en display:none ne fait rien. Alpine.nextTick suffit — vérifié, le style
+    // calculé est déjà appliqué dans ce callback.
+    //
+    // Surtout PAS de requestAnimationFrame ici : il est gelé dans un onglet en
+    // arrière-plan ou masqué, et le champ ne recevrait alors jamais le focus.
+    Alpine.nextTick(() => {
+        const input = document.querySelector('.playlist-title-input');
+        if (input) { input.focus(); input.select(); }
+    });
+}
+
+function cancelPlaylistTitleEdit() {
+    if (!window.Alpine) return;
+    Alpine.store('ui').playlistTitleEditing = false;
+}
+
+async function savePlaylistTitleInline() {
+    if (!window.Alpine) return;
+    const store = Alpine.store('ui');
+    if (!store.playlistTitleEditing) return; // le blur suit déjà un enregistrement par Entrée
+    const pd = store.playlistDetail;
+    const name = (store.playlistTitleDraft || '').trim();
+    store.playlistTitleEditing = false;
+
+    // Nom vide ou inchangé : rien à enregistrer, on ressort simplement du mode
+    // édition (un nom vide rendrait la playlist introuvable dans les listes).
+    if (!pd || !name || name === pd.name) return;
+
+    const previousName = pd.name;
+    pd.name = name;
+
+    try {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        fd.append('playlist_id', pd.id);
+        fd.append('mode', 'rename');
+        fd.append('new_name', name);
+        const res = await fetch('api.php?action=playlist_mod', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message);
+        const cached = ALL_PLAYLISTS_DATA.find(p => p.id == pd.id);
+        if (cached) cached.name = name;
+        // Le nouveau nom est déjà visible dans le titre : le toast confirme que
+        // l'enregistrement serveur a bien eu lieu, d'où le nom repris en message.
+        store.showToast(name, 'success');
+    } catch (e) {
+        pd.name = previousName;
+        store.showToast(T('err_action_failed'), 'error');
+    }
+}
+
+function shufflePlaylistDetail() {
+    if (!window.Alpine) return;
+    const pd = Alpine.store('ui').playlistDetail;
+    if (!pd || !pd.tracks || !pd.tracks.length) return;
+    currentPlaylistId = pd.id;
+    originalQueue = [...pd.tracks];
+    queue = shuffleArray([...pd.tracks]);
+    currentIndex = 0;
+    loadTrack(true);
+}
+
+// Bascule public/privé depuis la carte de playlist, sans passer par la modale
+// d'édition complète.
+async function togglePlaylistVisibility(playlistId, event) {
+    if (event) event.stopPropagation();
+    try {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        fd.append('playlist_id', playlistId);
+        const res = await fetch('api.php?action=playlist_toggle_visibility', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message);
+        // Rechargement : la playlist change de section (Publiques <-> Mes privées),
+        // toutes deux rendues côté PHP — les déplacer côté client dupliquerait
+        // cette logique de répartition.
+        window.location.reload();
+    } catch (e) {
+        if (window.Alpine) Alpine.store('ui').showToast(T('err_action_failed'), 'error');
     }
 }
 

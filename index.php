@@ -182,6 +182,14 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?php echo htmlspecialchars($site_name); ?></title>
     <link rel="icon" href="<?php echo htmlspecialchars($favicon_file); ?>?v=<?php echo time(); ?>">
+    <!-- PWA : manifeste généré (nom/couleurs/icône configurables par instance) +
+         couleur de barre système sur mobile. -->
+    <link rel="manifest" href="manifest.php">
+    <meta name="theme-color" content="<?php echo htmlspecialchars($color_primary); ?>">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($favicon_file); ?>">
     <?php
     // style.css a été scindé en plusieurs fichiers (css/*.css) -- la cascade CSS ne dépend que de l'ordre
     // relatif des règles, préservé ici puisque les fichiers sont chargés dans le même ordre que l'original.
