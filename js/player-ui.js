@@ -50,6 +50,26 @@ function findActiveLyricIndex(lines, currentTime) {
     return ans;
 }
 
+// Cache mémoire des paroles, par identifiant de piste.
+//
+// Le serveur les met déjà en cache en base (colonnes lyrics_synced/lyrics_plain),
+// mais le garde-fou existant ne couvrait QUE la piste courante : revenir sur un
+// morceau déjà consulté relançait une requête complète à chaque fois. En mémoire
+// et non en localStorage : des paroles complètes pour une longue session
+// pourraient saturer le quota, alors qu'ici tout disparaît à la fermeture de
+// l'onglet — le cache serveur prend le relais au rechargement.
+const LYRICS_CACHE = new Map();
+const LYRICS_CACHE_MAX = 80;
+
+function cacheLyrics(trackId, payload) {
+    // Éviction du plus ancien inséré (Map conserve l'ordre d'insertion) : borne
+    // simple, les entrées étant toutes de taille comparable.
+    if (LYRICS_CACHE.size >= LYRICS_CACHE_MAX) {
+        LYRICS_CACHE.delete(LYRICS_CACHE.keys().next().value);
+    }
+    LYRICS_CACHE.set(String(trackId), payload);
+}
+
 async function loadLyricsForCurrentTrack(force = false) {
     if (!window.Alpine) return;
     const store = Alpine.store('ui');
@@ -68,20 +88,38 @@ async function loadLyricsForCurrentTrack(force = false) {
     if (!force && store.lyricsTrackId === track.id && store.lyricsFound !== null) return;
 
     store.lyricsTrackId = track.id;
+    store.lyricsActiveIndex = -1;
+
+    // Piste déjà consultée dans cette session : restitution immédiate, sans
+    // requête ni état de chargement visible.
+    const cached = !force ? LYRICS_CACHE.get(String(track.id)) : null;
+    if (cached) {
+        store.lyricsSynced = cached.synced;
+        store.lyricsPlain = cached.plain;
+        store.lyricsFound = cached.found;
+        store.lyricsLoading = false;
+        return;
+    }
+
     store.lyricsLoading = true;
     store.lyricsFound = null;
     store.lyricsSynced = [];
     store.lyricsPlain = '';
-    store.lyricsActiveIndex = -1;
 
     try {
         const res = await fetch('api.php?action=get_lyrics&q=' + track.id);
         const data = await res.json();
         // La piste a pu changer pendant l'attente de la réponse : on ignore un résultat périmé.
         if (store.lyricsTrackId !== track.id) return;
-        store.lyricsSynced = data.synced ? parseLRC(data.synced) : [];
-        store.lyricsPlain = data.plain || '';
-        store.lyricsFound = !!data.found;
+        const synced = data.synced ? parseLRC(data.synced) : [];
+        const plain = data.plain || '';
+        const found = !!data.found;
+        store.lyricsSynced = synced;
+        store.lyricsPlain = plain;
+        store.lyricsFound = found;
+        // Une absence de paroles est mise en cache elle aussi : sans ça, un
+        // morceau instrumental relancerait une requête à chaque réécoute.
+        cacheLyrics(track.id, { synced, plain, found });
     } catch (e) {
         console.error(e);
         if (store.lyricsTrackId === track.id) store.lyricsFound = false;
@@ -126,6 +164,11 @@ function openLyricsFromPlayerBar() {
             document.body.style.overflow = 'hidden';
         }
         applyVisualizerForContext('mobile');
+        // Le titre n'est mesurable qu'une fois la surface reellement affichee :
+        // tant qu'elle est fermee, clientWidth vaut 0 et applyMarqueeIfOverflowing()
+        // refuse (a juste titre) de trancher. On relance donc la mesure ici.
+        if (window.Alpine) Alpine.nextTick(() => applyMarqueeIfOverflowing(document.getElementById('fp-title')));
+
     }
 }
 
@@ -141,6 +184,10 @@ function openSmartPlayer() {
             document.body.style.overflow = 'hidden';
         }
         applyVisualizerForContext('mobile');
+        // Le titre n'est mesurable qu'une fois la surface reellement affichee :
+        // tant qu'elle est fermee, clientWidth vaut 0 et applyMarqueeIfOverflowing()
+        // refuse (a juste titre) de trancher. On relance donc la mesure ici.
+        if (window.Alpine) Alpine.nextTick(() => applyMarqueeIfOverflowing(document.getElementById('fp-title')));
     } else {
         openDesktopPlayer();
     }
@@ -180,6 +227,10 @@ function openDesktopPlayer() {
         // Toujours rouvrir sur la carte lecteur, jamais coincé sur paroles/file d'attente d'une session précédente.
         Alpine.store('ui').desktopPlayerView = 'player';
         if (dpVol) dpVol.value = audio ? audio.volume : dpVol.value;
+        // Le titre n'est mesurable qu'une fois la carte réellement affichée :
+        // fermée, elle rapporte clientWidth = 0 et applyMarqueeIfOverflowing()
+        // refuse (à juste titre) de trancher. D'où cette relance à l'ouverture.
+        Alpine.nextTick(() => applyMarqueeIfOverflowing(document.getElementById('dp-title')));
     }
     applyVisualizerForContext('desktop');
 }
@@ -222,29 +273,110 @@ function backToDesktopPlayer() {
 // Construit le rendu de la file d'attente dans un conteneur donné. Extrait de updateQueueUI() pour être
 // réutilisable : la file existe maintenant dans 2 endroits du DOM (#queue-list, panneau latéral existant ;
 // #dp-queue-list, carte "file d'attente" du carrousel #desktop-player) qui doivent rester synchronisés.
+// File d'attente : liste manipulable (réordonnancement par glisser-déposer,
+// retrait d'une piste), et non plus une simple liste consultable.
+//
+// Structurée en trois blocs — déjà joué / en cours / à suivre — plutôt qu'une
+// suite plate où seule une pastille distinguait la piste courante : on voit d'un
+// coup d'œil ce qui reste à venir.
 function renderQueueListInto(container) {
     if (!container) return;
     container.innerHTML = '';
-    if(queue.length === 0) {
-        container.innerHTML = `<p style="color:#666;">${T('queue_empty')}</p>`;
+    if (queue.length === 0) {
+        container.innerHTML = typeof emptyStateHTML === 'function'
+            ? emptyStateHTML('ico-queue', T('empty_queue_title'), T('empty_queue_hint'))
+            : `<p style="color:var(--text-muted);">${T('queue_empty')}</p>`;
         return;
     }
+
+    const addLabel = (text, extraClass = '') => {
+        const p = document.createElement('p');
+        p.className = 'queue-group-label ' + extraClass;
+        p.textContent = text;
+        container.appendChild(p);
+    };
+
+    if (currentIndex > 0) addLabel(T('queue_history'));
+
     queue.forEach((track, index) => {
-        const safeTitle = escapeHTML(track.title);
-        const safeArtist = escapeHTML(track.artist);
-        const safeCover = escapeHTML(track.cover);
+        if (index === currentIndex) addLabel(T('queue_now_playing'), 'queue-group-current');
+        if (index === currentIndex + 1) addLabel(T('queue_up_next'));
+
+        const isCurrent = index === currentIndex;
+        const isPast = index < currentIndex;
+
         const div = document.createElement('div');
-        div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
+        div.className = 'queue-item' + (isCurrent ? ' active' : '') + (isPast ? ' past' : '');
+        // Seules les pistes à venir se réordonnent : déplacer un morceau déjà joué
+        // ou celui en cours n'a pas de sens et compliquerait le suivi de currentIndex.
+        div.draggable = !isCurrent && !isPast;
+        div.dataset.index = String(index);
+
         div.innerHTML = `
-            <img src="covers/${safeCover}" loading="lazy" style="width:36px; height:36px; border-radius:8px; object-fit:cover;">
-            <div style="flex:1; overflow:hidden;">
-                <div style="font-size:0.9em; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeTitle}</div>
-                <div style="font-size:0.75em; color:#888;">${safeArtist}</div>
+            <span class="queue-drag-handle" aria-hidden="true">
+                <svg class="ico ico-sm"><use href="#ico-drag"></use></svg>
+            </span>
+            <img src="covers/${escapeHTML(track.cover)}" loading="lazy" alt="" class="queue-item-cover" onerror="this.src='covers/default.png'">
+            <div class="queue-item-body">
+                <div class="queue-item-title">${escapeHTML(track.title)}</div>
+                <div class="queue-item-artist">${escapeHTML(track.artist)}</div>
             </div>
-            ${index === currentIndex ? '<span style="color:var(--accent); font-size:1.5em;">•</span>' : ''}
+            ${isCurrent ? '<span class="now-playing-bars"><span></span><span></span><span></span></span>' : ''}
+            ${isCurrent ? '' : `<button type="button" class="queue-item-remove" aria-label="${escapeHTML(T('queue_remove'))}" title="${escapeHTML(T('queue_remove'))}">
+                <svg class="ico ico-sm"><use href="#ico-close"></use></svg>
+            </button>`}
         `;
+
         div.onclick = () => { currentIndex = index; loadTrack(true); };
+        const removeBtn = div.querySelector('.queue-item-remove');
+        if (removeBtn) {
+            removeBtn.onclick = (e) => {
+                // Sans cette coupure, le clic remonterait au conteneur et lancerait
+                // la piste qu'on vient de demander à retirer.
+                e.stopPropagation();
+                removeFromQueue(index);
+            };
+        }
         container.appendChild(div);
+    });
+
+    attachQueueDragHandlers(container);
+}
+
+// Glisser-déposer HTML5 natif (pas de bibliothèque tierce) : l'app n'a aucune
+// dépendance JS hors Alpine, en ajouter une pour un seul écran serait
+// disproportionné.
+function attachQueueDragHandlers(container) {
+    let dragFrom = null;
+
+    container.querySelectorAll('.queue-item[draggable="true"]').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            dragFrom = parseInt(item.dataset.index, 10);
+            item.classList.add('dragging');
+            // Firefox n'amorce pas de glisser sans données transférées.
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(dragFrom));
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        item.addEventListener('dragover', (e) => {
+            // preventDefault est obligatoire : sans lui l'élément refuse le dépôt.
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (!item.classList.contains('dragging')) item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            const to = parseInt(item.dataset.index, 10);
+            if (dragFrom === null || Number.isNaN(to)) return;
+            moveQueueItem(dragFrom, to);
+            dragFrom = null;
+            if (window.Alpine) Alpine.store('ui').showToast(T('toast_queue_reordered'), 'success');
+        });
     });
 }
 
@@ -310,18 +442,242 @@ async function openPlaylistDetail(id) {
     };
     showSection('playlist-detail');
 
+    renderPlaylistDetailTracks(true);
+
     try {
         const res = await fetch('api.php?action=get_playlist_tracks&q=' + playlist.song_ids);
         const data = await res.json();
         if (store.playlistDetail && store.playlistDetail.id == playlist.id) {
             store.playlistDetail.tracks = data;
             store.playlistDetail.loading = false;
+            renderPlaylistDetailTracks(false);
         }
     } catch (e) {
         console.error(e);
         if (store.playlistDetail && store.playlistDetail.id == playlist.id) {
             store.playlistDetail.loading = false;
+            renderPlaylistDetailTracks(false);
         }
+    }
+}
+
+// Rend la liste du détail d'une playlist. En JS et non via un x-for Alpine : le
+// glisser-déposer manipule le DOM directement, et un re-rendu réactif au milieu
+// d'un glissement remplacerait les éléments en cours de déplacement.
+function renderPlaylistDetailTracks(loading) {
+    const container = document.getElementById('playlist-detail-list');
+    if (!container || !window.Alpine) return;
+    const pd = Alpine.store('ui').playlistDetail;
+    if (!pd) return;
+
+    container.innerHTML = '';
+
+    if (loading) {
+        // Squelettes plutôt qu'un « Chargement... » : la liste garde sa hauteur,
+        // le contenu ne saute pas quand les vraies lignes arrivent.
+        for (let i = 0; i < 5; i++) {
+            const row = document.createElement('div');
+            row.className = 'track-item';
+            row.innerHTML = `
+                <div class="skeleton" style="width:48px; height:48px; border-radius:var(--radius-sm);"></div>
+                <div style="width:100%;">
+                    <div class="skeleton skeleton-line" style="width:45%;"></div>
+                    <div class="skeleton skeleton-line short"></div>
+                </div>
+                <div></div>`;
+            container.appendChild(row);
+        }
+        return;
+    }
+
+    if (!pd.tracks.length) {
+        container.innerHTML = emptyStateHTML('ico-music-off', T('empty_queue_title'), T('empty_queue_hint'));
+        return;
+    }
+
+    const frag = document.createDocumentFragment();
+    pd.tracks.forEach((t, i) => {
+        const row = buildTrackRowElement(t, () => playTrackInPlaylistDetail(t.id));
+        row.classList.add('fade-in-row');
+        row.style.setProperty('--i', Math.min(i, 24));
+        if (pd.canEdit) {
+            row.draggable = true;
+            row.dataset.plIndex = String(i);
+            // Poignée insérée en tête de ligne : signale que la ligne est
+            // déplaçable, ce qu'un draggable seul ne montre pas.
+            const handle = document.createElement('span');
+            handle.className = 'queue-drag-handle playlist-drag-handle';
+            handle.setAttribute('aria-hidden', 'true');
+            handle.innerHTML = '<svg class="ico ico-sm"><use href="#ico-drag"></use></svg>';
+            row.insertBefore(handle, row.firstChild);
+        }
+        frag.appendChild(row);
+    });
+    container.appendChild(frag);
+    container.querySelectorAll('.marquee-wrap').forEach(applyMarqueeIfOverflowing);
+    if (pd.canEdit) attachPlaylistDragHandlers(container);
+}
+
+function attachPlaylistDragHandlers(container) {
+    let dragFrom = null;
+
+    container.querySelectorAll('.track-item[draggable="true"]').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            dragFrom = parseInt(item.dataset.plIndex, 10);
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(dragFrom));
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (!item.classList.contains('dragging')) item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            const to = parseInt(item.dataset.plIndex, 10);
+            if (dragFrom === null || Number.isNaN(to) || dragFrom === to) return;
+            movePlaylistTrack(dragFrom, to);
+            dragFrom = null;
+        });
+    });
+}
+
+// Déplace une piste puis persiste le nouvel ordre. L'affichage est mis à jour
+// immédiatement (optimiste) : attendre l'aller-retour réseau donnerait
+// l'impression que le glisser-déposer n'a pas fonctionné.
+async function movePlaylistTrack(from, to) {
+    if (!window.Alpine) return;
+    const store = Alpine.store('ui');
+    const pd = store.playlistDetail;
+    if (!pd || !pd.canEdit) return;
+
+    const tracks = [...pd.tracks];
+    if (from < 0 || to < 0 || from >= tracks.length || to >= tracks.length) return;
+    const previous = [...tracks];
+    const [moved] = tracks.splice(from, 1);
+    tracks.splice(to, 0, moved);
+    pd.tracks = tracks;
+    const newIds = tracks.map(t => t.id).join(',');
+    pd.song_ids = newIds;
+    renderPlaylistDetailTracks(false);
+
+    try {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        fd.append('playlist_id', pd.id);
+        fd.append('song_ids', newIds);
+        const res = await fetch('api.php?action=playlist_reorder', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message || 'reorder failed');
+        // Le cache client sert à rouvrir la playlist sans requête : sans cette
+        // mise à jour, revenir dessus réafficherait l'ancien ordre.
+        const cached = ALL_PLAYLISTS_DATA.find(p => p.id == pd.id);
+        if (cached) cached.song_ids = newIds;
+        store.showToast(T('toast_queue_reordered'), 'success');
+    } catch (e) {
+        // Échec serveur : on remet l'ordre précédent plutôt que de laisser
+        // l'affichage mentir sur ce qui est réellement enregistré.
+        pd.tracks = previous;
+        pd.song_ids = previous.map(t => t.id).join(',');
+        renderPlaylistDetailTracks(false);
+        store.showToast(T('err_action_failed'), 'error');
+    }
+}
+
+// --- RENOMMAGE SUR PLACE DU TITRE ---
+function startPlaylistTitleEdit() {
+    if (!window.Alpine) return;
+    const store = Alpine.store('ui');
+    if (!store.playlistDetail || !store.playlistDetail.canEdit) return;
+    store.playlistTitleDraft = store.playlistDetail.name;
+    store.playlistTitleEditing = true;
+    // Le champ est masqué par x-show au moment de l'appel : focus() sur un élément
+    // en display:none ne fait rien. Alpine.nextTick suffit — vérifié, le style
+    // calculé est déjà appliqué dans ce callback.
+    //
+    // Surtout PAS de requestAnimationFrame ici : il est gelé dans un onglet en
+    // arrière-plan ou masqué, et le champ ne recevrait alors jamais le focus.
+    Alpine.nextTick(() => {
+        const input = document.querySelector('.playlist-title-input');
+        if (input) { input.focus(); input.select(); }
+    });
+}
+
+function cancelPlaylistTitleEdit() {
+    if (!window.Alpine) return;
+    Alpine.store('ui').playlistTitleEditing = false;
+}
+
+async function savePlaylistTitleInline() {
+    if (!window.Alpine) return;
+    const store = Alpine.store('ui');
+    if (!store.playlistTitleEditing) return; // le blur suit déjà un enregistrement par Entrée
+    const pd = store.playlistDetail;
+    const name = (store.playlistTitleDraft || '').trim();
+    store.playlistTitleEditing = false;
+
+    // Nom vide ou inchangé : rien à enregistrer, on ressort simplement du mode
+    // édition (un nom vide rendrait la playlist introuvable dans les listes).
+    if (!pd || !name || name === pd.name) return;
+
+    const previousName = pd.name;
+    pd.name = name;
+
+    try {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        fd.append('playlist_id', pd.id);
+        fd.append('mode', 'rename');
+        fd.append('new_name', name);
+        const res = await fetch('api.php?action=playlist_mod', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message);
+        const cached = ALL_PLAYLISTS_DATA.find(p => p.id == pd.id);
+        if (cached) cached.name = name;
+        // Le nouveau nom est déjà visible dans le titre : le toast confirme que
+        // l'enregistrement serveur a bien eu lieu, d'où le nom repris en message.
+        store.showToast(name, 'success');
+    } catch (e) {
+        pd.name = previousName;
+        store.showToast(T('err_action_failed'), 'error');
+    }
+}
+
+function shufflePlaylistDetail() {
+    if (!window.Alpine) return;
+    const pd = Alpine.store('ui').playlistDetail;
+    if (!pd || !pd.tracks || !pd.tracks.length) return;
+    currentPlaylistId = pd.id;
+    originalQueue = [...pd.tracks];
+    queue = shuffleArray([...pd.tracks]);
+    currentIndex = 0;
+    loadTrack(true);
+}
+
+// Bascule public/privé depuis la carte de playlist, sans passer par la modale
+// d'édition complète.
+async function togglePlaylistVisibility(playlistId, event) {
+    if (event) event.stopPropagation();
+    try {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        fd.append('playlist_id', playlistId);
+        const res = await fetch('api.php?action=playlist_toggle_visibility', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message);
+        // Rechargement : la playlist change de section (Publiques <-> Mes privées),
+        // toutes deux rendues côté PHP — les déplacer côté client dupliquerait
+        // cette logique de répartition.
+        window.location.reload();
+    } catch (e) {
+        if (window.Alpine) Alpine.store('ui').showToast(T('err_action_failed'), 'error');
     }
 }
 

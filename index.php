@@ -15,7 +15,18 @@ $isInstalled = file_exists($configFile);
 // (vécu en prod : app.js resté servi 4h après un déploiement, page cassée entre-temps). On réutilise
 // le SHA baké au build (APP_COMMIT_SHA) qui change à chaque nouvelle image ; en dev local (absent),
 // on retombe sur filemtime() de ce fichier.
-$assetVersion = getenv('APP_COMMIT_SHA') ?: (string) filemtime(__FILE__);
+// En dev (pas de SHA baké), filemtime(__FILE__) ne suivait QUE index.php : modifier
+// un css/*.css ou un js/*.js ne changeait pas le jeton, le navigateur resservait sa
+// version en cache et la modification semblait sans effet. On prend donc la date de
+// modification la plus récente parmi les assets réellement servis.
+$assetVersion = getenv('APP_COMMIT_SHA');
+if (!$assetVersion) {
+    $mtimes = [filemtime(__FILE__)];
+    foreach (array_merge(glob(__DIR__ . '/css/*.css') ?: [], glob(__DIR__ . '/js/*.js') ?: []) as $assetPath) {
+        $mtimes[] = filemtime($assetPath);
+    }
+    $assetVersion = (string) max($mtimes);
+}
 
 // --- 1. MODE INSTALLATION ---
 if (!$isInstalled) {
@@ -133,6 +144,16 @@ try {
         $genresList = ['Phonk/Funk', 'Rap', 'Pop', 'Rock', 'Electro', 'Hyperpop', 'Nightcore', 'Qualité inférieure', 'Autre'];
     }
 
+    // Nombre de pistes par genre : affiché dans le Panel Admin à côté de chaque
+    // genre. Supprimer ou fusionner sans savoir combien de morceaux sont
+    // concernés revenait à agir à l'aveugle sur toute la bibliothèque.
+    $genreCounts = [];
+    if ($is_admin) {
+        foreach ($db->query("SELECT COALESCE(NULLIF(genre, ''), 'Autre') AS g, COUNT(*) AS n FROM tracks GROUP BY g")->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $genreCounts[$row['g']] = (int) $row['n'];
+        }
+    }
+
     // like_count : public. is_liked : propre à l'utilisateur connecté (contrairement à api.php?action=list,
     // qui reste anonyme -- ici la session PHP donne déjà l'identité, pas besoin d'un endpoint séparé
     // comme my_likes côté Android).
@@ -171,10 +192,18 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?php echo htmlspecialchars($site_name); ?></title>
     <link rel="icon" href="<?php echo htmlspecialchars($favicon_file); ?>?v=<?php echo time(); ?>">
+    <!-- PWA : manifeste généré (nom/couleurs/icône configurables par instance) +
+         couleur de barre système sur mobile. -->
+    <link rel="manifest" href="manifest.php">
+    <meta name="theme-color" content="<?php echo htmlspecialchars($color_primary); ?>">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($favicon_file); ?>">
     <?php
     // style.css a été scindé en plusieurs fichiers (css/*.css) -- la cascade CSS ne dépend que de l'ordre
     // relatif des règles, préservé ici puisque les fichiers sont chargés dans le même ordre que l'original.
-    $appStyles = ['base', 'components', 'player', 'responsive'];
+    $appStyles = ['tokens', 'base', 'components', 'ui', 'player', 'responsive'];
     foreach ($appStyles as $s): ?>
     <link rel="stylesheet" href="css/<?php echo $s; ?>.css?v=<?php echo urlencode($assetVersion); ?>">
     <?php endforeach; ?>
@@ -255,61 +284,64 @@ try {
     <?php include __DIR__ . '/templates/terms-gate.php'; ?>
 <?php else: ?>
 
-    <header>
-        <div class="logo"><?php echo htmlspecialchars($site_name); ?> <?php if($is_admin) echo "<small style='color:gold; font-size:10px; vertical-align:middle;'>" . t('admin_badge') . "</small>"; ?></div>
-        <nav>
-            <span id="nav-accueil" class="active" onclick="showSection('accueil')"><?php echo t('nav_library'); ?></span>
-            <span id="nav-playlists" onclick="showSection('playlists')"><?php echo t('nav_playlists'); ?></span>
-            <?php if($is_admin): ?>
-                <span id="nav-admin" class="admin-nav-btn" style="cursor:pointer;" onclick="showSection('admin')"><?php echo t('nav_admin_panel'); ?></span>
+<?php include __DIR__ . '/templates/icons.php'; ?>
+
+    <!-- Liseré de progression des changements de section / chargements réseau. -->
+    <div id="nav-progress" aria-hidden="true"></div>
+
+    <!-- En-tête mobile uniquement (sous 900px) : la navigation passe par la barre
+         d'onglets du bas, cet en-tête ne porte plus que l'identité et les réglages. -->
+    <header class="mobile-header">
+        <div class="logo"><?php echo htmlspecialchars($site_name); ?></div>
+        <div class="mobile-header-actions">
+            <?php if ($is_admin): ?>
+            <button class="mobile-settings-btn mobile-admin-btn" onclick="showSection('admin')" aria-label="<?php echo htmlspecialchars(t('nav_admin_panel')); ?>">
+                <svg class="ico" aria-hidden="true"><use href="#ico-stats"></use></svg>
+            </button>
             <?php endif; ?>
-        </nav>
-        <div class="header-actions">
-            <button class="btn-icon" id="queue-toggle" onclick="toggleQueue()" title="<?php echo htmlspecialchars(t('btn_queue')); ?>">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+            <button class="mobile-settings-btn" onclick="openModal('settingsModal')" aria-label="<?php echo htmlspecialchars(t('btn_settings')); ?>">
+                <svg class="ico" aria-hidden="true"><use href="#ico-admin"></use></svg>
             </button>
-            <button class="btn-icon" onclick="openCreateModal()" title="<?php echo htmlspecialchars(t('btn_create_playlist')); ?>">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zM2 16h8v-2H2v2zm16-4v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z"/></svg>
-            </button>
-            <button class="btn-icon" onclick="openModal('uploadModal')" title="<?php echo htmlspecialchars(t('btn_upload')); ?>">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
-            </button>
-            <button class="btn-icon" onclick="openModal('settingsModal')" title="<?php echo htmlspecialchars(t('btn_settings')); ?>">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.4 13c.0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6l-2.1-1.7zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
-            </button>
-            <a href="?logout=1" class="btn" style="color:#a196b4;"><?php echo t('btn_logout'); ?></a>
         </div>
-        <button class="mobile-settings-btn" onclick="openModal('settingsModal')">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.4 13c.0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6l-2.1-1.7zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
-        </button>
     </header>
 
 <?php include __DIR__ . '/templates/panels.php'; ?>
+
+    <div class="app-shell">
+<?php include __DIR__ . '/templates/sidebar.php'; ?>
+        <div class="app-main">
+<?php include __DIR__ . '/templates/topbar.php'; ?>
+            <div class="app-content">
 <?php include __DIR__ . '/templates/home.php'; ?>
-
+<?php include __DIR__ . '/templates/entities.php'; ?>
 <?php include __DIR__ . '/templates/playlists.php'; ?>
-
 <?php include __DIR__ . '/templates/admin.php'; ?>
+            </div>
+        </div>
+    </div>
 
-    <div id="mobile-bottom-nav">
+    <!-- Barre d'onglets mobile : 5 entrées maximum (au-delà, les libellés se
+         tronquent et les cibles tactiles passent sous 44px). Artistes remplace
+         l'ancienne entrée Admin, désormais accessible depuis l'en-tête mobile —
+         un admin navigue dans sa bibliothèque bien plus souvent qu'il n'ouvre
+         le panneau de configuration. -->
+    <nav id="mobile-bottom-nav" aria-label="<?php echo htmlspecialchars(t('sidebar_browse')); ?>">
         <button class="mob-nav-item active" id="mob-nav-accueil" onclick="showSection('accueil')">
-            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><?php echo t('mob_nav_library'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-library"></use></svg><?php echo t('mob_nav_library'); ?>
+        </button>
+        <button class="mob-nav-item" id="mob-nav-artists-page" onclick="showArtistsIndex()">
+            <svg class="ico" aria-hidden="true"><use href="#ico-artist"></use></svg><?php echo t('nav_artists'); ?>
         </button>
         <button class="mob-nav-item" id="mob-nav-playlists" onclick="showSection('playlists')">
-            <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><?php echo t('mob_nav_mixes'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-playlist"></use></svg><?php echo t('mob_nav_mixes'); ?>
         </button>
-        <?php if($is_admin): ?>
-            <button class="mob-nav-item" id="mob-nav-admin" onclick="showSection('admin')" style="color:#e67e22;">
-                <svg viewBox="0 0 24 24"><path d="M19.4 13c.0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6l-2.1-1.7zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg><?php echo t('mob_nav_admin'); ?>
-            </button>
-        <?php endif; ?>
         <button class="mob-nav-item" onclick="toggleQueue()">
-            <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg><?php echo t('btn_queue'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-queue"></use></svg><?php echo t('btn_queue'); ?>
         </button>
         <button class="mob-nav-item" onclick="openModal('uploadModal')">
-            <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg><?php echo t('btn_upload'); ?>
+            <svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg><?php echo t('btn_upload'); ?>
         </button>
-    </div>
+    </nav>
 
 <?php include __DIR__ . '/templates/modal-settings.php'; ?>
 
@@ -326,7 +358,7 @@ try {
     // d'origine -- "defer" garantit une exécution dans l'ordre du DOM, donc ceci équivaut exactement à
     // l'ancien fichier unique concaténé. Pas de modules ES ici : Alpine.js et les onclick="..." inline
     // référencent des fonctions dans le scope global, ce que type="module" casserait.
-    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals'];
+    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals', 'discovery', 'stats', 'shortcuts'];
     foreach ($appScripts as $s): ?>
     <script defer src="js/<?php echo $s; ?>.js?v=<?php echo urlencode($assetVersion); ?>"></script>
     <?php endforeach; ?>

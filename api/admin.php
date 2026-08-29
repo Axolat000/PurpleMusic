@@ -56,8 +56,85 @@ switch ($action) {
     case 'delete_genre':
         $auth = authenticate_api_user($db);
         if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
-        $db->prepare("DELETE FROM genres WHERE name = ?")->execute([$_POST['name'] ?? '']);
+
+        $genreName = (string) ($_POST['name'] ?? '');
+        if ($genreName === '') { echo json_encode(["status" => "error", "message" => "Nom de genre invalide"]); exit; }
+
+        // Les pistes gardaient jusqu'ici le nom du genre supprimé : il
+        // disparaissait de la liste d'administration et des filtres, mais restait
+        // affiché sur chaque piste — un genre fantôme, impossible à resélectionner
+        // comme à nettoyer. On les bascule sur "Autre", valeur de repli déjà
+        // utilisée partout ailleurs dans l'app.
+        $db->prepare("UPDATE tracks SET genre = 'Autre' WHERE genre = ?")->execute([$genreName]);
+        $db->prepare("DELETE FROM genres WHERE name = ?")->execute([$genreName]);
         echo json_encode(['status' => 'success']);
+        break;
+
+    // Renommage et fusion de genres.
+    //
+    // Sans eux, les doublons s'accumulaient sans recours : un import écrivant
+    // "Hip-Hop" là où la bibliothèque utilise "Hip Hop" créait deux genres
+    // distincts, et la seule action disponible — supprimer — faisait perdre
+    // l'information au lieu de la regrouper.
+    case 'genre_manage':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $mode = $_POST['mode'] ?? '';
+        $from = trim((string) ($_POST['from'] ?? ''));
+        $to = trim((string) ($_POST['to'] ?? ''));
+
+        if ($from === '' || $to === '') { echo json_encode(["status" => "error", "message" => "Genre source ou cible manquant"]); exit; }
+        if (mb_strlen($to) > 60) { echo json_encode(["status" => "error", "message" => "Nom de genre trop long"]); exit; }
+
+        $exists = $db->prepare("SELECT 1 FROM genres WHERE name = ?");
+        $exists->execute([$from]);
+        if (!$exists->fetch()) { echo json_encode(["status" => "error", "message" => "Genre source introuvable"]); exit; }
+
+        if ($mode === 'rename') {
+            // Renommer vers un nom déjà pris serait une fusion déguisée, avec en
+            // prime un doublon dans genres : on refuse et on oriente vers la
+            // fusion, qui est l'action explicite pour ce cas.
+            $clash = $db->prepare("SELECT 1 FROM genres WHERE name = ? AND name != ?");
+            $clash->execute([$to, $from]);
+            if ($clash->fetch()) { echo json_encode(["status" => "error", "message" => "Ce genre existe déjà — utilise la fusion"]); exit; }
+
+            // Les deux écritures doivent aboutir ensemble : renommer dans genres
+            // sans réétiqueter les pistes laisserait toute la bibliothèque sur un
+            // genre qui n'existe plus.
+            $db->beginTransaction();
+            try {
+                $db->prepare("UPDATE genres SET name = ? WHERE name = ?")->execute([$to, $from]);
+                $db->prepare("UPDATE tracks SET genre = ? WHERE genre = ?")->execute([$to, $from]);
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "Renommage impossible"]); exit;
+            }
+            echo json_encode(['status' => 'success']);
+            break;
+        }
+
+        if ($mode === 'merge') {
+            if ($from === $to) { echo json_encode(["status" => "error", "message" => "Source et cible identiques"]); exit; }
+            $targetExists = $db->prepare("SELECT 1 FROM genres WHERE name = ?");
+            $targetExists->execute([$to]);
+            if (!$targetExists->fetch()) { echo json_encode(["status" => "error", "message" => "Genre cible introuvable"]); exit; }
+
+            $db->beginTransaction();
+            try {
+                $db->prepare("UPDATE tracks SET genre = ? WHERE genre = ?")->execute([$to, $from]);
+                $db->prepare("DELETE FROM genres WHERE name = ?")->execute([$from]);
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "Fusion impossible"]); exit;
+            }
+            echo json_encode(['status' => 'success']);
+            break;
+        }
+
+        echo json_encode(["status" => "error", "message" => "Mode inconnu"]);
         break;
 
     case 'toggle_admin':

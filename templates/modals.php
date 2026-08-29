@@ -1,3 +1,38 @@
+    <!-- Aide des raccourcis clavier (touche « ? » ou icône de la barre supérieure).
+         Les touches sont listées ici et non dans un fichier d'aide séparé : la table
+         reste à côté du code qui les gère (js/shortcuts.js). -->
+    <div id="shortcutsModal" class="modal" x-show="$store.ui.activeModal === 'shortcutsModal'" x-transition.opacity.duration.200ms x-cloak
+         @click.self="$store.ui.closeModal('shortcutsModal')" @keydown.escape.window="$store.ui.closeModal('shortcutsModal')">
+        <div class="modal-content" style="max-width:480px;">
+            <h2 style="margin-top:0;"><?php echo t('shortcuts_title'); ?></h2>
+            <div class="shortcut-list">
+                <?php
+                // [libellé, touches] — l'ordre suit la fréquence d'usage attendue.
+                $shortcuts = [
+                    [t('shortcut_playpause'), ['Espace', 'K']],
+                    [t('shortcut_next'), ['N']],
+                    [t('shortcut_prev'), ['P']],
+                    [t('shortcut_seek'), ['←', '→']],
+                    [t('shortcut_volume'), ['↑', '↓']],
+                    [t('shortcut_mute'), ['M']],
+                    [t('shortcut_shuffle'), ['S']],
+                    [t('shortcut_loop'), ['R']],
+                    [t('shortcut_search'), ['/', 'Ctrl+K']],
+                    [t('shortcut_help'), ['?']],
+                ];
+                foreach ($shortcuts as [$label, $keys]): ?>
+                <div class="shortcut-row">
+                    <span><?php echo htmlspecialchars($label); ?></span>
+                    <span class="shortcut-keys">
+                        <?php foreach ($keys as $k): ?><kbd><?php echo htmlspecialchars($k); ?></kbd><?php endforeach; ?>
+                    </span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <button type="button" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:20px;" onclick="closeModal('shortcutsModal')"><?php echo t('btn_close'); ?></button>
+        </div>
+    </div>
+
     <!-- Révélation du mot de passe temporaire généré par un admin (Admin Panel > Utilisateurs > Réinitialiser).
          Reste affiché jusqu'à fermeture manuelle (pas de toast auto-dismiss) pour laisser le temps de le copier. -->
     <div id="adminResetPasswordModal" class="modal" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('adminResetPasswordModal')"><div class="modal-content" style="max-width:420px;">
@@ -42,7 +77,7 @@ docker stop purplemusic && docker rm purplemusic</code>
                 <p x-show="$store.ui.updateTriggerState === 'error'" x-cloak style="color:var(--danger); font-size:0.85em; margin-top:12px;" x-text="$store.ui.updateTriggerError"></p>
 
                 <div style="display:flex; gap:15px; margin-top:20px;">
-                    <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" @click="$store.ui.dismissUpdateNotice()"><?php echo t('btn_later'); ?></button>
+                    <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" @click="$store.ui.dismissUpdateNotice()"><?php echo t('btn_later'); ?></button>
                 </div>
             </div>
         </template>
@@ -71,7 +106,7 @@ docker stop purplemusic && docker rm purplemusic</code>
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('cover_file_label'); ?></label>
             <input type="file" name="cover" accept="image/*">
             <div style="display:flex; gap:15px; margin-top:20px;">
-                <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" onclick="closeModal('uploadModal')"><?php echo t('btn_cancel'); ?></button>
+                <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" onclick="closeModal('uploadModal')"><?php echo t('btn_cancel'); ?></button>
                 <button type="submit" name="upload" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_publish'); ?></button>
             </div>
         </form>
@@ -94,7 +129,7 @@ docker stop purplemusic && docker rm purplemusic</code>
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('change_cover_label'); ?></label>
             <input type="file" name="new_cover" accept="image/*">
             <div style="display:flex; gap:15px; margin-top:20px;">
-                <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')"><?php echo t('btn_cancel'); ?></button>
+                <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')"><?php echo t('btn_cancel'); ?></button>
                 <button type="submit" name="edit_track" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
             </div>
         </form>
@@ -128,13 +163,13 @@ docker stop purplemusic && docker rm purplemusic</code>
                         <img src="covers/<?php echo htmlspecialchars($t['cover']); ?>" loading="lazy" style="width:40px; height:40px; border-radius:8px; margin-right:12px; object-fit:cover;" onerror="this.src='covers/default.png'">
                         <div style="flex:1; overflow:hidden;">
                             <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($t['title']); ?></div>
-                            <div style="font-size:0.85em; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($t['artist']); ?></div>
+                            <div style="font-size:0.85em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($t['artist']); ?></div>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
             <div style="display:flex; gap:15px; margin-top:20px;">
-                 <button type="button" class="btn" style="flex:1; justify-content:center; color:#888; border:1px solid var(--border-color);" onclick="closeModal('playlistModal')"><?php echo t('btn_cancel'); ?></button>
+                 <button type="button" class="btn" style="flex:1; justify-content:center; color:var(--text-muted); border:1px solid var(--border-color);" onclick="closeModal('playlistModal')"><?php echo t('btn_cancel'); ?></button>
                 <button type="submit" name="save_playlist" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
             </div>
         </form>

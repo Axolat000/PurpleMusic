@@ -7,14 +7,57 @@ document.addEventListener('alpine:init', () => {
         section: 'accueil',
         searchTerm: '',
         playlistDetail: null,
+        // Renommage sur place du titre d'une playlist (voir startPlaylistTitleEdit()
+        // dans player-ui.js). Le brouillon est séparé du nom affiché : annuler avec
+        // Échap doit restaurer l'ancien nom, ce qu'un x-model direct sur
+        // playlistDetail.name rendrait impossible.
+        playlistTitleEditing: false,
+        playlistTitleDraft: '',
         browseTitle: '', // titre de la page "Voir tout" (page dédiée, voir openBrowseAll())
         recentTracks: [],
         popularTracks: [],
         playlistsPreview: [],
         recommendedTracks: [], // rempli de façon asynchrone (voir init()) -- calcul serveur, pas instantané comme les autres rangées
+        continueTracks: [],    // "Reprendre l'écoute" : dérivé de l'historique local (voir pushListenHistory())
+        hiddenGemTracks: [],   // "Pépites oubliées" : les moins écoutées, hors jamais-jouées
+        homeLoaded: false,     // passe à true quand les rangées serveur ont répondu -> retire les squelettes
         confirmState: { open: false, message: '', onConfirm: null },
-        toastState: { visible: false, message: '' },
+        // Saisie modale générique (texte libre ou choix dans une liste).
+        // L'app avait déjà remplacé window.confirm() par un dialogue maison ;
+        // window.prompt() restait le seul trou — il ne suit aucun thème, ne se
+        // traduit pas et est bloqué par certains navigateurs. options non vide =>
+        // liste déroulante, sinon champ texte.
+        promptState: { open: false, title: '', value: '', options: [], onSubmit: null },
+        toastState: { visible: false, message: '', kind: 'info' },
         toastTimer: null,
+
+        // --- BARRE LATÉRALE (desktop) : état réduit/déployé, persisté par navigateur.
+        // Lu très tôt (voir applySidebarStatePreAlpine() dans theme.js) pour que la
+        // barre ne s'affiche pas déployée avant de se replier au premier rendu Alpine.
+        sidebarCollapsed: false,
+
+        // --- RECHERCHE : historique local des termes validés (10 max, plus récent en tête).
+        // Purement navigateur : rien n'est envoyé au serveur, contrairement à ce que
+        // ferait une "recherche récente" côté compte.
+        recentSearches: [],
+
+        // --- FILTRE DE GENRE DE L'ACCUEIL : recompose les rangées sans recharger.
+        // null = aucun filtre. Distinct de hiddenGenres (Paramètres > Bibliothèque),
+        // qui masque durablement des genres partout dans l'app.
+        genrePills: [],
+        activeGenre: null,
+
+        // --- ÉTAT DE LECTURE EXPOSÉ À ALPINE ---
+        // La lecture est pilotée par des variables globales hors store (queue,
+        // currentIndex...). Ces deux miroirs existent uniquement pour que le markup
+        // puisse réagir (indicateur "en cours" sur les cartes/lignes) sans que chaque
+        // composant ait à interroger l'élément <audio>. Tenus à jour par syncPlaybackState().
+        currentTrackId: null,
+        isPlaying: false,
+
+        // --- PAGE STATISTIQUES : fenêtre d'analyse en jours (0 = depuis toujours).
+        // Voir loadStats() dans js/stats.js.
+        statsRange: 30,
 
         // --- THÈME VISUEL (preset par utilisateur, stocké en localStorage) ---
         themePreset: 'violet',
@@ -80,17 +123,88 @@ document.addEventListener('alpine:init', () => {
         updateTriggerState: null, // null | 'updating' | 'error'
         updateTriggerError: '',
 
-        init() {
-            if (typeof ALL_MUSIC_DATA !== 'undefined') {
-                this.recentTracks = [...ALL_MUSIC_DATA].sort((a, b) => b.id - a.id).slice(0, 10);
-                this.popularTracks = [...ALL_MUSIC_DATA]
-                    .filter(t => (parseInt(t.play_count) || 0) > 0)
-                    .sort((a, b) => (parseInt(b.play_count) || 0) - (parseInt(a.play_count) || 0))
-                    .slice(0, 10);
-            }
+        // Recompose les rangées de l'accueil. Rappelée à chaque changement de filtre
+        // de genre : les rangées se dérivent toutes du même sous-ensemble filtré,
+        // il n'y a donc qu'un seul endroit qui décide de ce qui est visible.
+        rebuildHomeRows() {
+            if (typeof ALL_MUSIC_DATA === 'undefined') return;
+            const pool = ALL_MUSIC_DATA.filter(t => {
+                const g = t.genre || 'Autre';
+                if (typeof hiddenGenres !== 'undefined' && hiddenGenres.includes(g)) return false;
+                if (this.activeGenre !== null && g !== this.activeGenre) return false;
+                return true;
+            });
+
+            this.recentTracks = [...pool].sort((a, b) => b.id - a.id).slice(0, 12);
+            this.popularTracks = [...pool]
+                .filter(t => (parseInt(t.play_count) || 0) > 0)
+                .sort((a, b) => (parseInt(b.play_count) || 0) - (parseInt(a.play_count) || 0))
+                .slice(0, 12);
+            // Pépites : les moins écoutées PARMI celles déjà écoutées au moins une fois.
+            // Inclure les jamais-jouées ferait doublon avec "Ajouts récents" et
+            // remplirait la rangée de morceaux que personne n'a validés.
+            this.hiddenGemTracks = [...pool]
+                .filter(t => (parseInt(t.play_count) || 0) > 0)
+                .sort((a, b) => (parseInt(a.play_count) || 0) - (parseInt(b.play_count) || 0))
+                .slice(0, 12);
+            // "Reprendre l'écoute" : historique local, dédoublonné, borné aux pistes
+            // encore présentes dans la bibliothèque (une piste supprimée depuis reste
+            // dans l'historique du navigateur mais ne doit plus être proposée).
+            const byId = new Map(pool.map(t => [String(t.id), t]));
+            this.continueTracks = readListenHistory()
+                .map(id => byId.get(String(id)))
+                .filter(Boolean)
+                .slice(0, 12);
+
             if (typeof ALL_PLAYLISTS_DATA !== 'undefined') {
-                this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 10);
+                this.playlistsPreview = ALL_PLAYLISTS_DATA.slice(0, 12);
             }
+        },
+
+        setGenreFilter(genre) {
+            this.activeGenre = genre;
+            this.rebuildHomeRows();
+            if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
+        },
+
+        toggleSidebar() {
+            this.sidebarCollapsed = !this.sidebarCollapsed;
+            localStorage.setItem('purpleMusicSidebarCollapsed', this.sidebarCollapsed ? '1' : '0');
+        },
+
+        addRecentSearch(term) {
+            const q = (term || '').trim();
+            if (q.length < 2) return;
+            // Dédoublonnage insensible à la casse, le terme validé remonte en tête.
+            this.recentSearches = [q, ...this.recentSearches.filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 10);
+            try { localStorage.setItem('purpleMusicRecentSearches', JSON.stringify(this.recentSearches)); } catch (e) { /* quota plein : l'historique est un confort, jamais bloquant */ }
+        },
+
+        clearRecentSearches() {
+            this.recentSearches = [];
+            try { localStorage.removeItem('purpleMusicRecentSearches'); } catch (e) { /* idem */ }
+        },
+
+        init() {
+            this.sidebarCollapsed = localStorage.getItem('purpleMusicSidebarCollapsed') === '1';
+            try {
+                const rs = JSON.parse(localStorage.getItem('purpleMusicRecentSearches') || '[]');
+                if (Array.isArray(rs)) this.recentSearches = rs.filter(x => typeof x === 'string').slice(0, 10);
+            } catch (e) { /* historique corrompu : on repart d'une liste vide */ }
+
+            // Pastilles de genre : uniquement les genres réellement présents dans la
+            // bibliothèque (et non masqués), pas la liste complète configurée en admin —
+            // proposer un filtre qui ne renverrait rien n'a pas de sens.
+            if (typeof ALL_MUSIC_DATA !== 'undefined') {
+                const counts = new Map();
+                ALL_MUSIC_DATA.forEach(t => {
+                    const g = t.genre || 'Autre';
+                    if (typeof hiddenGenres !== 'undefined' && hiddenGenres.includes(g)) return;
+                    counts.set(g, (counts.get(g) || 0) + 1);
+                });
+                this.genrePills = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+            }
+            this.rebuildHomeRows();
             // recentTracks/popularTracks/playlistsPreview rendus par le x-for ci-dessus : mesurables une
             // fois la micro-tâche Alpine passée (voir refreshHomeRowMarquees() dans ui-modals.js).
             if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
@@ -102,7 +216,12 @@ document.addEventListener('alpine:init', () => {
                 // Rangée conditionnée par x-if="recommendedTracks.length > 0" : n'existe dans le DOM
                 // qu'une fois cette affectation faite, donc la mesure doit attendre ce même tick.
                 if (window.Alpine) Alpine.nextTick(refreshHomeRowMarquees);
-            }).catch(e => console.error(e));
+            }).catch(e => console.error(e)).finally(() => {
+                // Retire les squelettes que la requête ait abouti ou non : en cas d'échec
+                // réseau, laisser des squelettes pulser indéfiniment ferait croire à un
+                // chargement toujours en cours.
+                this.homeLoaded = true;
+            });
             // Classement complet (pas juste le top 20 ci-dessus) : alimente le mode de tri 'recommended',
             // par défaut sur la bibliothèque -- arrive après le premier rendu, donc on retrie une fois prêt
             // si l'utilisateur est toujours sur ce tri (voir compareTracksBySort()/filterAndSortTracks()).
@@ -227,9 +346,30 @@ document.addEventListener('alpine:init', () => {
             this.confirmState = { open: false, message: '', onConfirm: null };
         },
 
-        showToast(message, duration = 3000) {
+        promptAction(title, initialValue, onSubmit, options = []) {
+            this.promptState = { open: true, title, value: initialValue || '', options, onSubmit };
+        },
+        promptSubmit() {
+            const cb = this.promptState.onSubmit;
+            const value = this.promptState.value;
+            this.promptState = { open: false, title: '', value: '', options: [], onSubmit: null };
+            // Valeur vide : on annule plutôt que de laisser l'appelant décider —
+            // aucun des usages actuels n'accepte une saisie vide.
+            if (cb && value && value.trim()) cb(value.trim());
+        },
+        promptCancel() {
+            this.promptState = { open: false, title: '', value: '', options: [], onSubmit: null };
+        },
+
+        // kind : 'info' (défaut) | 'success' | 'error' — porté par un liseré coloré à
+        // gauche du toast (voir .toast-typed dans css/ui.css) plutôt que par la seule
+        // couleur du texte, pour rester lisible sans distinction de couleur.
+        showToast(message, kind = 'info', duration = 3000) {
+            // Rétrocompat : showToast(msg, 5000) était appelé avec une durée en 2e
+            // argument avant l'introduction des types.
+            if (typeof kind === 'number') { duration = kind; kind = 'info'; }
             clearTimeout(this.toastTimer);
-            this.toastState = { visible: true, message };
+            this.toastState = { visible: true, message, kind };
             this.toastTimer = setTimeout(() => { this.toastState.visible = false; }, duration);
         }
     });
@@ -294,6 +434,75 @@ document.addEventListener('alpine:init', () => {
                 this.pwSubmitting = false;
             }
         }
+    }));
+
+    // --- Admin Panel > onglet Thème : aperçu en direct des couleurs.
+    //
+    // Régler un thème demandait jusqu'ici d'enregistrer puis de recharger la page
+    // pour voir le résultat, à chaque essai. Ici les <input type="color"> écrivent
+    // directement dans les variables CSS de <html>, donc toute l'interface (barre
+    // latérale, lecteur, cartes) se recolore instantanément.
+    //
+    // Aucune écriture en base ni en localStorage : c'est un aperçu volatil, annulé
+    // par revert() ou par un simple rechargement. L'enregistrement reste le POST
+    // normal du formulaire.
+    Alpine.data('adminThemePreview', () => ({
+        live: false,
+        // Valeurs en vigueur au moment d'activer l'aperçu, pour pouvoir revenir
+        // exactement à l'état d'avant — et non à une supposée valeur par défaut.
+        saved: {},
+
+        // Nom du champ admin -> variable CSS correspondante.
+        fieldMap: {
+            adm_color_bg: '--bg-dark',
+            adm_color_panel: '--bg-panel',
+            adm_color_primary: '--primary',
+            adm_color_accent: '--accent',
+            adm_color_text: '--text',
+            adm_color_text_muted: '--text-muted',
+            adm_color_border: '--border-color',
+            adm_color_search_bg: '--search-bg',
+            adm_color_fp_gradient_1: '--fp-gradient-1',
+            adm_color_fp_gradient_2: '--fp-gradient-2',
+            adm_color_header_bg: '--header-bg',
+            adm_color_player_bg: '--player-bg',
+            adm_color_mob_nav_bg: '--mob-nav-bg',
+        },
+
+        applyAll() {
+            const root = document.documentElement;
+            if (!Object.keys(this.saved).length) {
+                // Première application : on mémorise l'inline style existant de
+                // chaque variable (souvent vide — la valeur vient alors de la
+                // feuille de style), pour un retour arrière fidèle.
+                Object.values(this.fieldMap).forEach(v => {
+                    this.saved[v] = root.style.getPropertyValue(v);
+                });
+            }
+            Object.entries(this.fieldMap).forEach(([field, cssVar]) => {
+                const input = this.$el.querySelector(`[name="${field}"]`);
+                if (!input) return;
+                const value = input.value.trim();
+                // Un champ rgba() vidé par erreur rendrait la barre transparente :
+                // on ignore les valeurs vides plutôt que d'écrire du vide.
+                if (value) root.style.setProperty(cssVar, value);
+            });
+        },
+
+        revert() {
+            const root = document.documentElement;
+            Object.entries(this.saved).forEach(([cssVar, previous]) => {
+                if (previous) root.style.setProperty(cssVar, previous);
+                else root.style.removeProperty(cssVar);
+            });
+            this.saved = {};
+            // Le preset utilisateur (violet/amoled/...) est posé par theme.js sur
+            // ces mêmes variables : on le réapplique pour ne pas laisser l'aperçu
+            // écraser silencieusement le choix personnel de l'admin.
+            if (typeof setThemeVars === 'function') {
+                setThemeVars(localStorage.getItem('purpleMusicTheme') || 'violet');
+            }
+        },
     }));
 
     // --- Admin Panel (page dédiée, x-data posé sur <main id="admin">) : gère uniquement l'onglet actif

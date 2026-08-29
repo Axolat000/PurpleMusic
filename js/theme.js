@@ -104,14 +104,42 @@ function setThemeVars(name) {
             if (custom[v]) root.style.setProperty(v, custom[v]);
             else root.style.removeProperty(v);
         });
+        applyThemeContrast();
         return;
     }
     const preset = THEME_PRESETS[name];
     if (!preset) {
         THEME_VAR_NAMES.forEach(v => root.style.removeProperty(v));
+        applyThemeContrast();
         return;
     }
     Object.entries(preset).forEach(([k, v]) => root.style.setProperty(k, v));
+    applyThemeContrast();
+}
+
+// --- BASCULE CLAIR / SOMBRE -------------------------------------------------
+// Pose la classe .theme-light sur <html> quand le fond résolu est clair. Cette
+// classe retourne les tokens de voile et de texte (voir css/tokens.css) : sans
+// elle, les survols en blanc translucide et les icônes de transport blanches
+// disparaissent purement et simplement sur un fond clair.
+//
+// La décision se prend sur la LUMINANCE réellement calculée, pas sur le nom du
+// preset : le fond clair peut venir du preset "light", d'un thème personnalisé,
+// de la génération algorithmique à partir d'une couleur, ou du thème dynamique
+// tiré d'une pochette. Se caler sur le nom n'aurait couvert qu'un cas sur quatre.
+//
+// Réutilise parseColorToRgb() et relLuminance(), définis plus bas dans ce fichier
+// pour le générateur de thème : les redéfinir ici en avait fait des doublons de
+// signature incompatible ([r,g,b] contre {r,g,b}), et c'est la définition la plus
+// tardive qui l'emportait — la bascule ne se déclenchait donc jamais.
+function applyThemeContrast() {
+    const root = document.documentElement;
+    // getComputedStyle et non root.style : la valeur peut venir de la feuille de
+    // style ou du bloc injecté par la BDD, pas seulement d'une surcharge inline.
+    const rgb = parseColorToRgb(getComputedStyle(root).getPropertyValue('--bg-dark'));
+    if (!rgb) return;
+    // 0.5 : au-dessus, du texte sombre est plus lisible que du texte clair.
+    root.classList.toggle('theme-light', relLuminance(rgb) > 0.5);
 }
 
 // Applique un preset de thème (ou 'custom'), le persiste en localStorage (par navigateur/utilisateur) et
@@ -125,6 +153,16 @@ function applyThemePreset(name) {
 
 // Application la plus précoce possible (avant même Alpine) pour éviter un flash des couleurs par défaut.
 setThemeVars(localStorage.getItem('purpleMusicTheme') || 'violet');
+
+// Même logique pour l'état réduit de la barre latérale : la classe .collapsed est
+// posée par Alpine (:class), c'est-à-dire seulement après le démarrage d'Alpine.
+// Sans ce pré-marquage, une barre réduite s'affichait brièvement déployée puis se
+// repliait d'un coup à chaque chargement de page. La classe est posée sur <html>
+// (l'aside n'existe pas encore à ce stade), et la règle CSS correspondante dans
+// base.css applique la largeur réduite avant qu'Alpine ne prenne le relais.
+if (localStorage.getItem('purpleMusicSidebarCollapsed') === '1') {
+    document.documentElement.classList.add('sidebar-collapsed-preload');
+}
 
 // --- THÈME PERSONNALISÉ (constructeur dans Paramètres > Général) ---
 // Contrairement aux presets statiques ci-dessus, le thème personnalisé est un objet {varName: '#hex'}
@@ -542,6 +580,10 @@ function applyAppDynamicThemeForCurrentTrack() {
             if (!generated) return;
             const root = document.documentElement;
             Object.entries(generated).forEach(([k, v]) => root.style.setProperty(k, v));
+            // Une pochette claire produit un thème clair : la bascule clair/sombre
+            // doit suivre, sinon les icônes de transport restent blanches sur un
+            // fond devenu pâle.
+            applyThemeContrast();
         })
         .catch((e) => {
             // Échec d'extraction (pas de pochette, erreur réseau/décodage...) : on laisse le thème

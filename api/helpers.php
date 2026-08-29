@@ -72,6 +72,114 @@ function is_valid_audio($path, $ext) {
 // play_count, sans quoi il mentirait sur ce qu'il prétend montrer). Les pistes déjà beaucoup écoutées par
 // CET utilisateur sont fortement dépriorisées (pas exclues) : la recommandation sert à découvrir, pas à
 // re-suggérer ce que l'utilisateur retrouve déjà tout seul dans Récents/Plus écoutés.
+/**
+ * Découpe un champ artiste multi-noms ("A & B", "A feat. B") en noms individuels.
+ *
+ * Portage PHP de splitArtistNames() (js/library.js) : les statistiques agrègent
+ * par artiste alors que la colonne est une chaîne libre que SQL ne sait pas
+ * découper. Les deux implémentations doivent rester alignées, sinon un même
+ * artiste serait compté différemment côté page Artiste et côté Statistiques.
+ *
+ * @return string[] noms nettoyés, sans doublon d'espaces ni crochet orphelin
+ */
+function split_artist_names($raw) {
+    if ($raw === null || trim($raw) === '') return [];
+
+    // Mention de featuring encadrée : on retire les crochets, on garde le contenu.
+    $s = preg_replace('/[(\[]\s*((?:feat|ft|featuring|avec|with)\b\.?\s*[^)\]]*)[)\]]/iu', ' $1 ', $raw);
+
+    $parts = preg_split(
+        '/\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+et\s+|\s*;\s*/iu',
+        $s
+    );
+
+    $out = [];
+    foreach ($parts as $part) {
+        $p = trim($part);
+        // Marqueur de featuring resté en tête après un découpage sur virgule.
+        $p = preg_replace('/^(?:feat|ft|featuring|avec|with|and|et|x)\b\.?\s*/iu', '', $p);
+        $p = trim(preg_replace('/\s{2,}/u', ' ', $p));
+
+        // Crochets orphelins uniquement (pendant parti dans un autre fragment) :
+        // un décapage inconditionnel casserait un alias légitime "Nom (Alias)".
+        $guard = 0;
+        while ($guard++ < 8) {
+            $opens = preg_match_all('/[(\[]/u', $p);
+            $closes = preg_match_all('/[)\]]/u', $p);
+            if ($closes > $opens && preg_match('/^[)\]]/u', $p)) { $p = trim(mb_substr($p, 1)); continue; }
+            if ($opens > $closes && preg_match('/[(\[]$/u', $p)) { $p = trim(mb_substr($p, 0, -1)); continue; }
+            if ($closes > $opens && preg_match('/[)\]]$/u', $p)) { $p = trim(mb_substr($p, 0, -1)); continue; }
+            if ($opens > $closes && preg_match('/^[(\[]/u', $p)) { $p = trim(mb_substr($p, 1)); continue; }
+            break;
+        }
+
+        if ($p !== '') $out[] = $p;
+    }
+    return $out;
+}
+
+/**
+ * Requête HTTP GET JSON simple, partagée par les intégrations externes.
+ *
+ * Retourne null en cas d'échec réseau, de code non-200 ou de JSON invalide :
+ * l'appelant n'a jamais à distinguer ces cas, aucun d'eux ne doit casser la page.
+ */
+function http_get_json($url, $timeout = 8) {
+    if (!function_exists('curl_init')) return null;
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => $timeout,
+        CURLOPT_CONNECTTIMEOUT => 6,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 3,
+        // Wikipédia exige un User-Agent identifiant l'application et un contact ;
+        // les UA génériques y sont limités, voire bloqués.
+        CURLOPT_USERAGENT => 'PurpleMusic-Web/1.0 (+https://github.com/Axolat000/PurpleMusic)',
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+    $body = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_errno($ch);
+    curl_close($ch);
+    if ($err !== 0 || $body === false || $code !== 200) return null;
+    $data = json_decode($body, true);
+    return is_array($data) ? $data : null;
+}
+
+/**
+ * Résumé Wikipédia d'un artiste, avec résolution des homonymies.
+ *
+ * Portage serveur de fetchWikipediaSummary() (js/library.js), pour que le
+ * résultat puisse être mis en cache en base (voir api/bio.php) au lieu d'être
+ * refait par chaque navigateur à chaque visite.
+ *
+ * @return array{extract:string,url:?string}|null
+ */
+function wikipedia_summary($name, $lang) {
+    $base = "https://{$lang}.wikipedia.org";
+
+    $summary = http_get_json($base . '/api/rest_v1/page/summary/' . rawurlencode($name));
+    if ($summary && ($summary['type'] ?? '') !== 'disambiguation' && !empty($summary['extract'])) {
+        return ['extract' => $summary['extract'], 'url' => $summary['content_urls']['desktop']['page'] ?? null];
+    }
+
+    // Page d'homonymie ou introuvable telle quelle : on prend le premier résultat
+    // de recherche qui est une vraie page (ex. "Drake" -> "Drake (musicien)").
+    $search = http_get_json($base . '/w/rest.php/v1/search/page?' . http_build_query(['q' => $name, 'limit' => 5]));
+    if (!$search) return null;
+
+    foreach (($search['pages'] ?? []) as $page) {
+        $title = $page['title'] ?? '';
+        if ($title === '' || mb_strtolower($title) === mb_strtolower($name)) continue;
+        $alt = http_get_json($base . '/api/rest_v1/page/summary/' . rawurlencode($title));
+        if ($alt && ($alt['type'] ?? '') !== 'disambiguation' && !empty($alt['extract'])) {
+            return ['extract' => $alt['extract'], 'url' => $alt['content_urls']['desktop']['page'] ?? null];
+        }
+    }
+    return null;
+}
+
 function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
     $sevenDaysAgo = time() - (7 * 24 * 3600);
 

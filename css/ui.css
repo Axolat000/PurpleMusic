@@ -1,0 +1,591 @@
+/* =============================================================================
+   UI — primitives partagées
+   =============================================================================
+   Chargé après components.css : contrôles de formulaire homogènes, états de
+   focus, squelettes de chargement, menus contextuels, toasts typés, indicateur
+   "en cours de lecture". Tout ce qui était soit absent, soit traité au cas par
+   cas d'un composant à l'autre (une case à cocher native ici, un .switch-toggle
+   là, un <select> au rendu navigateur par défaut ailleurs).
+   ========================================================================== */
+
+/* --- FOCUS CLAVIER -----------------------------------------------------------
+   :focus-visible (et pas :focus) : l'anneau n'apparaît qu'en navigation clavier,
+   jamais après un clic souris. Posé globalement — avant, seul .switch-toggle
+   avait un état de focus, tout le reste était invisible au clavier. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+}
+/* Sur fond clair (pochette, hero flouté) l'anneau accent peut se perdre : on lui
+   ajoute un liseré sombre de contraste. */
+.entity-page-hero :focus-visible,
+#full-player :focus-visible {
+    outline-color: #fff;
+    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.45);
+}
+
+/* --- SÉLECTEUR ---------------------------------------------------------------
+   Chevron dessiné en CSS (masque SVG inline) : un <select> natif affiche la
+   flèche du système, différente sur chaque OS/navigateur, et ignorait totalement
+   le thème de l'app. */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--surface-sunken);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23a196b4' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    background-size: 20px;
+    padding-right: var(--space-10);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--text-base);
+}
+select:hover { border-color: var(--primary); }
+/* Les <option> sont rendues par l'OS : on ne peut fixer que leurs couleurs, pas
+   leur mise en forme — au moins elles ne restent pas en blanc sur blanc quand le
+   thème est sombre. */
+select option { background: var(--bg-panel); color: var(--text); }
+
+/* --- CASE À COCHER -----------------------------------------------------------
+   Même langage visuel que .switch-toggle (rayon, couleur active, transition) :
+   avant, les booléens de l'app étaient tantôt des pilules custom (égaliseur,
+   visualiseur), tantôt des cases natives de l'OS (playlist privée, CGU, filtres
+   de genre) — deux traitements pour un même concept. */
+input[type="checkbox"]:not([hidden]) {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin: 0;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-xs);
+    background: var(--surface-sunken);
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+input[type="checkbox"]:not([hidden])::before {
+    content: '';
+    width: 11px;
+    height: 11px;
+    transform: scale(0);
+    transition: transform var(--dur-fast) var(--ease-spring);
+    background: #fff;
+    /* Coche vectorielle : un caractère "✓" dépend de la police disponible et se
+       centre mal ; un clip-path garde exactement la même forme partout. */
+    clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 82% 0, 39% 62%);
+}
+input[type="checkbox"]:not([hidden]):checked {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+input[type="checkbox"]:not([hidden]):checked::before { transform: scale(1); }
+input[type="checkbox"]:not([hidden]):hover { border-color: var(--primary); }
+
+/* --- CHAMPS ------------------------------------------------------------------
+   Reprise des règles de components.css avec les tokens, et ajout des types
+   manquants (number/search/url) qui retombaient sinon sur le rendu natif. */
+input[type="number"], input[type="search"], input[type="url"], textarea {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    border-radius: var(--radius-md);
+    outline: none;
+    font-family: inherit;
+    font-size: var(--text-base);
+    transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+/* Placeholder : même couleur muted partout (était #6b5e85 en dur sur la recherche
+   uniquement, valeur qui ne suivait aucun preset). */
+::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+/* --- SQUELETTES DE CHARGEMENT ------------------------------------------------
+   Remplace les "Chargement..." textuels et les rangées vides. La forme du
+   squelette reprend celle du contenu réel (carte carrée + 2 lignes) pour éviter
+   le saut de mise en page au moment du remplacement. */
+.skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-raised);
+    border-radius: var(--radius-sm);
+}
+.skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--tint-1), transparent);
+    animation: skeletonSweep 1.4s ease-in-out infinite;
+}
+@keyframes skeletonSweep { to { transform: translateX(100%); } }
+.skeleton-card { flex: 0 0 130px; width: 130px; }
+.skeleton-cover { width: 100%; aspect-ratio: 1/1; border-radius: var(--radius-md); margin-bottom: var(--space-2); }
+.skeleton-line { height: 10px; border-radius: var(--radius-full); margin-bottom: var(--space-2); }
+.skeleton-line.short { width: 60%; }
+.skeleton-row { display: flex; gap: var(--space-4); }
+
+/* --- INDICATEUR "EN COURS DE LECTURE" ----------------------------------------
+   Trois barres animées à la place du numéro/de la pochette de la piste jouée,
+   dans les listes. Utilise --signal (cuivré) plutôt que l'accent violet : c'est
+   le seul repère "vivant" de la liste, il doit trancher avec le reste du thème.
+   Les durées sont volontairement différentes et non multiples entre elles pour
+   que les barres ne se resynchronisent jamais visuellement. */
+.now-playing-bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+    width: 14px;
+}
+.now-playing-bars span {
+    flex: 1;
+    background: var(--signal);
+    border-radius: 1px;
+    height: 30%;
+    animation: nowPlayingBar 0.9s ease-in-out infinite alternate;
+}
+.now-playing-bars span:nth-child(2) { animation-duration: 0.62s; }
+.now-playing-bars span:nth-child(3) { animation-duration: 1.15s; }
+@keyframes nowPlayingBar { from { height: 22%; } to { height: 100%; } }
+/* Lecture en pause : les barres se figent à mi-hauteur (état lisible, pas une
+   animation arrêtée au hasard). */
+.now-playing-bars.paused span { animation-play-state: paused; height: 45%; }
+
+/* --- MENU CONTEXTUEL ---------------------------------------------------------
+   Clic droit (desktop) / appui long (tactile) sur une piste ou une playlist.
+   Positionné en fixed par JS (voir openContextMenu() dans js/ui-modals.js). */
+.context-menu {
+    position: fixed;
+    z-index: 6000;
+    min-width: 210px;
+    padding: var(--space-2);
+    background: var(--surface-overlay);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elev-3);
+    backdrop-filter: blur(20px) saturate(160%);
+    animation: contextMenuIn var(--dur-fast) var(--ease-out);
+}
+@keyframes contextMenuIn { from { opacity: 0; transform: scale(0.96) translateY(-4px); } }
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: var(--text-base);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--dur-instant) var(--ease-out);
+}
+.context-menu-item:hover { background: var(--tint-2); }
+.context-menu-item svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; opacity: 0.75; }
+.context-menu-item.danger { color: var(--danger); }
+.context-menu-sep { height: 1px; margin: var(--space-2) var(--space-3); background: var(--hairline); }
+/* Raccourci clavier affiché à droite de l'action, quand elle en a un. */
+.context-menu-key {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--text-muted);
+    padding: 2px 6px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-xs);
+}
+
+/* --- TOASTS TYPÉS ------------------------------------------------------------
+   Avant : un seul style pour tout, succès comme erreur. Le liseré gauche coloré
+   porte l'information sans dépendre uniquement de la couleur du texte. */
+#toast {
+    position: fixed;
+    bottom: 110px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 6000;
+    max-width: min(90%, 420px);
+    padding: var(--space-4) var(--space-6);
+    background: var(--surface-overlay);
+    color: var(--text);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elev-3);
+    backdrop-filter: blur(16px);
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    text-align: center;
+}
+.toast-typed { border-left: 3px solid var(--primary); }
+.toast-typed.toast-success { border-left-color: #2ecc71; }
+.toast-typed.toast-error { border-left-color: var(--danger); }
+.toast-typed.toast-info { border-left-color: var(--accent); }
+
+/* --- ÉTATS VIDES -------------------------------------------------------------
+   Un écran vide sans explication ressemble à un bug. */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-16) var(--space-6);
+    text-align: center;
+    color: var(--text-muted);
+}
+.empty-state svg { width: 46px; height: 46px; fill: currentColor; opacity: 0.35; }
+.empty-state-title { font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--text); margin: 0; }
+.empty-state-hint { font-size: var(--text-sm); margin: 0; max-width: 42ch; line-height: var(--leading-normal); }
+
+/* --- BARRE DE PROGRESSION DE NAVIGATION --------------------------------------
+   Fin liseré en haut de page pendant un changement de section/chargement réseau,
+   façon YouTube. Piloté par startNavProgress()/endNavProgress() (js/ui-modals.js). */
+#nav-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    width: 0;
+    z-index: 9999;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    box-shadow: 0 0 8px var(--accent);
+    opacity: 0;
+    transition: width var(--dur-base) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+    pointer-events: none;
+}
+#nav-progress.active { opacity: 1; }
+
+/* --- APPARITION ÉCHELONNÉE DES LISTES ----------------------------------------
+   Le délai est posé en style inline par le JS de rendu (--i = index de la ligne),
+   plafonné côté JS pour que le bas d'une longue liste n'attende pas une seconde.
+   animation-fill-mode: both — sans lui la ligne est visible à 100% avant le début
+   de son propre délai, ce qui annule l'effet. */
+.fade-in-row {
+    animation: fadeInRow var(--dur-base) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 18ms);
+}
+@keyframes fadeInRow { from { opacity: 0; transform: translateY(6px); } }
+
+/* --- SIGNATURE : TEXTURE "SILLON" --------------------------------------------
+   Très légère trame de lignes concentriques évoquant un sillon de vinyle, posée
+   uniquement sur les grandes surfaces sombres (hero d'entité, lecteur plein
+   écran). repeating-radial-gradient plutôt qu'une image : aucun octet réseau,
+   et suit la taille du conteneur. Opacité volontairement à la limite du visible :
+   c'est une texture, pas un motif. */
+.has-groove::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.055;
+    background: repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, var(--fg-strong) 3px 4px);
+    mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 78%);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 78%);
+}
+
+/* --- FILE D'ATTENTE ----------------------------------------------------------
+   Trois groupes (déjà joué / en cours / à suivre) séparés par des intertitres,
+   au lieu d'une liste plate où seule une pastille marquait la piste courante. */
+.queue-group-label {
+    margin: var(--space-5) var(--space-2) var(--space-2);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--text-muted);
+}
+.queue-group-label:first-child { margin-top: 0; }
+.queue-group-current { color: var(--signal); }
+
+.queue-item { position: relative; }
+/* Les pistes déjà jouées restent visibles mais en retrait : elles servent de
+   repère de position, pas de contenu à parcourir. */
+.queue-item.past { opacity: 0.45; }
+.queue-item.past:hover { opacity: 0.8; }
+.queue-item-cover { width: 38px; height: 38px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
+.queue-item-body { flex: 1; overflow: hidden; }
+.queue-item-title { font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-item-artist { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Poignée et bouton de retrait : révélés au survol seulement. Toujours visibles,
+   ils ajouteraient deux icônes par ligne sur une file de 40 titres. */
+.queue-drag-handle, .queue-item-remove {
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.queue-item:hover .queue-drag-handle,
+.queue-item:hover .queue-item-remove { opacity: 1; }
+/* Au clavier, le survol n'existe pas : le bouton doit réapparaître au focus,
+   sinon il est inatteignable autrement qu'à la souris. */
+.queue-item-remove:focus-visible { opacity: 1; }
+.queue-drag-handle { cursor: grab; display: flex; }
+.queue-item[draggable="true"]:active .queue-drag-handle { cursor: grabbing; }
+.queue-item-remove { background: none; border: none; padding: var(--space-2); border-radius: 50%; cursor: pointer; display: flex; }
+.queue-item-remove:hover { background: var(--tint-3); color: var(--danger); }
+
+.queue-item.dragging { opacity: 0.4; }
+/* Trait d'insertion plutôt qu'un fond coloré : indique précisément OÙ la piste
+   va se poser, ce qu'un simple surlignage de la ligne survolée ne dit pas. */
+.queue-item.drag-over { box-shadow: inset 0 2px 0 var(--accent); }
+
+/* --- CARTES DE PLAYLIST -------------------------------------------------------
+   La pochette redevient l'élément dominant. Les actions (visibilité, éditer,
+   supprimer) n'apparaissent qu'au survol, au lieu d'occuper en permanence trois
+   boutons pleine largeur empilés sous chaque carte. */
+.playlist-card-art { position: relative; margin-bottom: var(--space-3); }
+.playlist-card-play {
+    position: absolute; right: var(--space-2); bottom: var(--space-2);
+    width: 42px; height: 42px; border-radius: 50%;
+    border: none; background: var(--primary); color: #fff;
+    display: grid; place-content: center; cursor: pointer;
+    box-shadow: var(--elev-2);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.playlist-card:hover .playlist-card-play,
+.playlist-card-play:focus-visible { opacity: 1; transform: translateY(0); }
+
+.playlist-card-title { margin: 0 0 2px; font-size: var(--text-md); font-weight: var(--weight-bold); }
+.playlist-card-sub { font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.playlist-card-actions {
+    display: flex; gap: var(--space-1); margin-top: var(--space-3);
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+}
+.playlist-card:hover .playlist-card-actions,
+.playlist-card:focus-within .playlist-card-actions { opacity: 1; }
+/* Les boutons d'action d'une carte sont déjà révélés par l'opacité du conteneur :
+   sans cette remise à 1, la règle .track-row-btn (masquée hors survol de LIGNE)
+   les garderait invisibles à l'intérieur d'une carte. */
+.playlist-card-actions .track-row-btn { opacity: 1; }
+
+/* Pochette collage : mosaïque 2x2 des 4 premiers morceaux quand la playlist n'a
+   pas d'image propre — évite que toutes les playlists se ressemblent. */
+.playlist-cover-collage { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0; background: var(--bg-panel); }
+.playlist-cover-collage img { position: static; width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+
+/* --- DÉTAIL D'UNE PLAYLIST ---------------------------------------------------- */
+.playlist-detail-head { margin-bottom: var(--space-6); }
+.playlist-detail-ident { display: flex; gap: var(--space-5); align-items: flex-start; flex-wrap: wrap; }
+.playlist-detail-meta { min-width: 0; flex: 1; }
+/* Titre modifiable : le survol annonce l'édition sans ajouter un bouton crayon. */
+.playlist-title-view.editable { cursor: text; border-radius: var(--radius-xs); transition: background var(--dur-fast) var(--ease-out); }
+.playlist-title-view.editable:hover { background: var(--tint-1); box-shadow: 0 0 0 6px var(--tint-1); }
+.playlist-title-input {
+    width: 100%; max-width: 420px;
+    margin: 0 0 var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-tight);
+    font-family: inherit;
+    background: var(--surface-sunken);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    outline: none;
+}
+.playlist-reorder-hint {
+    display: flex; align-items: center; gap: var(--space-2);
+    margin: var(--space-3) 0 0;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+/* Poignée de déplacement dans le détail : la ligne est une grille à 3 colonnes
+   (pochette / texte / actions), la poignée en ajoute une quatrième en tête. */
+#playlist-detail-list .track-item[draggable="true"] { grid-template-columns: 18px 48px 1fr auto; }
+.playlist-drag-handle { align-self: center; }
+#playlist-detail-list .track-item.dragging { opacity: 0.4; }
+#playlist-detail-list .track-item.drag-over { box-shadow: inset 0 2px 0 var(--accent); }
+
+/* --- SECTIONS DE RÉSULTATS DE RECHERCHE -------------------------------------- */
+.search-section { margin-bottom: var(--space-10); }
+.search-section .home-row-title { margin-bottom: var(--space-4); }
+/* Grille resserrée : dans les résultats, artistes et albums sont un aperçu, pas
+   la matière principale (les titres, en dessous, le sont). */
+.entity-grid-compact { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: var(--space-4); }
+
+/* --- FOND D'AMBIANCE DES LECTEURS ---------------------------------------------
+   Pochette en cours, floutée et sur-saturée, posée derrière le dégradé du thème.
+   Sans elle, tous les morceaux partageaient exactement le même fond
+   (--fp-gradient-1/2), quel que soit leur visuel.
+
+   scale(1.25) : le flou échantillonne au-delà des bords de l'élément et laisse
+   sinon un liseré transparent tout autour. brightness réduite pour que le texte
+   et les contrôles restent lisibles par-dessus — c'est un fond, pas une image. */
+.fp-ambient {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-position: center;
+    background-size: cover;
+    filter: blur(52px) saturate(1.7) brightness(0.55);
+    transform: scale(1.25);
+    opacity: 0;
+    transition: opacity var(--dur-slow) var(--ease-out), background-image var(--dur-slow) var(--ease-out);
+    pointer-events: none;
+}
+.fp-ambient.is-visible { opacity: 1; }
+/* En mode clair le fond doit s'éclaircir, pas s'assombrir : la même image
+   assombrie donnerait un lecteur sombre au milieu d'une interface claire. */
+html.theme-light .fp-ambient { filter: blur(52px) saturate(1.6) brightness(1.35); opacity: 0; }
+html.theme-light .fp-ambient.is-visible { opacity: 0.75; }
+
+/* Le contenu des deux lecteurs doit passer AU-DESSUS du fond (qui est en
+   position:absolute) — sans ça, la pochette et les contrôles se retrouvent
+   derrière lui. */
+#full-player > *:not(.fp-ambient),
+.dfp-card-player > *:not(.fp-ambient) { position: relative; z-index: 1; }
+
+/* Titre de la mini-barre : reprend .marquee-wrap comme les deux autres lecteurs
+   (il n'avait qu'une ellipse, sans défilement, alors que c'est la surface la plus
+   étroite des trois). */
+.player-title { font-weight: var(--weight-bold); font-size: var(--text-sm); }
+
+/* --- GESTION DES GENRES (Panel Admin) ----------------------------------------- */
+.adm-genre-list {
+    max-height: 300px; overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+}
+.adm-genre-item {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--rule-faint);
+}
+.adm-genre-item:last-child { border-bottom: none; }
+.adm-genre-name { flex: 1; min-width: 0; font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-genre-count { flex-shrink: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.adm-genre-actions { display: flex; gap: var(--space-1); flex-shrink: 0; }
+/* Les boutons d'action des lignes de piste sont masqués hors survol ; dans cette
+   liste d'administration ils doivent rester visibles en permanence — on ne
+   survole pas 30 genres pour trouver lequel porte quelle action. */
+.adm-genre-actions .track-row-btn { opacity: 1; }
+
+/* --- APERÇU DE THÈME (Panel Admin) -------------------------------------------- */
+.admin-preview-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-4); flex-wrap: wrap;
+    margin-bottom: var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+}
+.admin-preview-toggle { display: flex; align-items: center; gap: var(--space-3); cursor: pointer; font-size: var(--text-base); color: var(--text); }
+
+/* --- PAGE STATISTIQUES --------------------------------------------------------
+   Information design plutôt que typographie : on met en avant les 4 chiffres
+   clés, puis les classements. Chiffres en tabular-nums pour qu'ils s'alignent
+   d'une tuile à l'autre. */
+.stats-range { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-left: auto; }
+.stats-section { margin-top: var(--space-10); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); }
+.stat-tile {
+    padding: var(--space-5);
+    background: var(--bg-panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+}
+.stat-tile-value {
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-black);
+    letter-spacing: var(--tracking-tight);
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    line-height: var(--leading-tight);
+}
+.stat-tile-label { margin-top: var(--space-1); font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+
+/* Histogramme par heure : barres CSS (pas de <canvas>) pour qu'il suive le thème
+   et reste net à tous les niveaux de zoom. */
+.hour-chart {
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    align-items: end;
+    gap: 3px;
+    height: 160px;
+    padding: var(--space-4);
+    background: var(--bg-panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+}
+.hour-bar-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: var(--space-2); }
+.hour-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(180deg, var(--accent), var(--primary));
+    min-height: 2px;
+}
+/* Heures sans écoute : présentes mais neutres — leur absence de barre est une
+   information (le creux de la nuit), pas un trou. */
+.hour-bar.is-empty { background: var(--hairline); }
+.hour-bar-label { font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); height: 12px; }
+
+/* Classements (titres / artistes / genres) */
+.rank-list { display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); overflow: hidden; }
+.rank-row {
+    display: flex; align-items: center; gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    background: none; border: none;
+    border-bottom: 1px solid var(--rule-faint);
+    color: var(--text); font-family: inherit; text-align: left;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out);
+}
+.rank-row:last-child { border-bottom: none; }
+.rank-row:hover { background: var(--tint-1); }
+.rank-index { width: 22px; flex-shrink: 0; color: var(--text-muted); font-size: var(--text-sm); text-align: right; }
+.rank-cover { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
+.rank-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rank-title { font-weight: var(--weight-semibold); font-size: var(--text-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-sub { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-count { flex-shrink: 0; font-size: var(--text-xs); color: var(--text-muted); }
+
+/* --- MODALE DES RACCOURCIS ---------------------------------------------------- */
+.shortcut-list { display: grid; gap: var(--space-2); }
+.shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) 0; border-bottom: 1px solid var(--hairline); }
+.shortcut-row:last-child { border-bottom: none; }
+.shortcut-row span { font-size: var(--text-base); color: var(--text); }
+.shortcut-keys { display: flex; gap: var(--space-2); flex-shrink: 0; }
+kbd {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 3px 8px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-color);
+    /* Le liseré bas plus marqué donne le relief d'une vraie touche sans ombre portée. */
+    border-bottom-width: 2px;
+    border-radius: var(--radius-xs);
+    color: var(--text);
+}
+
+/* --- UTILITAIRES -------------------------------------------------------------
+   .sr-only : libellé réservé aux lecteurs d'écran (utilisé sur les boutons
+   icône-seule dont l'intitulé visuel est porté par l'icône). */
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+.tabular { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }

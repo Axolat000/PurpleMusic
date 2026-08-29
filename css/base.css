@@ -19,14 +19,189 @@ body { margin:0; font-family:'Segoe UI', system-ui, -apple-system, sans-serif; b
 ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: var(--radius-full); }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
-header { display:flex; justify-content:space-between; padding:15px 30px; background: var(--header-bg); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(61, 43, 86, 0.5); align-items:center; position:sticky; top:0; z-index:100; height: 70px; }
-.logo { font-weight: 800; font-size: 1.6em; color: var(--accent); white-space: nowrap; letter-spacing: -1px; }
-nav { display:flex; gap:25px; margin-left: 40px; flex-grow: 1; }
-nav span { cursor:pointer; font-weight: 600; color: var(--text-muted); transition: 0.3s; white-space: nowrap; padding: 5px 10px; border-radius: var(--radius-sm); }
-nav span:hover { color: white; background: rgba(255,255,255,0.05); }
-nav span.active { color: var(--accent); }
-nav span.admin-nav-btn { color: #e67e22; font-weight: 700; }
-.header-actions { display:flex; gap:12px; align-items:center; }
+/* Icône vectorielle générique (sprite templates/icons.php). currentColor : l'icône
+   suit la couleur de texte de son bouton parent, plus besoin de fixer un fill par
+   emplacement comme le faisaient les anciens SVG recopiés en dur. */
+.ico { width: 20px; height: 20px; fill: currentColor; display: block; flex-shrink: 0; }
+.ico-lg { width: 24px; height: 24px; }
+.ico-sm { width: 16px; height: 16px; }
+
+/* --- OSSATURE : barre latérale + colonne de contenu -------------------------
+   Remplace l'ancien bandeau horizontal unique. La barre latérale est en position
+   fixed (pas sticky) : elle doit garder sa propre hauteur pleine et son propre
+   défilement interne, indépendamment de la longueur du contenu à droite. */
+.app-shell { display: flex; align-items: flex-start; }
+
+#app-sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--sidebar-w);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-5) var(--space-3);
+    background: var(--bg-panel);
+    border-right: 1px solid var(--hairline);
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: width var(--dur-base) var(--ease-out);
+}
+#app-sidebar.collapsed { width: var(--sidebar-w-collapsed); }
+/* Pré-marquage posé sur <html> par theme.js avant le démarrage d'Alpine : évite
+   que la barre s'affiche déployée une fraction de seconde avant de se replier. */
+html.sidebar-collapsed-preload #app-sidebar { width: var(--sidebar-w-collapsed); }
+html.sidebar-collapsed-preload .app-main { margin-left: var(--sidebar-w-collapsed); }
+/* En mode réduit, seuls les pictogrammes restent : les libellés sont retirés du
+   flux (display:none et pas seulement opacity, sinon ils forceraient encore la
+   largeur du bouton et le pictogramme ne se centrerait pas). */
+#app-sidebar.collapsed .sidebar-link-label,
+#app-sidebar.collapsed .sidebar-group-label,
+#app-sidebar.collapsed .sidebar-logo-text { display: none; }
+#app-sidebar.collapsed .sidebar-link { justify-content: center; padding-left: 0; padding-right: 0; }
+#app-sidebar.collapsed .sidebar-head { justify-content: center; }
+#app-sidebar.collapsed .sidebar-toggle-btn { display: none; }
+
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-2) var(--space-4); }
+.sidebar-logo { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+/* Pastille d'initiale : sert d'identité quand la barre est réduite et que le nom
+   complet du site n'est plus affiché. */
+.sidebar-logo-mark {
+    width: 32px; height: 32px; flex-shrink: 0;
+    display: grid; place-content: center;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: #fff;
+    font-weight: var(--weight-black);
+    font-size: var(--text-md);
+}
+.sidebar-logo-text {
+    font-weight: var(--weight-black);
+    font-size: var(--text-md);
+    letter-spacing: var(--tracking-tight);
+    color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-toggle-btn {
+    background: none; border: none; padding: var(--space-2);
+    border-radius: var(--radius-sm); cursor: pointer;
+    color: var(--text-muted);
+    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.sidebar-toggle-btn:hover { background: var(--tint-2); color: var(--text); }
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-group-label {
+    margin: var(--space-4) var(--space-3) var(--space-2);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--text-muted);
+    opacity: 0.75;
+}
+.sidebar-group-label:first-child { margin-top: 0; }
+
+.sidebar-link {
+    display: flex; align-items: center; gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3);
+    background: none; border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+    text-align: left; text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.sidebar-link:hover { background: var(--tint-1); color: var(--text); }
+.sidebar-link.active { background: color-mix(in srgb, var(--primary) 20%, transparent); color: var(--text); font-weight: var(--weight-semibold); }
+/* Repère d'état actif indépendant de la couleur (utile en cas de daltonisme et
+   quand le fond violet translucide passe mal sur certains presets). */
+.sidebar-link.active .ico { color: var(--accent); }
+.sidebar-link-admin { color: var(--signal); }
+.sidebar-link-admin:hover, .sidebar-link-admin.active { color: var(--signal); background: var(--signal-dim); }
+.sidebar-actions { margin-top: auto; padding-top: var(--space-4); border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 2px; }
+
+/* Colonne de droite : décalée de la largeur de la barre latérale. margin-left
+   plutôt qu'un flex sur .app-shell — la barre étant en position:fixed, elle ne
+   réserve aucune place dans le flux. */
+.app-main { flex: 1; min-width: 0; margin-left: var(--sidebar-w); transition: margin-left var(--dur-base) var(--ease-out); }
+.app-shell:has(#app-sidebar.collapsed) .app-main { margin-left: var(--sidebar-w-collapsed); }
+
+#app-topbar {
+    position: sticky; top: 0; z-index: 150;
+    display: flex; align-items: center; gap: var(--space-4);
+    height: var(--topbar-h);
+    padding: 0 var(--space-8);
+    background: var(--header-bg);
+    backdrop-filter: blur(18px) saturate(160%);
+    border-bottom: 1px solid var(--hairline);
+}
+.topbar-search { position: relative; flex: 1; max-width: 520px; display: flex; align-items: center; }
+.topbar-search-ico { position: absolute; left: var(--space-4); color: var(--text-muted); pointer-events: none; }
+/* Sélecteur descendant volontaire : le reset générique `input[type="search"]`
+   (css/ui.css) a une spécificité (0,1,1) et écrasait une simple classe (0,1,0),
+   ce qui redonnait à ce champ un rembourrage gauche de 16px — le texte saisi
+   passait alors sous la loupe. `.topbar-search .topbar-search-input` monte à
+   (0,2,0) et reprend la main, quel que soit l'ordre des fichiers. */
+.topbar-search .topbar-search-input {
+    width: 100%; height: 42px;
+    padding: 0 var(--space-10) 0 var(--space-12);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--hairline);
+    background: var(--search-bg);
+    color: var(--text);
+    font-family: inherit; font-size: var(--text-base);
+    outline: none;
+    transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.topbar-search .topbar-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); }
+/* Croix native de <input type="search"> supprimée : on fournit la nôtre, stylée
+   et positionnée, sinon les deux se superposent sur Chrome. */
+.topbar-search-input::-webkit-search-cancel-button { display: none; }
+.topbar-search-clear {
+    position: absolute; right: var(--space-2);
+    background: none; border: none; padding: var(--space-2);
+    border-radius: 50%; cursor: pointer; color: var(--text-muted);
+    display: flex; transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.topbar-search-clear:hover { background: var(--tint-2); color: var(--text); }
+
+.search-recent-pop {
+    position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+    z-index: 300;
+    padding: var(--space-2);
+    background: var(--surface-overlay);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elev-3);
+    backdrop-filter: blur(20px);
+}
+.search-recent-head { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) var(--space-3); font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-muted); }
+.search-recent-head button { background: none; border: none; color: var(--accent); font-size: var(--text-2xs); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.search-recent-item { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: var(--space-3); background: none; border: none; border-radius: var(--radius-sm); color: var(--text); font-family: inherit; font-size: var(--text-base); text-align: left; cursor: pointer; }
+.search-recent-item:hover { background: var(--tint-2); }
+.search-recent-item .ico { color: var(--text-muted); }
+
+.topbar-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+.topbar-sort { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); }
+/* Le <select> de tri reprend la taille d'un bouton-icône plutôt que la largeur
+   pleine héritée du reset générique des champs. */
+.topbar-sort select { width: auto; min-width: 150px; margin: 0; padding: var(--space-2) var(--space-8) var(--space-2) var(--space-3); font-size: var(--text-sm); border-radius: var(--radius-full); }
+
+.app-content { padding: var(--space-8); max-width: var(--content-max); margin: 0 auto; }
+
+/* En-tête de page (titre + actions), commun à toutes les vues secondaires. */
+.page-head { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-6); }
+.page-title { font-size: var(--text-xl); font-weight: var(--weight-bold); letter-spacing: var(--tracking-tight); margin: 0; text-wrap: balance; }
+.page-sub { color: var(--text-muted); font-size: var(--text-sm); margin: 0; }
+.section-divider { margin: var(--space-10) 0 var(--space-4); }
+
+.mobile-header { display: none; }
 
 .btn { padding:10px 20px; border-radius: var(--radius-full); border:none; cursor:pointer; font-weight:700; transition: all 0.2s ease; text-decoration: none; display: inline-flex; align-items: center; font-size: 0.9em; white-space: nowrap; justify-content: center; }
 .btn:active { transform: scale(0.96); }
@@ -48,31 +223,87 @@ nav span.admin-nav-btn { color: #e67e22; font-weight: 700; }
 /* Bouton icône seule (pas de pilule/contour visible au repos), pour le header et autres emplacements icon-only. */
 .btn-icon { background: none; border: none; padding: 10px; border-radius: 50%; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s ease, color 0.2s ease; text-decoration: none; flex-shrink: 0; }
 .btn-icon svg { width: 20px; height: 20px; fill: currentColor; display: block; }
-.btn-icon:hover { background: rgba(255,255,255,0.08); color: var(--accent); }
+.btn-icon:hover { background: var(--tint-2); color: var(--accent); }
 .btn-icon:active { transform: scale(0.94); }
 
-main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
-.controls-container { margin-bottom: 25px; }
-.section-title { border-left: 5px solid var(--primary); padding-left: 15px; margin-bottom: 20px; font-size: 1.5em; letter-spacing: 0.5px; border-radius: 2px; }
+/* Le rembourrage/centrage est désormais porté par .app-content (un seul endroit
+   pour toutes les vues) — <main> n'est plus qu'un conteneur de section. */
+main { display: block; }
+.controls-container { margin-bottom: var(--space-6); }
+.section-title { border-left: 3px solid var(--primary); padding-left: var(--space-3); margin-bottom: var(--space-5); font-size: var(--text-xl); font-weight: var(--weight-bold); letter-spacing: var(--tracking-tight); border-radius: 2px; }
+.btn-sm { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); }
+.btn .ico { width: 18px; height: 18px; margin-right: var(--space-2); }
+
+/* --- GRILLE D'ENTITÉS (index Artistes / Albums) ---------------------------- */
+.entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-5); align-items: start; }
+.entity-card { background: none; border: none; padding: var(--space-3); border-radius: var(--radius-lg); cursor: pointer; text-align: center; font-family: inherit; color: inherit; transition: background var(--dur-fast) var(--ease-out); }
+.entity-card:hover { background: var(--tint-1); }
+.entity-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: var(--radius-md); box-shadow: var(--elev-2); margin-bottom: var(--space-3); transition: transform var(--dur-base) var(--ease-out); }
+.entity-card:hover img { transform: scale(1.04); }
+.entity-grid-round .entity-card img { border-radius: 50%; }
+.entity-card-name { font-weight: var(--weight-semibold); font-size: var(--text-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entity-card-sub { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* --- PASTILLES DE GENRE ---------------------------------------------------- */
+.genre-pills { display: flex; gap: var(--space-2); overflow-x: auto; padding-bottom: var(--space-3); margin-bottom: var(--space-5); scrollbar-width: none; }
+.genre-pills::-webkit-scrollbar { display: none; }
+.genre-pill { flex: none; padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--hairline); background: var(--bg-panel); color: var(--text-muted); font-family: inherit; font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; white-space: nowrap; transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
+.genre-pill:hover { color: var(--text); border-color: var(--primary); }
+.genre-pill.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 .search-row { display: flex; align-items: center; gap: 15px; width: 100%; position: relative; }
 .search-container { flex-grow: 1; position: relative; }
-.search-input { width: 100%; height: 50px; padding: 0 25px; border-radius: 50px; border: 1px solid rgba(61, 43, 86, 0.5); background: var(--search-bg); color: white; font-size: 1em; outline: none; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.2); line-height: 48px; }
-.search-input:focus { border-color: var(--accent); background: #2d2444; box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.2); }
-.search-input::placeholder { color: #6b5e85; }
+.search-input { width: 100%; height: 50px; padding: 0 25px; border-radius: 50px; border: 1px solid rgba(61, 43, 86, 0.5); background: var(--search-bg); color: var(--text); font-size: 1em; outline: none; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.2); line-height: 48px; }
+.search-input:focus { border-color: var(--accent); background: var(--surface-raised); box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.2); }
+.search-input::placeholder { color: var(--text-muted); }
 
 .filter-wrapper { position: relative; width: 50px; height: 50px; flex-shrink: 0; }
 .filter-icon-visual { width: 100%; height: 100%; background: var(--search-bg); border: 1px solid rgba(61, 43, 86, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: 0.3s; }
 .filter-select-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; z-index: 10; }
-.filter-wrapper:hover .filter-icon-visual { border-color: var(--accent); background: #32264d; transform: translateY(-2px); }
+.filter-wrapper:hover .filter-icon-visual { border-color: var(--accent); background: var(--surface-raised); transform: translateY(-2px); }
 
-.track-list { background: var(--bg-panel); border-radius: 24px; overflow: hidden; border: 1px solid #2d2444; min-height: 200px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-.track-item { display:grid; grid-template-columns: 50px 1fr auto; align-items:center; padding:15px 25px; border-bottom:1px solid rgba(255,255,255,0.03); gap:20px; transition: background 0.2s; cursor: pointer; }
+.track-list { background: var(--bg-panel); border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--hairline); min-height: 120px; box-shadow: var(--elev-1); }
+.track-item { display:grid; grid-template-columns: 48px 1fr auto; align-items:center; padding: var(--space-3) var(--space-5); border-bottom:1px solid var(--rule-faint); gap: var(--space-4); transition: background var(--dur-fast) var(--ease-out); cursor: pointer; }
 .track-item:last-child { border-bottom: none; }
-.track-item:hover { background: rgba(255,255,255,0.07); }
+.track-item:hover { background: var(--tint-1); }
 
-.mini-cover { width: 50px; height: 50px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
-#load-more-trigger { height: 40px; text-align: center; color: #6b5e85; padding-top: 15px; font-size: 0.9em; }
+/* Pochette + voile de lecture au survol : indique que la ligne est cliquable,
+   ce que rien ne signalait auparavant en dehors du curseur. */
+.track-row-art { position: relative; width: 48px; height: 48px; }
+.mini-cover { width: 48px; height: 48px; border-radius: var(--radius-sm); object-fit: cover; box-shadow: var(--elev-1); display: block; }
+.track-row-play {
+    position: absolute; inset: 0;
+    display: grid; place-content: center;
+    border-radius: var(--radius-sm);
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+}
+.track-item:hover .track-row-play { opacity: 1; }
+
+.track-row-body { overflow: hidden; min-width: 0; }
+.track-row-title { font-weight: var(--weight-bold); font-size: var(--text-md); margin-bottom: 2px; }
+.track-row-meta { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-row-dim { opacity: 0.6; font-size: var(--text-xs); }
+
+.track-row-actions { display: flex; gap: var(--space-2); align-items: center; }
+/* Boutons Modifier/Supprimer : masqués tant qu'on ne survole pas la ligne. Deux
+   pilules visibles en permanence sur chaque ligne saturaient visuellement une
+   liste de 200 titres. Réapparaissent au focus clavier, sinon ils seraient
+   inatteignables sans souris. */
+.track-row-btn {
+    background: none; border: none; padding: var(--space-2);
+    border-radius: 50%; cursor: pointer; color: var(--text-muted);
+    display: flex;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.track-item:hover .track-row-btn, .track-row-btn:focus-visible { opacity: 1; }
+.track-row-btn:hover { background: var(--tint-3); color: var(--text); }
+.track-row-btn.danger:hover { color: var(--danger); }
+
+#load-more-trigger { height: 40px; text-align: center; color: var(--text-muted); padding-top: var(--space-4); font-size: var(--text-sm); }
 
 .home-row { margin-bottom: 30px; }
 .home-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
@@ -84,17 +315,39 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 .home-row-scroll::-webkit-scrollbar { display: none; }
 
 /* Chevrons "Netflix-row" : superposés aux extrémités, visibles uniquement quand il reste du contenu à faire défiler. */
-.home-row-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; background: rgba(15, 12, 29, 0.85); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,0.4); transition: background 0.2s, transform 0.2s; padding: 0; }
+.home-row-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--bg-dark) 88%, transparent); border: 1px solid var(--tint-3); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text); z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,0.4); transition: background 0.2s, transform 0.2s; padding: 0; }
 .home-row-arrow:hover { background: var(--primary); }
 .home-row-arrow:active { transform: translateY(-50%) scale(0.92); }
 .home-row-arrow svg { width: 20px; height: 20px; fill: currentColor; }
 .home-row-arrow-left { left: 4px; }
 .home-row-arrow-right { right: 4px; }
-.home-track-card { flex: 0 0 130px; width: 130px; cursor: pointer; background: var(--bg-panel); border: 1px solid rgba(61, 43, 86, 0.5); border-radius: 16px; padding: 10px; transition: transform 0.2s, border-color 0.2s; }
-.home-track-card:hover { transform: translateY(-3px); border-color: var(--primary); }
-.home-track-card > img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 10px; margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: block; }
-.home-track-card-title { font-weight: 700; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.home-track-card-sub { font-size: 0.75em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.home-track-card { flex: 0 0 158px; width: 158px; cursor: pointer; background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: var(--space-3); transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
+.home-track-card:hover { transform: translateY(-3px); border-color: var(--primary); background: var(--surface-raised); }
+
+/* Conteneur de pochette : sert d'ancrage au bouton de lecture au survol et à
+   l'indicateur "en cours de lecture" (tous deux en absolu par-dessus l'image). */
+.home-card-art { position: relative; margin-bottom: var(--space-2); }
+.home-card-art img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: var(--radius-md); box-shadow: var(--elev-1); display: block; }
+.home-card-play {
+    position: absolute; right: var(--space-2); bottom: var(--space-2);
+    width: 38px; height: 38px; border-radius: 50%;
+    border: none; background: var(--primary); color: #fff;
+    display: grid; place-content: center; cursor: pointer;
+    box-shadow: var(--elev-2);
+    /* Décalé vers le bas + invisible au repos : n'apparaît qu'au survol de la
+       carte, pour ne pas alourdir une rangée entière de pochettes. */
+    opacity: 0; transform: translateY(8px);
+    transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.home-track-card:hover .home-card-play { opacity: 1; transform: translateY(0); }
+.home-card-art .now-playing-bars {
+    position: absolute; left: var(--space-2); bottom: var(--space-2);
+    padding: var(--space-2); border-radius: var(--radius-xs);
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    width: auto; height: 18px; box-sizing: content-box;
+}
+.home-track-card-title { font-weight: var(--weight-bold); font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-track-card-sub { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 /* Sous-titre artiste cliquable (voir showArtistPage() dans library.js) -- @click.stop empêche le clic de
    remonter jusqu'au @click de lecture de la carte parente (.home-track-card). */
 .home-track-card-artist { cursor: pointer; }
@@ -117,8 +370,8 @@ main { padding:30px; max-width:1100px; margin:auto; transition: 0.5s; }
 .playlist-detail-cover { width: 90px; height: 90px; flex-shrink: 0; border-radius: 16px; }
 .playlist-modal-cover-preview { width: 70px; height: 70px; flex-shrink: 0; border-radius: 14px; }
 
-#queue-panel { position: fixed; right: -360px; top: 70px; width: 340px; height: calc(100vh - 70px); background: rgba(27, 20, 41, 0.95); backdrop-filter: blur(20px); border-left: 1px solid rgba(255,255,255,0.1); z-index: 999; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 25px; padding-bottom: 120px; box-shadow: -10px 0 40px rgba(0,0,0,0.5); overflow-y: auto; }
+#queue-panel { position: fixed; right: -360px; top: 70px; width: 340px; height: calc(100vh - 70px); background: rgba(27, 20, 41, 0.95); backdrop-filter: blur(20px); border-left: 1px solid var(--tint-3); z-index: 999; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 25px; padding-bottom: 120px; box-shadow: -10px 0 40px rgba(0,0,0,0.5); overflow-y: auto; }
 #queue-panel.open { right: 0; }
 .queue-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
 .queue-item.active { background: rgba(142, 68, 173, 0.15); border-color: var(--primary); }
-.queue-item:hover { background: rgba(255,255,255,0.05); }
+.queue-item:hover { background: var(--tint-1); }

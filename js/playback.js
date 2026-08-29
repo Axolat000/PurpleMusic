@@ -99,7 +99,19 @@ function loadTrack(autoPlay = true) {
         if (name) showArtistPage(name);
     };
 
-    if (playTitle) playTitle.innerText = track.title;
+    // Les trois titres de lecteur (mini-barre, plein écran mobile, grand lecteur
+    // desktop) passent désormais par le MÊME composant .marquee-wrap et la même
+    // fonction de mesure. Avant : la mini-barre tronquait sans jamais défiler, le
+    // plein écran réimplémentait le marquee en dur ici, et le lecteur desktop
+    // n'avait qu'une ellipse CSS — trois comportements pour un seul besoin.
+    const setPlayerTitle = (el, text) => {
+        if (!el) return;
+        const span = el.querySelector('span') || el;
+        span.textContent = text;
+        applyMarqueeIfOverflowing(el);
+    };
+
+    setPlayerTitle(playTitle, track.title);
     if (playCover) playCover.src = 'covers/' + (track.cover || 'default.png');
     if (playStatus) { playStatus.innerText = track.artist || 'Artiste inconnu'; playStatus.onclick = goToTrackArtist; }
 
@@ -110,20 +122,11 @@ function loadTrack(autoPlay = true) {
     const dpArtist = document.getElementById('dp-artist');
     const dpCover = document.getElementById('dp-cover');
 
-    if (fpTitle) {
-        const safeFpTitle = escapeHTML(track.title);
-        fpTitle.innerHTML = `<span id="fp-title-text">${safeFpTitle}</span>`;
-        const titleSpan = document.getElementById('fp-title-text');
-        titleSpan.classList.remove('scrolling-active');
-        if (titleSpan.scrollWidth > fpTitle.clientWidth) {
-            titleSpan.classList.add('scrolling-active');
-        }
-    }
+    setPlayerTitle(fpTitle, track.title);
     if (fpArtist) { fpArtist.innerText = track.artist || 'Artiste inconnu'; fpArtist.onclick = goToTrackArtist; }
     if (fpCover) fpCover.src = 'covers/' + (track.cover || 'default.png');
 
-    // Carte desktop : pas de marquee (largeur confortable), simple troncature CSS (ellipsis).
-    if (dpTitle) dpTitle.innerText = track.title;
+    setPlayerTitle(dpTitle, track.title);
     if (dpArtist) { dpArtist.innerText = track.artist || 'Artiste inconnu'; dpArtist.onclick = goToTrackArtist; }
     if (dpCover) dpCover.src = 'covers/' + (track.cover || 'default.png');
 
@@ -149,9 +152,31 @@ function loadTrack(autoPlay = true) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: track.title,
             artist: track.artist || 'Purple Music',
-            artwork: [{ src: 'covers/' + (track.cover || 'default.png'), sizes: '96x96', type: 'image/png' }]
+            album: track.album || '',
+            // Plusieurs tailles : Android/Windows choisissent la plus proche de leur
+            // besoin. Une seule entrée 96x96 donnait une vignette floue sur l'écran
+            // verrouillé et dans le panneau média de Chrome.
+            artwork: [96, 128, 192, 256, 384, 512].map(px => ({
+                src: 'covers/' + (track.cover || 'default.png'),
+                sizes: `${px}x${px}`,
+                type: 'image/png'
+            }))
         });
+        setupMediaSessionHandlers();
     }
+    // Fond d'ambiance des deux lecteurs : même pochette que #fp-cover/#dp-cover,
+    // floutée en CSS (voir .fp-ambient). Posée en background-image plutôt que via
+    // une <img> pour que background-size:cover gère le recadrage quel que soit le
+    // format de la pochette.
+    const ambientUrl = `url("covers/${encodeURIComponent(track.cover || 'default.png')}")`;
+    ['fp-ambient', 'dp-ambient'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.backgroundImage = ambientUrl;
+        el.classList.add('is-visible');
+    });
+
+    pushListenHistory(track.id);
     updateUrl();
     applyDynamicThemeForCurrentTrack();
     applyAppDynamicThemeForCurrentTrack();
@@ -174,9 +199,49 @@ function loadTrack(autoPlay = true) {
         if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
     }
     updateQueueUI();
+    syncPlaybackState();
+}
+
+// Contrôles média du système (écran verrouillé, panneau média du navigateur,
+// touches multimédia du clavier, boutons d'un casque Bluetooth).
+//
+// Seules les métadonnées étaient renseignées jusqu'ici : le titre s'affichait bien
+// sur l'écran verrouillé mais les boutons Lecture/Suivant n'y faisaient rien, car
+// aucun gestionnaire d'action n'était déclaré. Posé une seule fois (les
+// gestionnaires survivent aux changements de piste) plutôt qu'à chaque loadTrack().
+let _mediaSessionReady = false;
+function setupMediaSessionHandlers() {
+    if (_mediaSessionReady || !('mediaSession' in navigator)) return;
+    _mediaSessionReady = true;
+    const set = (action, handler) => {
+        // Un navigateur qui ne connaît pas une action lève NotSupportedError :
+        // chaque déclaration est isolée pour qu'un manque n'annule pas les autres.
+        try { navigator.mediaSession.setActionHandler(action, handler); } catch (e) { /* action non supportée */ }
+    };
+    set('play', () => { if (audio.paused) togglePlay(); });
+    set('pause', () => { if (!audio.paused) togglePlay(); });
+    set('previoustrack', prevTrack);
+    set('nexttrack', nextTrack);
+    set('seekbackward', (d) => { audio.currentTime = Math.max(0, audio.currentTime - (d.seekOffset || 10)); });
+    set('seekforward', (d) => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + (d.seekOffset || 10)); });
+    set('seekto', (d) => { if (d.fastSeek && 'fastSeek' in audio) audio.fastSeek(d.seekTime); else audio.currentTime = d.seekTime; });
+    set('stop', () => { audio.pause(); audio.currentTime = 0; });
 }
 
 if (audio) {
+    // L'état "en cours de lecture" alimente l'indicateur des cartes/lignes : il doit
+    // suivre TOUTES les origines de changement (bouton de l'app, contrôles système,
+    // fin de piste, coupure réseau), pas seulement togglePlay().
+    //
+    // Appel indirect (et non `addEventListener('play', syncPlaybackState)`) : ce bloc
+    // s'exécute à l'évaluation de playback.js, alors que syncPlaybackState est
+    // déclarée dans discovery.js, chargé APRÈS — passer la référence directement
+    // lèverait un ReferenceError ici. L'enveloppe ne résout le nom qu'au moment où
+    // l'événement se produit, quand tous les fichiers sont chargés.
+    audio.addEventListener('play', () => syncPlaybackState());
+    audio.addEventListener('pause', () => syncPlaybackState());
+    audio.addEventListener('ended', () => syncPlaybackState());
+
     audio.onloadedmetadata = () => {
         const t = formatTime(audio.duration);
         document.getElementById('total-time').innerText = t;
@@ -186,6 +251,11 @@ if (audio) {
         if (dpTotalTime) dpTotalTime.innerText = t;
     };
     audio.ontimeupdate = () => {
+        // Pendant un glissement sur la barre, c'est le curseur qui pilote
+        // l'affichage : laisser la lecture réécrire la largeur ferait revenir la
+        // barre à la position réelle entre deux mouvements, donc clignoter.
+        // Voir attachSeekHandlers() plus bas.
+        if (scrubbing) return;
         const pct = (audio.currentTime / audio.duration) * 100;
         progressBar.style.width = (pct || 0) + "%";
         document.getElementById('curr-time').innerText = formatTime(audio.currentTime);
@@ -319,26 +389,78 @@ function shuffleArray(arr) {
     return arr;
 }
 
-if (progressArea) {
-    progressArea.onclick = (e) => {
-        const rect = progressArea.getBoundingClientRect();
-        audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+// --- BARRE DE PROGRESSION : clic ET glissement ------------------------------
+// Le comportement précédent était un simple clic-pour-sauter : maintenir le
+// bouton et faire glisser ne suivait pas le curseur, il fallait recliquer pour
+// ajuster. On ajoute un vrai scrub continu, avec aperçu en direct.
+//
+// Pendant le glissement, `scrubbing` empêche audio.ontimeupdate de réécrire la
+// largeur de la barre : sans ce verrou, la barre repartait à la position réelle
+// de lecture entre deux mouvements de souris et clignotait.
+let scrubbing = false;
+
+function attachSeekHandlers(areaEl, barEl, timeLabelId) {
+    if (!areaEl) return;
+
+    const ratioFromEvent = (e) => {
+        const rect = areaEl.getBoundingClientRect();
+        // clientX est borné aux limites de la barre : glisser au-delà de ses
+        // extrémités doit saturer à 0% / 100%, pas produire une valeur négative
+        // ou supérieure à la durée (ce qui ferait échouer l'affectation).
+        const x = Math.min(Math.max(e.clientX, rect.left), rect.right);
+        return rect.width ? (x - rect.left) / rect.width : 0;
     };
+
+    const preview = (ratio) => {
+        if (barEl) barEl.style.width = (ratio * 100) + '%';
+        const label = timeLabelId ? document.getElementById(timeLabelId) : null;
+        if (label && audio.duration) label.innerText = formatTime(ratio * audio.duration);
+    };
+
+    const commit = (e) => {
+        if (!audio.duration) return;
+        audio.currentTime = ratioFromEvent(e) * audio.duration;
+    };
+
+    areaEl.addEventListener('pointerdown', (e) => {
+        if (!audio.duration) return;
+        scrubbing = true;
+        // setPointerCapture : les mouvements continuent d'être reçus même quand
+        // le curseur sort de la barre (cas courant, la barre ne fait que 6px de
+        // haut) — sans lui le glissement s'interrompt dès qu'on la quitte.
+        areaEl.setPointerCapture(e.pointerId);
+        preview(ratioFromEvent(e));
+    });
+
+    areaEl.addEventListener('pointermove', (e) => {
+        if (!scrubbing) return;
+        preview(ratioFromEvent(e));
+    });
+
+    const finish = (e) => {
+        if (!scrubbing) return;
+        scrubbing = false;
+        try { areaEl.releasePointerCapture(e.pointerId); } catch (err) { /* pointeur déjà relâché */ }
+        commit(e);
+    };
+    areaEl.addEventListener('pointerup', finish);
+    areaEl.addEventListener('pointercancel', finish);
+
+    // Accessibilité clavier : la barre est focalisable et se pilote aux flèches,
+    // ce qui était impossible auparavant (aucun gestionnaire clavier).
+    areaEl.setAttribute('tabindex', '0');
+    areaEl.setAttribute('role', 'slider');
+    areaEl.addEventListener('keydown', (e) => {
+        if (!audio.duration) return;
+        const step = e.shiftKey ? 30 : 5;
+        if (e.key === 'ArrowRight') { e.preventDefault(); audio.currentTime = Math.min(audio.duration, audio.currentTime + step); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); audio.currentTime = Math.max(0, audio.currentTime - step); }
+        else if (e.key === 'Home') { e.preventDefault(); audio.currentTime = 0; }
+        else if (e.key === 'End') { e.preventDefault(); audio.currentTime = audio.duration; }
+    });
 }
 
-const fpProgressArea = document.getElementById('fp-progress-area');
-if (fpProgressArea) {
-    fpProgressArea.onclick = (e) => {
-        const rect = fpProgressArea.getBoundingClientRect();
-        audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
-    };
-}
-
-const dpProgressArea = document.getElementById('dp-progress-area');
-if (dpProgressArea) {
-    dpProgressArea.onclick = (e) => {
-        const rect = dpProgressArea.getBoundingClientRect();
-        audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
-    };
-}
+attachSeekHandlers(progressArea, progressBar, 'curr-time');
+attachSeekHandlers(document.getElementById('fp-progress-area'), document.getElementById('fp-progress-bar'), 'fp-curr-time');
+attachSeekHandlers(document.getElementById('dp-progress-area'), document.getElementById('dp-progress-bar'), 'dp-curr-time');
 

@@ -38,8 +38,26 @@
                 <a href="cgu.php" target="_blank" rel="noopener" class="btn btn-outline"><?php echo t('admin_legal_view_cgu'); ?></a>
             </div>
 
-            <div x-show="activeTab === 'theme'" x-cloak>
-                <div class="extended-color-grid">
+            <div x-show="activeTab === 'theme'" x-cloak x-data="adminThemePreview()">
+                <!-- Aperçu en direct : chaque changement de couleur s'applique
+                     immédiatement à toute l'interface, au lieu d'exiger un
+                     enregistrement puis un rechargement pour découvrir le résultat.
+                     Rien n'est écrit en base tant qu'on n'a pas enregistré, et
+                     "Annuler l'aperçu" restaure les couleurs en vigueur. -->
+                <div class="admin-preview-bar">
+                    <label class="admin-preview-toggle">
+                        <span class="switch-toggle">
+                            <input type="checkbox" x-model="live" @change="live ? applyAll() : revert()">
+                            <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                        </span>
+                        <span><?php echo t('admin_theme_live_preview'); ?></span>
+                    </label>
+                    <button type="button" class="btn btn-outline btn-sm" x-show="live" x-cloak @click="revert(); live = false;">
+                        <?php echo t('admin_theme_reset_preview'); ?>
+                    </button>
+                </div>
+
+                <div class="extended-color-grid" @input="live && applyAll()">
                     <div class="extended-color-item"><span><?php echo t('admin_color_bg'); ?></span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
                     <div class="extended-color-item"><span><?php echo t('admin_color_panel'); ?></span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
                     <div class="extended-color-item"><span><?php echo t('admin_color_primary'); ?></span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
@@ -54,13 +72,13 @@
                 </div>
 
                 <label style="margin-top: 12px; display: block;"><?php echo t('admin_header_bg_label'); ?></label>
-                <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>" placeholder="rgba(27, 20, 41, 0.85)">
+                <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>" placeholder="rgba(27, 20, 41, 0.85)" @input="live && applyAll()">
 
                 <label style="margin-top: 10px; display: block;"><?php echo t('admin_player_bg_label'); ?></label>
-                <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>" placeholder="rgba(30, 24, 45, 0.85)">
+                <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>" placeholder="rgba(30, 24, 45, 0.85)" @input="live && applyAll()">
 
                 <label style="margin-top: 10px; display: block;"><?php echo t('admin_mobnav_bg_label'); ?></label>
-                <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>" placeholder="rgba(21, 16, 32, 0.95)">
+                <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>" placeholder="rgba(21, 16, 32, 0.95)" @input="live && applyAll()">
             </div>
 
             <div x-show="activeTab === 'media'" x-cloak>
@@ -75,14 +93,38 @@
                 <input type="text" name="adm_new_genre" placeholder="<?php echo htmlspecialchars(t('admin_new_genre_placeholder')); ?>">
 
                 <label style="font-weight:bold; display:block; margin-bottom:5px;"><?php echo t('admin_active_genres_label'); ?></label>
-                <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); padding:10px; border-radius:10px;">
-                    <?php foreach($genresList as $g): ?>
+                <!-- Chaque ligne affiche son nombre de pistes : supprimer ou fusionner
+                     sans cette information revenait à agir à l'aveugle sur toute la
+                     bibliothèque. -->
+                <div class="adm-genre-list">
+                    <?php foreach($genresList as $g):
+                        $gJson = json_encode($g, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+                        $gCount = $genreCounts[$g] ?? 0;
+                    ?>
                         <div class="adm-genre-item">
-                            <span><?php echo htmlspecialchars($g); ?></span>
-                            <a href="#" style="color:var(--danger); text-decoration:none; font-weight:bold;" onclick="return confirmPostAction('<?php echo t('confirm_delete_genre'); ?>', 'delete_genre', { name: <?php echo json_encode($g, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?> })">✕</a>
+                            <span class="adm-genre-name"><?php echo htmlspecialchars($g); ?></span>
+                            <span class="adm-genre-count tabular"><?php echo t('tracks_count_label', ['n' => $gCount]); ?></span>
+                            <span class="adm-genre-actions">
+                                <button type="button" class="track-row-btn" title="<?php echo htmlspecialchars(t('admin_genre_rename')); ?>" aria-label="<?php echo htmlspecialchars(t('admin_genre_rename')); ?>"
+                                        onclick="renameGenre(<?php echo $gJson; ?>)">
+                                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-edit"></use></svg>
+                                </button>
+                                <button type="button" class="track-row-btn" title="<?php echo htmlspecialchars(t('admin_genre_merge')); ?>" aria-label="<?php echo htmlspecialchars(t('admin_genre_merge')); ?>"
+                                        onclick="mergeGenre(<?php echo $gJson; ?>)">
+                                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-playlist-add"></use></svg>
+                                </button>
+                                <button type="button" class="track-row-btn danger" title="<?php echo htmlspecialchars(t('btn_delete_short')); ?>" aria-label="<?php echo htmlspecialchars(t('btn_delete_short')); ?>"
+                                        onclick="return confirmPostAction('<?php echo t('admin_genre_delete_confirm', ['n' => $gCount]); ?>', 'delete_genre', { name: <?php echo $gJson; ?> })">
+                                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-trash"></use></svg>
+                                </button>
+                            </span>
                         </div>
                     <?php endforeach; ?>
                 </div>
+                <script>
+                    // Liste des genres exposée au JS pour le sélecteur de cible de fusion.
+                    var ADMIN_GENRES = <?php echo json_encode(array_values($genresList), JSON_UNESCAPED_UNICODE); ?>;
+                </script>
             </div>
 
             <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users'" x-cloak>

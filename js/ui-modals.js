@@ -1,8 +1,15 @@
 function showSection(id, doUpdateUrl = true) {
-    if (window.Alpine) Alpine.store('ui').section = id;
+    // Pile de retour : mémorise d'où l'on vient AVANT de changer de section, pour
+    // que goBackSection() ramène à l'écran précédent réel et non toujours à
+    // l'accueil (voir js/discovery.js). Ignoré quand c'est goBackSection() qui
+    // appelle, sinon on empilerait l'écran qu'on est en train de quitter.
+    if (typeof _skipSectionHistoryPush !== 'undefined' && !_skipSectionHistoryPush
+        && typeof currentSection !== 'undefined' && currentSection !== id) {
+        pushSectionHistory(currentSection);
+    }
 
-    document.querySelectorAll('nav span').forEach(s => s.classList.remove('active'));
-    if(document.getElementById('nav-' + id)) document.getElementById('nav-' + id).classList.add('active');
+    if (typeof startNavProgress === 'function') startNavProgress();
+    if (window.Alpine) Alpine.store('ui').section = id;
 
     document.querySelectorAll('.mob-nav-item').forEach(s => s.classList.remove('active'));
     if(document.getElementById('mob-nav-' + id)) document.getElementById('mob-nav-' + id).classList.add('active');
@@ -10,6 +17,7 @@ function showSection(id, doUpdateUrl = true) {
     window.scrollTo(0,0);
     currentSection = id;
     if (doUpdateUrl) updateUrl();
+    if (typeof endNavProgress === 'function') endNavProgress();
 
     // Les titres de la page Playlists sont rendus côté PHP au chargement, pendant que la section est
     // encore cachée par x-show (clientWidth = 0 tant qu'elle n'est pas affichée) — le test de dépassement
@@ -28,9 +36,22 @@ function showSection(id, doUpdateUrl = true) {
 // <span> interne d'un conteneur .marquee-wrap seulement si le texte dépasse réellement la largeur
 // disponible — jamais pour un titre qui tient déjà sur une ligne.
 function applyMarqueeIfOverflowing(wrapperEl) {
+    if (!wrapperEl) return;
     const span = wrapperEl.querySelector('span');
     if (!span) return;
     span.classList.remove('scrolling-active');
+
+    // Un élément qui n'est pas mis en page (surface fermée, ancêtre en
+    // display:none) rapporte clientWidth = 0. La comparaison devenait alors
+    // "scrollWidth > 0", vraie pour n'importe quel texte : le titre du lecteur
+    // plein écran défilait donc en permanence, même sur un mot de cinq lettres.
+    // Symétriquement, le grand lecteur desktop mesurait 0 des deux côtés et
+    // n'activait jamais le défilement, même sur un titre trop long.
+    //
+    // On ne décide pas sur une mesure invalide : la surface concernée relance
+    // cette fonction à son ouverture (voir openSmartPlayer()/openDesktopPlayer()).
+    if (wrapperEl.clientWidth === 0) return;
+
     if (span.scrollWidth > wrapperEl.clientWidth) span.classList.add('scrolling-active');
 }
 
@@ -44,6 +65,27 @@ function refreshHomeRowMarquees() {
 
 function openModal(id) {
     if (window.Alpine) Alpine.store('ui').openModal(id);
+}
+
+// Ouvre la modale Paramètres directement sur un onglet donné.
+//
+// L'onglet actif vit dans le composant settingsModalForm (x-data posé sur
+// .modal-content), pas dans le store : on l'atteint via Alpine.$data() sur
+// l'élément plutôt que d'ajouter un état global qui n'aurait servi qu'ici.
+// Utilisé par les boutons Égaliseur / Minuteur du lecteur plein écran, qui
+// devaient sinon faire sortir l'utilisateur du lecteur pour rien.
+function openSettingsTab(tab) {
+    openModal('settingsModal');
+    if (!window.Alpine) return;
+    // nextTick : la modale est masquée par x-show au moment de l'appel ; son
+    // composant existe déjà, mais on laisse Alpine appliquer l'ouverture d'abord
+    // pour que le panneau ciblé soit celui réellement affiché.
+    Alpine.nextTick(() => {
+        const el = document.querySelector('#settingsModal .modal-content');
+        if (!el) return;
+        const data = Alpine.$data(el);
+        if (data) data.activeTab = tab;
+    });
 }
 function closeModal(id) {
     if (window.Alpine) Alpine.store('ui').closeModal(id);

@@ -134,9 +134,11 @@ require_once __DIR__ . '/api/helpers.php';
 $actionDomains = [
     'auth' => ['login', 'register', 'change_password', 'admin_reset_password', 'accept_terms'],
     'tracks' => ['list', 'increment_play', 'stream', 'cover', 'upload', 'edit_track', 'delete_track'],
-    'playlists' => ['playlists', 'playlist_create', 'playlist_mod', 'delete_playlist', 'playlist_save', 'get_playlist_tracks'],
+    'playlists' => ['playlists', 'playlist_create', 'playlist_mod', 'delete_playlist', 'playlist_save', 'get_playlist_tracks', 'playlist_reorder', 'playlist_toggle_visibility'],
     'likes_recommendations' => ['report_listen', 'toggle_like', 'my_likes', 'recommendations'],
-    'admin' => ['save_admin_settings', 'delete_genre', 'toggle_admin', 'delete_user', 'trigger_update', 'check_update'],
+    'stats' => ['stats'],
+    'bio' => ['artist_bio'],
+    'admin' => ['save_admin_settings', 'delete_genre', 'genre_manage', 'toggle_admin', 'delete_user', 'trigger_update', 'check_update'],
     'lyrics' => ['get_lyrics'],
 ];
 

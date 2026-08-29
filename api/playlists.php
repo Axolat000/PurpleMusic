@@ -129,9 +129,82 @@ switch ($action) {
         $ids = array_filter(array_map('intval', explode(',', $_GET['q'] ?? '')), fn($v) => $v > 0);
         if (empty($ids)) { echo json_encode([]); break; }
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $db->prepare("SELECT id, filename, title, artist, cover, genre, play_count, duration FROM tracks WHERE id IN ($placeholders)");
+        $stmt = $db->prepare("SELECT id, filename, title, artist, album, cover, genre, play_count, duration FROM tracks WHERE id IN ($placeholders)");
         $stmt->execute(array_values($ids));
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Remise dans l'ordre de song_ids. `WHERE id IN (...)` ne garantit AUCUN
+        // ordre (SQLite renvoie en pratique l'ordre de la clé primaire) : l'ordre
+        // choisi par l'utilisateur dans sa playlist était donc ignoré et les
+        // morceaux se lisaient par identifiant croissant. Le réordonnancement se
+        // fait ici plutôt qu'en SQL (un CASE ... WHEN sur N identifiants) pour
+        // rester lisible et indépendant du moteur.
+        $byId = [];
+        foreach ($rows as $r) { $byId[(int) $r['id']] = $r; }
+        $ordered = [];
+        foreach ($ids as $id) {
+            // Un identifiant peut manquer si la piste a été supprimée depuis :
+            // on l'ignore au lieu d'insérer un trou dans la liste.
+            if (isset($byId[$id])) $ordered[] = $byId[$id];
+        }
+        echo json_encode($ordered);
+        break;
+
+    // Enregistre un nouvel ordre de pistes (glisser-déposer dans le détail d'une
+    // playlist). Distinct de playlist_save : celui-ci réécrit aussi le nom, la
+    // pochette et la visibilité, ce qui obligerait le client à tout renvoyer pour
+    // un simple déplacement de ligne.
+    case 'playlist_reorder':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $pid = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+        if ($pid === false || $pid <= 0) { echo json_encode(["status" => "error", "message" => "ID de playlist invalide"]); exit; }
+
+        $stmt = $db->prepare("SELECT song_ids, creator_id FROM playlists WHERE id = ?");
+        $stmt->execute([$pid]);
+        $curr = $stmt->fetch();
+        if (!$curr || !($auth['is_admin'] || $curr['creator_id'] == $auth['id'])) {
+            echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette playlist"]); exit;
+        }
+
+        $newIds = array_values(array_filter(array_map('intval', explode(',', $_POST['song_ids'] ?? '')), fn($v) => $v > 0));
+        $oldIds = array_values(array_filter(array_map('intval', explode(',', (string) $curr['song_ids'])), fn($v) => $v > 0));
+
+        // Un réordonnancement ne doit QUE permuter : on refuse une liste qui
+        // ajoute ou retire des morceaux. Sans cette vérification, cet endpoint
+        // permettrait de réécrire entièrement le contenu d'une playlist en
+        // contournant playlist_save (et sa validation d'appartenance des pistes).
+        sort($newIds);
+        $oldSorted = $oldIds;
+        sort($oldSorted);
+        if ($newIds !== $oldSorted) {
+            echo json_encode(["status" => "error", "message" => "La liste ne correspond pas au contenu de la playlist"]); exit;
+        }
+
+        $submitted = array_values(array_filter(array_map('intval', explode(',', $_POST['song_ids'] ?? '')), fn($v) => $v > 0));
+        $db->prepare("UPDATE playlists SET song_ids = ? WHERE id = ?")->execute([implode(',', $submitted), $pid]);
+        echo json_encode(['status' => 'success']);
+        break;
+
+    // Bascule public/privé sans passer par la modale d'édition complète.
+    case 'playlist_toggle_visibility':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $pid = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+        if ($pid === false || $pid <= 0) { echo json_encode(["status" => "error", "message" => "ID de playlist invalide"]); exit; }
+
+        $stmt = $db->prepare("SELECT is_private, creator_id FROM playlists WHERE id = ?");
+        $stmt->execute([$pid]);
+        $curr = $stmt->fetch();
+        if (!$curr || !($auth['is_admin'] || $curr['creator_id'] == $auth['id'])) {
+            echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette playlist"]); exit;
+        }
+
+        $next = empty($curr['is_private']) ? 1 : 0;
+        $db->prepare("UPDATE playlists SET is_private = ? WHERE id = ?")->execute([$next, $pid]);
+        echo json_encode(['status' => 'success', 'is_private' => $next]);
         break;
 
 }

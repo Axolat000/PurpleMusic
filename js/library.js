@@ -2,10 +2,56 @@
 // propre lien vers sa page Artiste plutôt qu'un seul lien vers la chaîne complète (voir showArtistPage()
 // plus bas). Ordre important : les séparateurs les plus spécifiques/longs doivent être essayés avant les
 // plus courts qui pourraient en être un préfixe.
-const ARTIST_SPLIT_REGEX = /\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+et\s+/gi;
+const ARTIST_SPLIT_REGEX = /\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+et\s+|\s*;\s*/gi;
+
+// Mention de featuring encadrée : "(feat. X)", "[ft. Y]". Les parenthèses étaient
+// conservées telles quelles, si bien que le découpage produisait des fiches
+// artiste nommées "(feat. X" ou "Y)". On les retire avant le découpage, en
+// gardant leur contenu — c'est bien un artiste supplémentaire.
+const FEATURE_BRACKET_REGEX = /[([]\s*((?:feat|ft|featuring|avec|with)\b\.?\s*[^)\]]*)[)\]]/gi;
+
+// Marqueur de featuring resté en tête d'un fragment après découpage. Cas observé
+// dans l'index Artistes : "A, ft B" se découpait sur la virgule et produisait une
+// fiche littéralement nommée "ft B" — le motif de découpage exige un espace AVANT
+// "ft", absent en début de fragment. On nettoie donc chaque fragment séparément.
+const LEADING_FEATURE_REGEX = /^(?:feat|ft|featuring|avec|with|and|et|x)\b\.?\s*/i;
+
+// Retire UNIQUEMENT les parenthèses/crochets orphelins, c'est-à-dire ceux dont
+// le pendant est parti dans un autre fragment lors du découpage.
+//
+// Un décapage inconditionnel des extrémités serait une régression : sur un alias
+// légitime comme "Nightmargin (Casey Gu)" — une seule entité, pas un featuring —
+// il retirerait la parenthèse fermante et laisserait "Nightmargin (Casey Gu".
+function stripOrphanBrackets(s) {
+    let out = s;
+    let changed = true;
+    while (changed) {
+        changed = false;
+        const opens = (out.match(/[([]/g) || []).length;
+        const closes = (out.match(/[)\]]/g) || []).length;
+        if (closes > opens && /^[)\]]/.test(out)) { out = out.slice(1).trim(); changed = true; }
+        else if (opens > closes && /[([]$/.test(out)) { out = out.slice(0, -1).trim(); changed = true; }
+        else if (closes > opens && /[)\]]$/.test(out)) { out = out.slice(0, -1).trim(); changed = true; }
+        else if (opens > closes && /^[([]/.test(out)) { out = out.slice(1).trim(); changed = true; }
+    }
+    return out;
+}
+
 function splitArtistNames(str) {
     if (!str) return [];
-    return str.split(ARTIST_SPLIT_REGEX).map(s => s.trim()).filter(Boolean);
+    return str
+        .replace(FEATURE_BRACKET_REGEX, ' $1 ')
+        .split(ARTIST_SPLIT_REGEX)
+        .map(s => stripOrphanBrackets(
+                s.trim()
+                 .replace(LEADING_FEATURE_REGEX, '')
+                 // Les remplacements ci-dessus laissent des espaces multiples
+                 // (" $1 " autour d'un featuring extrait) : sans ça, deux noms
+                 // identiques à un espace près créeraient deux fiches artiste.
+                 .replace(/\s{2,}/g, ' ')
+                 .trim()
+            ))
+        .filter(Boolean);
 }
 
 // Rend le champ artiste d'une piste sous forme de lien(s) cliquables vers showArtistPage() -- un span par
@@ -41,11 +87,21 @@ function buildTrackRowElement(t, onClick) {
     const jsSafeGenre = safeGenre.replace(/'/g, "\\'");
     const jsSafeAlbum = escapeHTML(t.album || '').replace(/'/g, "\\'");
 
+    // Modifier/Supprimer : réservés au déposant et aux admins, comme avant. Ils
+    // passent d'une paire de boutons toujours visibles (deux pilules ✎/✕ sur
+    // chaque ligne, très bruyantes sur une liste de 200 titres) à des boutons
+    // icône révélés au survol/focus, cohérents avec le reste des listes.
     let editButtons = '';
-    if(t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
+    if (t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
         editButtons = `
-            <button class="btn btn-outline" style="font-size:0.7em; padding:6px 10px; border-radius:8px;" onclick="openEditTrackModal(${t.id}, '${jsSafeTitle}', '${jsSafeArtist}', '${jsSafeGenre}', '${jsSafeAlbum}')">✎</button>
-            <button type="button" class="btn btn-danger" style="border-radius:8px;" onclick="confirmPostAction('${T('confirm_delete_generic')}', 'delete_track', {track_id: ${t.id}})">✕</button>
+            <button type="button" class="track-row-btn" aria-label="${escapeHTML(T('btn_edit'))}" title="${escapeHTML(T('btn_edit'))}"
+                    onclick="openEditTrackModal(${t.id}, '${jsSafeTitle}', '${jsSafeArtist}', '${jsSafeGenre}', '${jsSafeAlbum}')">
+                <svg class="ico ico-sm"><use href="#ico-edit"></use></svg>
+            </button>
+            <button type="button" class="track-row-btn danger" aria-label="${escapeHTML(T('btn_delete_short'))}" title="${escapeHTML(T('btn_delete_short'))}"
+                    onclick="confirmPostAction('${T('confirm_delete_generic')}', 'delete_track', {track_id: ${t.id}})">
+                <svg class="ico ico-sm"><use href="#ico-trash"></use></svg>
+            </button>
         `;
     }
 
@@ -53,19 +109,26 @@ function buildTrackRowElement(t, onClick) {
 
     const div = document.createElement('div');
     div.className = 'track-item';
+    div.dataset.trackId = String(t.id);
     div.onclick = onClick;
+    // Clic droit (desktop) : mêmes actions que le menu contextuel des cartes.
+    div.oncontextmenu = (e) => { e.preventDefault(); openTrackContextMenu(e, t.id); };
     div.innerHTML = `
-        <img src="covers/${safeCover}" loading="lazy" class="mini-cover" onerror="this.src='covers/default.png'">
-        <div style="overflow:hidden;">
-            <div class="marquee-wrap" style="font-weight:700; font-size:1.05em; margin-bottom:3px;"><span>${safeTitle}</span></div>
-            <div style="font-size:0.85em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                ${artistLinksHTML(t.artist)}${albumLinkHTML(t)} <span style="opacity:0.6;font-size:0.9em;">• ${safeGenre} • ▶ ${t.play_count || 0}</span>
+        <div class="track-row-art">
+            <img src="covers/${safeCover}" loading="lazy" alt="" class="mini-cover" onerror="this.src='covers/default.png'">
+            <span class="track-row-play" aria-hidden="true"><svg class="ico ico-sm"><use href="#ico-play"></use></svg></span>
+        </div>
+        <div class="track-row-body">
+            <div class="marquee-wrap track-row-title"><span>${safeTitle}</span></div>
+            <div class="track-row-meta">
+                ${artistLinksHTML(t.artist)}${albumLinkHTML(t)}
+                <span class="track-row-dim">• ${safeGenre} • <span class="tabular">${t.play_count || 0}</span> ▶</span>
             </div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;" onclick="event.stopPropagation()">
-            <button type="button" class="like-btn${isLiked ? ' active' : ''}" title="${T('tooltip_like')}" onclick="toggleLikeUI(${t.id}, this)">
+        <div class="track-row-actions" onclick="event.stopPropagation()">
+            <button type="button" class="like-btn${isLiked ? ' active' : ''}" aria-label="${escapeHTML(T('tooltip_like'))}" title="${escapeHTML(T('tooltip_like'))}" onclick="toggleLikeUI(${t.id}, this)">
                 <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                <span class="like-count">${t.like_count || 0}</span>
+                <span class="like-count tabular">${t.like_count || 0}</span>
             </button>
             ${editButtons}
         </div>
@@ -255,6 +318,17 @@ function showAlbumPage(name, pushState = true) {
 // Biographie Wikipedia : appel REST public direct depuis le navigateur (CORS ouvert), aucune dépendance
 // serveur. Un jeton évite qu'une réponse tardive d'une ancienne recherche n'écrase la bio de l'artiste
 // affiché entre-temps si l'utilisateur navigue vite entre plusieurs artistes.
+// Biographie d'artiste — désormais servie par api.php?action=artist_bio, qui
+// interroge Wikipédia UNE fois puis met le résultat en cache en base.
+//
+// Auparavant chaque navigateur appelait Wikipédia directement, à chaque
+// ouverture d'une page artiste : jusqu'à trois requêtes (résumé, recherche en
+// cas d'homonymie, résumé de la page trouvée) refaites par chaque visiteur, pour
+// un contenu qui ne bouge pratiquement jamais. La résolution d'homonymie vit
+// maintenant dans wikipedia_summary() (api/helpers.php).
+//
+// Le jeton empêche la réponse tardive d'un artiste précédent d'écraser la bio de
+// celui affiché entre-temps si l'utilisateur navigue vite.
 async function fetchArtistBio(name) {
     const bioEl = document.getElementById('artist-page-bio');
     if (!bioEl) return;
@@ -262,45 +336,18 @@ async function fetchArtistBio(name) {
     bioEl.innerText = T('loading_bio');
     const lang = (typeof LANG !== 'undefined' && LANG === 'en') ? 'en' : 'fr';
     try {
-        let data = await fetchWikipediaSummary(name, lang);
-        if ((!data || !data.extract) && lang !== 'en') data = await fetchWikipediaSummary(name, 'en');
+        const res = await fetch(`api.php?action=artist_bio&name=${encodeURIComponent(name)}&lang=${lang}`);
+        const data = await res.json();
         if (myToken !== artistBioToken) return;
         if (data && data.extract) {
-            const pageUrl = data.content_urls?.desktop?.page;
             bioEl.innerHTML = escapeHTML(data.extract) +
-                (pageUrl ? ` <a href="${escapeHTML(pageUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(T('wikipedia_link'))}</a>` : '');
+                (data.url ? ` <a href="${escapeHTML(data.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(T('wikipedia_link'))}</a>` : '');
         } else {
             bioEl.innerText = T('no_bio_available');
         }
     } catch (e) {
         if (myToken === artistBioToken) bioEl.innerText = T('no_bio_available');
     }
-}
-
-async function fetchWikipediaSummary(name, lang) {
-    try {
-        const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.type !== 'disambiguation' && data.extract) return data;
-        }
-    } catch (e) { /* on retente via la recherche ci-dessous */ }
-    // Nom ambigu (page d'homonymie) ou introuvable tel quel : on cherche parmi les résultats la première
-    // page "standard" correspondante (ex. "Drake" -> page d'homonymie -> "Drake (musician)").
-    try {
-        const searchRes = await fetch(`https://${lang}.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(name)}&limit=5`);
-        if (!searchRes.ok) return null;
-        const searchData = await searchRes.json();
-        const candidates = (searchData.pages || []).map(p => p.title).filter(t => t.toLowerCase() !== name.toLowerCase());
-        for (const title of candidates) {
-            const res2 = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
-            if (res2.ok) {
-                const data2 = await res2.json();
-                if (data2.type !== 'disambiguation' && data2.extract) return data2;
-            }
-        }
-    } catch (e) { /* pas de bio trouvée */ }
-    return null;
 }
 
 const _observer = new IntersectionObserver((entries) => {
@@ -333,16 +380,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     filterAndSortTracks();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const pageParam = urlParams.get('page');
-    const sortParam = urlParams.get('sort');
-    const videoParam = urlParams.get('v');
-    const listParam = urlParams.get('list');
+    applyUrlState(new URLSearchParams(window.location.search), { startPlayback: true });
+});
 
-    const nameParam = urlParams.get('name');
+/**
+ * Restaure l'écran décrit par les paramètres d'URL, sans jamais recharger la page.
+ *
+ * Partagée entre le premier chargement et le bouton Précédent/Suivant du
+ * navigateur : les deux doivent aboutir exactement au même écran, et les
+ * dupliquer les ferait diverger au premier écran ajouté.
+ *
+ * @param {URLSearchParams} params
+ * @param {{startPlayback?: boolean}} opts  startPlayback : ne charge la piste ?v=
+ *        qu'au premier affichage. Sur un retour arrière, relancer la piste de
+ *        l'entrée d'historique couperait la lecture en cours — le bouton
+ *        Précédent doit changer d'écran, pas de morceau.
+ */
+function applyUrlState(params, opts = {}) {
+    const pageParam = params.get('page');
+    const sortParam = params.get('sort');
+    const videoParam = params.get('v');
+    const listParam = params.get('list');
+    const nameParam = params.get('name');
 
+    // pushState=false partout : c'est l'URL qui pilote l'écran ici, réécrire
+    // l'historique en réponse à une navigation dans l'historique le corromprait.
     if (pageParam === 'playlist-detail' && listParam) {
         openPlaylistDetail(listParam);
+    } else if (pageParam === 'playlist-detail') {
+        // URL de détail sans identifiant de playlist (ancien lien, ou partage
+        // tronqué) : on retombe sur la liste des playlists plutôt que d'afficher
+        // la coquille vide du détail, qui n'aurait que son bouton Retour.
+        showSection('playlists', false);
     } else if (pageParam === 'browse') {
         const sv = sortParam || 'date_desc';
         openBrowseAll(sv, T(sv === 'popular' ? 'sort_popular' : 'sort_recent'), false);
@@ -350,12 +419,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         showArtistPage(nameParam, false);
     } else if (pageParam === 'album-page' && nameParam) {
         showAlbumPage(nameParam, false);
+    } else if (pageParam === 'artists-page') {
+        showArtistsIndex(false);
+    } else if (pageParam === 'albums-page') {
+        showAlbumsIndex(false);
+    } else if (pageParam === 'history-page') {
+        showHistoryPage(false);
+    } else if (pageParam === 'stats-page') {
+        showStatsPage(false);
     } else if (pageParam) {
         showSection(pageParam, false);
+    } else {
+        showSection('accueil', false);
     }
-    if (listParam) currentPlaylistId = listParam;
-    if (videoParam) playTrackById(videoParam, false);
-});
 
-window.onpopstate = function(event) { window.location.reload(); };
+    if (listParam) currentPlaylistId = listParam;
+    if (opts.startPlayback && videoParam) playTrackById(videoParam, false);
+}
+
+// Précédent/Suivant du navigateur.
+//
+// Auparavant : window.location.reload(). Revenir en arrière rechargeait donc
+// toute l'application — bibliothèque entière re-téléchargée, lecture coupée,
+// défilement perdu — pour un simple changement d'écran. On rejoue désormais
+// l'état de l'URL côté client.
+//
+// La pile de retour interne (SECTION_STACK, js/discovery.js) est indépendante :
+// elle sert aux boutons "Retour" de l'app. On la neutralise le temps de la
+// restauration pour ne pas y empiler l'écran quitté, sinon le bouton Retour de
+// l'app remonterait des écrans déjà défaits par le navigateur.
+window.addEventListener('popstate', () => {
+    const skipBefore = typeof _skipSectionHistoryPush !== 'undefined' ? _skipSectionHistoryPush : false;
+    _skipSectionHistoryPush = true;
+    try {
+        applyUrlState(new URLSearchParams(window.location.search), { startPlayback: false });
+    } finally {
+        _skipSectionHistoryPush = skipBefore;
+    }
+});
 
