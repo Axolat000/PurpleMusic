@@ -119,6 +119,34 @@
     --surface-overlay: color-mix(in srgb, var(--bg-panel) 92%, #fff 6%);
     --hairline: color-mix(in srgb, var(--border-color) 60%, transparent);
 
+    /* --- VOILES ET NIVEAUX DE TEXTE ----------------------------------------
+       Toute l'app posait ses survols, séparateurs et textes de lecteur en blanc
+       littéral : rgba(255,255,255,0.05) pour un survol, fill:white pour une icône
+       de transport, etc. Une quarantaine de valeurs, toutes correctes sur fond
+       sombre — et toutes invisibles dès que le fond passe au clair (preset Light,
+       thème personnalisé clair, ou thème dynamique tiré d'une pochette claire).
+       Ces tokens portent l'INTENTION ("voile discret", "texte secondaire") et se
+       retournent d'un bloc plus bas quand le fond est clair.
+
+       Voiles posés SUR une surface, du plus discret au plus marqué. */
+    --tint-1: rgba(255, 255, 255, 0.05);
+    --tint-2: rgba(255, 255, 255, 0.08);
+    --tint-3: rgba(255, 255, 255, 0.12);
+    --tint-4: rgba(255, 255, 255, 0.18);
+    --tint-5: rgba(255, 255, 255, 0.28);
+    /* Séparateur interne très discret (lignes entre éléments d'une même liste). */
+    --rule-faint: rgba(255, 255, 255, 0.04);
+
+    /* Texte/icônes posés sur une surface colorée ou imagée (lecteur plein écran,
+       barre de lecture, paroles) — indépendants de --text, qui suit le thème. */
+    --fg-strong: rgba(255, 255, 255, 0.95);
+    --fg-mid: rgba(255, 255, 255, 0.78);
+    --fg-soft: rgba(255, 255, 255, 0.55);
+    --fg-faint: rgba(255, 255, 255, 0.38);
+    /* Couleur des contrôles de transport et du texte sur --primary. */
+    --player-fg: #ffffff;
+    --on-accent: #ffffff;
+
     /* --- LAYOUT -------------------------------------------------------------
        Largeurs de chrome réutilisées par plusieurs fichiers (base/responsive). */
     --sidebar-w: 232px;
@@ -126,6 +154,46 @@
     --topbar-h: 68px;
     --content-max: 1180px;
 }
+
+/* --- MODE CLAIR --------------------------------------------------------------
+   Posé sur <html> par applyThemeContrast() (js/theme.js) dès que le fond résolu
+   est clair — quelle qu'en soit l'origine : preset "light", thème personnalisé,
+   génération algorithmique ou thème dynamique tiré d'une pochette. Se caler sur
+   le NOM du preset n'aurait couvert qu'un de ces quatre chemins.
+
+   Seuls les tokens sont redéfinis : aucun composant ne connaît le mode clair. */
+html.theme-light {
+    --tint-1: rgba(0, 0, 0, 0.04);
+    --tint-2: rgba(0, 0, 0, 0.07);
+    --tint-3: rgba(0, 0, 0, 0.10);
+    --tint-4: rgba(0, 0, 0, 0.15);
+    --tint-5: rgba(0, 0, 0, 0.22);
+    --rule-faint: rgba(0, 0, 0, 0.06);
+
+    --fg-strong: rgba(20, 16, 26, 0.95);
+    --fg-mid: rgba(20, 16, 26, 0.72);
+    --fg-soft: rgba(20, 16, 26, 0.52);
+    --fg-faint: rgba(20, 16, 26, 0.34);
+    /* Les contrôles de transport passent en sombre : ils reposent sur la barre de
+       lecture et le lecteur plein écran, tous deux clairs dans ce mode. */
+    --player-fg: #1a1420;
+
+    /* Les ombres noires larges du mode sombre se voient comme des taches grises
+       sur fond clair : on les resserre et on les adoucit fortement. */
+    --elev-1: 0 1px 2px rgba(20, 16, 26, 0.06), 0 2px 8px rgba(20, 16, 26, 0.05);
+    --elev-2: 0 2px 6px rgba(20, 16, 26, 0.08), 0 10px 24px rgba(20, 16, 26, 0.08);
+    --elev-3: 0 4px 12px rgba(20, 16, 26, 0.10), 0 24px 56px rgba(20, 16, 26, 0.12);
+
+    --surface-raised: color-mix(in srgb, var(--bg-panel) 94%, #000 6%);
+    --surface-sunken: color-mix(in srgb, var(--bg-dark) 92%, #000 8%);
+    --surface-overlay: color-mix(in srgb, var(--bg-panel) 97%, #000 3%);
+}
+/* Le bouton de lecture principal est un disque blanc à icône sombre en mode
+   sombre ; en clair il doit s'inverser, sinon c'est un disque blanc sur fond
+   blanc. Traité ici et non dans components.css pour que la règle reste avec le
+   reste de la bascule de mode. */
+html.theme-light #masterPlay { background: var(--primary); }
+html.theme-light #masterPlay svg { fill: #fff; }
 
 /* Repli pour les navigateurs sans color-mix() (Safari < 16.2, Firefox < 113) :
    les surfaces ci-dessus seraient invalides et l'élément n'aurait plus AUCUN fond.

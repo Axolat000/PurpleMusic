@@ -124,7 +124,7 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    background: linear-gradient(90deg, transparent, var(--tint-1), transparent);
     animation: skeletonSweep 1.4s ease-in-out infinite;
 }
 @keyframes skeletonSweep { to { transform: translateX(100%); } }
@@ -193,7 +193,7 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
     cursor: pointer;
     transition: background var(--dur-instant) var(--ease-out);
 }
-.context-menu-item:hover { background: rgba(255, 255, 255, 0.07); }
+.context-menu-item:hover { background: var(--tint-2); }
 .context-menu-item svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; opacity: 0.75; }
 .context-menu-item.danger { color: var(--danger); }
 .context-menu-sep { height: 1px; margin: var(--space-2) var(--space-3); background: var(--hairline); }
@@ -290,7 +290,7 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
     pointer-events: none;
     z-index: 0;
     opacity: 0.055;
-    background: repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.9) 3px 4px);
+    background: repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, var(--fg-strong) 3px 4px);
     mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 78%);
     -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 78%);
 }
@@ -335,7 +335,7 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
 .queue-drag-handle { cursor: grab; display: flex; }
 .queue-item[draggable="true"]:active .queue-drag-handle { cursor: grabbing; }
 .queue-item-remove { background: none; border: none; padding: var(--space-2); border-radius: 50%; cursor: pointer; display: flex; }
-.queue-item-remove:hover { background: rgba(255,255,255,0.1); color: var(--danger); }
+.queue-item-remove:hover { background: var(--tint-3); color: var(--danger); }
 
 .queue-item.dragging { opacity: 0.4; }
 /* Trait d'insertion plutôt qu'un fond coloré : indique précisément OÙ la piste
@@ -384,7 +384,7 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
 .playlist-detail-meta { min-width: 0; flex: 1; }
 /* Titre modifiable : le survol annonce l'édition sans ajouter un bouton crayon. */
 .playlist-title-view.editable { cursor: text; border-radius: var(--radius-xs); transition: background var(--dur-fast) var(--ease-out); }
-.playlist-title-view.editable:hover { background: rgba(255,255,255,0.06); box-shadow: 0 0 0 6px rgba(255,255,255,0.06); }
+.playlist-title-view.editable:hover { background: var(--tint-1); box-shadow: 0 0 0 6px var(--tint-1); }
 .playlist-title-input {
     width: 100%; max-width: 420px;
     margin: 0 0 var(--space-2);
@@ -486,13 +486,13 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
     display: flex; align-items: center; gap: var(--space-4);
     padding: var(--space-3) var(--space-5);
     background: none; border: none;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--rule-faint);
     color: var(--text); font-family: inherit; text-align: left;
     cursor: pointer;
     transition: background var(--dur-fast) var(--ease-out);
 }
 .rank-row:last-child { border-bottom: none; }
-.rank-row:hover { background: rgba(255,255,255,0.06); }
+.rank-row:hover { background: var(--tint-1); }
 .rank-index { width: 22px; flex-shrink: 0; color: var(--text-muted); font-size: var(--text-sm); text-align: right; }
 .rank-cover { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
 .rank-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }

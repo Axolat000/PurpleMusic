@@ -396,14 +396,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     filterAndSortTracks();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const pageParam = urlParams.get('page');
-    const sortParam = urlParams.get('sort');
-    const videoParam = urlParams.get('v');
-    const listParam = urlParams.get('list');
+    applyUrlState(new URLSearchParams(window.location.search), { startPlayback: true });
+});
 
-    const nameParam = urlParams.get('name');
+/**
+ * Restaure l'écran décrit par les paramètres d'URL, sans jamais recharger la page.
+ *
+ * Partagée entre le premier chargement et le bouton Précédent/Suivant du
+ * navigateur : les deux doivent aboutir exactement au même écran, et les
+ * dupliquer les ferait diverger au premier écran ajouté.
+ *
+ * @param {URLSearchParams} params
+ * @param {{startPlayback?: boolean}} opts  startPlayback : ne charge la piste ?v=
+ *        qu'au premier affichage. Sur un retour arrière, relancer la piste de
+ *        l'entrée d'historique couperait la lecture en cours — le bouton
+ *        Précédent doit changer d'écran, pas de morceau.
+ */
+function applyUrlState(params, opts = {}) {
+    const pageParam = params.get('page');
+    const sortParam = params.get('sort');
+    const videoParam = params.get('v');
+    const listParam = params.get('list');
+    const nameParam = params.get('name');
 
+    // pushState=false partout : c'est l'URL qui pilote l'écran ici, réécrire
+    // l'historique en réponse à une navigation dans l'historique le corromprait.
     if (pageParam === 'playlist-detail' && listParam) {
         openPlaylistDetail(listParam);
     } else if (pageParam === 'playlist-detail') {
@@ -418,12 +435,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         showArtistPage(nameParam, false);
     } else if (pageParam === 'album-page' && nameParam) {
         showAlbumPage(nameParam, false);
+    } else if (pageParam === 'artists-page') {
+        showArtistsIndex(false);
+    } else if (pageParam === 'albums-page') {
+        showAlbumsIndex(false);
+    } else if (pageParam === 'history-page') {
+        showHistoryPage(false);
+    } else if (pageParam === 'stats-page') {
+        showStatsPage(false);
     } else if (pageParam) {
         showSection(pageParam, false);
+    } else {
+        showSection('accueil', false);
     }
-    if (listParam) currentPlaylistId = listParam;
-    if (videoParam) playTrackById(videoParam, false);
-});
 
-window.onpopstate = function(event) { window.location.reload(); };
+    if (listParam) currentPlaylistId = listParam;
+    if (opts.startPlayback && videoParam) playTrackById(videoParam, false);
+}
+
+// Précédent/Suivant du navigateur.
+//
+// Auparavant : window.location.reload(). Revenir en arrière rechargeait donc
+// toute l'application — bibliothèque entière re-téléchargée, lecture coupée,
+// défilement perdu — pour un simple changement d'écran. On rejoue désormais
+// l'état de l'URL côté client.
+//
+// La pile de retour interne (SECTION_STACK, js/discovery.js) est indépendante :
+// elle sert aux boutons "Retour" de l'app. On la neutralise le temps de la
+// restauration pour ne pas y empiler l'écran quitté, sinon le bouton Retour de
+// l'app remonterait des écrans déjà défaits par le navigateur.
+window.addEventListener('popstate', () => {
+    const skipBefore = typeof _skipSectionHistoryPush !== 'undefined' ? _skipSectionHistoryPush : false;
+    _skipSectionHistoryPush = true;
+    try {
+        applyUrlState(new URLSearchParams(window.location.search), { startPlayback: false });
+    } finally {
+        _skipSectionHistoryPush = skipBefore;
+    }
+});
 

@@ -641,13 +641,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof ALL_MUSIC_DATA === 'undefined') return;
-    // Sur un chargement direct de ?page=..., la section est restaurée par
-    // library.js ; ces trois-là ont besoin de leur rendu initial.
-    const page = new URLSearchParams(location.search).get('page');
-    if (page === 'artists-page') showArtistsIndex(false);
-    else if (page === 'albums-page') showAlbumsIndex(false);
-    else if (page === 'history-page') showHistoryPage(false);
-    else if (page === 'stats-page') showStatsPage(false);
-});
+// La restauration depuis l'URL (chargement initial ET Précédent/Suivant) est
+// centralisée dans applyUrlState() (js/library.js) : ces écrans y sont traités
+// comme les autres. Un second point de restauration ici les rendrait deux fois
+// au chargement et divergerait à la première évolution.
