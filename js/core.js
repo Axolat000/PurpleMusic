@@ -415,6 +415,75 @@ document.addEventListener('alpine:init', () => {
         }
     }));
 
+    // --- Admin Panel > onglet Thème : aperçu en direct des couleurs.
+    //
+    // Régler un thème demandait jusqu'ici d'enregistrer puis de recharger la page
+    // pour voir le résultat, à chaque essai. Ici les <input type="color"> écrivent
+    // directement dans les variables CSS de <html>, donc toute l'interface (barre
+    // latérale, lecteur, cartes) se recolore instantanément.
+    //
+    // Aucune écriture en base ni en localStorage : c'est un aperçu volatil, annulé
+    // par revert() ou par un simple rechargement. L'enregistrement reste le POST
+    // normal du formulaire.
+    Alpine.data('adminThemePreview', () => ({
+        live: false,
+        // Valeurs en vigueur au moment d'activer l'aperçu, pour pouvoir revenir
+        // exactement à l'état d'avant — et non à une supposée valeur par défaut.
+        saved: {},
+
+        // Nom du champ admin -> variable CSS correspondante.
+        fieldMap: {
+            adm_color_bg: '--bg-dark',
+            adm_color_panel: '--bg-panel',
+            adm_color_primary: '--primary',
+            adm_color_accent: '--accent',
+            adm_color_text: '--text',
+            adm_color_text_muted: '--text-muted',
+            adm_color_border: '--border-color',
+            adm_color_search_bg: '--search-bg',
+            adm_color_fp_gradient_1: '--fp-gradient-1',
+            adm_color_fp_gradient_2: '--fp-gradient-2',
+            adm_color_header_bg: '--header-bg',
+            adm_color_player_bg: '--player-bg',
+            adm_color_mob_nav_bg: '--mob-nav-bg',
+        },
+
+        applyAll() {
+            const root = document.documentElement;
+            if (!Object.keys(this.saved).length) {
+                // Première application : on mémorise l'inline style existant de
+                // chaque variable (souvent vide — la valeur vient alors de la
+                // feuille de style), pour un retour arrière fidèle.
+                Object.values(this.fieldMap).forEach(v => {
+                    this.saved[v] = root.style.getPropertyValue(v);
+                });
+            }
+            Object.entries(this.fieldMap).forEach(([field, cssVar]) => {
+                const input = this.$el.querySelector(`[name="${field}"]`);
+                if (!input) return;
+                const value = input.value.trim();
+                // Un champ rgba() vidé par erreur rendrait la barre transparente :
+                // on ignore les valeurs vides plutôt que d'écrire du vide.
+                if (value) root.style.setProperty(cssVar, value);
+            });
+        },
+
+        revert() {
+            const root = document.documentElement;
+            Object.entries(this.saved).forEach(([cssVar, previous]) => {
+                if (previous) root.style.setProperty(cssVar, previous);
+                else root.style.removeProperty(cssVar);
+            });
+            this.saved = {};
+            // Le preset utilisateur (violet/amoled/...) est posé par theme.js sur
+            // ces mêmes variables : on le réapplique pour ne pas laisser l'aperçu
+            // écraser silencieusement le choix personnel de l'admin.
+            if (typeof setThemeVars === 'function') {
+                setThemeVars(localStorage.getItem('purpleMusicTheme') || 'violet');
+            }
+        },
+    }));
+
     // --- Admin Panel (page dédiée, x-data posé sur <main id="admin">) : gère uniquement l'onglet actif
     // (Général / Thème / Médias / Genres / Utilisateurs). initialTab vient d'index.php (paramètre d'URL
     // ?admin_tab=..., utilisé pour rester sur le même onglet après un redirect suite à une action utilisateur).

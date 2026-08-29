@@ -419,6 +419,18 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
    la matière principale (les titres, en dessous, le sont). */
 .entity-grid-compact { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: var(--space-4); }
 
+/* --- APERÇU DE THÈME (Panel Admin) -------------------------------------------- */
+.admin-preview-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-4); flex-wrap: wrap;
+    margin-bottom: var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+}
+.admin-preview-toggle { display: flex; align-items: center; gap: var(--space-3); cursor: pointer; font-size: var(--text-base); color: var(--text); }
+
 /* --- PAGE STATISTIQUES --------------------------------------------------------
    Information design plutôt que typographie : on met en avant les 4 chiffres
    clés, puis les classements. Chiffres en tabular-nums pour qu'ils s'alignent

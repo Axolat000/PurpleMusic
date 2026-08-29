@@ -68,7 +68,9 @@
             </select>
         </div>
 
-        <button type="button" class="btn-icon" @click="openModal('shortcutsModal')"
+        <!-- Aide des raccourcis : sans objet sur un appareil tactile sans clavier,
+             masquée sous 900px (voir css/responsive.css). -->
+        <button type="button" class="btn-icon topbar-shortcuts-btn" @click="openModal('shortcutsModal')"
                 aria-label="<?php echo htmlspecialchars(t('btn_shortcuts')); ?>"
                 title="<?php echo htmlspecialchars(t('btn_shortcuts')); ?>">
             <svg class="ico" aria-hidden="true"><use href="#ico-eq"></use></svg>

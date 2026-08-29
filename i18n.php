@@ -36,6 +36,8 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Paramètres',
         'btn_logout' => 'Sortir',
+        'admin_theme_live_preview' => 'Aperçu en direct',
+        'admin_theme_reset_preview' => 'Annuler l\'aperçu',
 
         // --- Page Statistiques d'ecoute ---
         'nav_stats' => 'Statistiques',
@@ -383,6 +385,8 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Settings',
         'btn_logout' => 'Log Out',
+        'admin_theme_live_preview' => 'Live preview',
+        'admin_theme_reset_preview' => 'Cancel preview',
 
         // --- Page Statistiques d'ecoute ---
         'nav_stats' => 'Stats',
@@ -715,6 +719,8 @@ $I18N = [
         'btn_upload' => 'Subir',
         'btn_settings' => 'Ajustes',
         'btn_logout' => 'Salir',
+        'admin_theme_live_preview' => 'Vista previa en vivo',
+        'admin_theme_reset_preview' => 'Cancelar vista previa',
 
         // --- Page Statistiques d'ecoute ---
         'nav_stats' => 'Estadísticas',
@@ -1047,6 +1053,8 @@ $I18N = [
         'btn_upload' => 'Hochladen',
         'btn_settings' => 'Einstellungen',
         'btn_logout' => 'Abmelden',
+        'admin_theme_live_preview' => 'Live-Vorschau',
+        'admin_theme_reset_preview' => 'Vorschau abbrechen',
 
         // --- Page Statistiques d'ecoute ---
         'nav_stats' => 'Statistiken',

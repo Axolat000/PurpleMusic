@@ -38,8 +38,26 @@
                 <a href="cgu.php" target="_blank" rel="noopener" class="btn btn-outline"><?php echo t('admin_legal_view_cgu'); ?></a>
             </div>
 
-            <div x-show="activeTab === 'theme'" x-cloak>
-                <div class="extended-color-grid">
+            <div x-show="activeTab === 'theme'" x-cloak x-data="adminThemePreview()">
+                <!-- Aperçu en direct : chaque changement de couleur s'applique
+                     immédiatement à toute l'interface, au lieu d'exiger un
+                     enregistrement puis un rechargement pour découvrir le résultat.
+                     Rien n'est écrit en base tant qu'on n'a pas enregistré, et
+                     "Annuler l'aperçu" restaure les couleurs en vigueur. -->
+                <div class="admin-preview-bar">
+                    <label class="admin-preview-toggle">
+                        <span class="switch-toggle">
+                            <input type="checkbox" x-model="live" @change="live ? applyAll() : revert()">
+                            <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                        </span>
+                        <span><?php echo t('admin_theme_live_preview'); ?></span>
+                    </label>
+                    <button type="button" class="btn btn-outline btn-sm" x-show="live" x-cloak @click="revert(); live = false;">
+                        <?php echo t('admin_theme_reset_preview'); ?>
+                    </button>
+                </div>
+
+                <div class="extended-color-grid" @input="live && applyAll()">
                     <div class="extended-color-item"><span><?php echo t('admin_color_bg'); ?></span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
                     <div class="extended-color-item"><span><?php echo t('admin_color_panel'); ?></span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
                     <div class="extended-color-item"><span><?php echo t('admin_color_primary'); ?></span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
@@ -54,13 +72,13 @@
                 </div>
 
                 <label style="margin-top: 12px; display: block;"><?php echo t('admin_header_bg_label'); ?></label>
-                <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>" placeholder="rgba(27, 20, 41, 0.85)">
+                <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>" placeholder="rgba(27, 20, 41, 0.85)" @input="live && applyAll()">
 
                 <label style="margin-top: 10px; display: block;"><?php echo t('admin_player_bg_label'); ?></label>
-                <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>" placeholder="rgba(30, 24, 45, 0.85)">
+                <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>" placeholder="rgba(30, 24, 45, 0.85)" @input="live && applyAll()">
 
                 <label style="margin-top: 10px; display: block;"><?php echo t('admin_mobnav_bg_label'); ?></label>
-                <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>" placeholder="rgba(21, 16, 32, 0.95)">
+                <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>" placeholder="rgba(21, 16, 32, 0.95)" @input="live && applyAll()">
             </div>
 
             <div x-show="activeTab === 'media'" x-cloak>

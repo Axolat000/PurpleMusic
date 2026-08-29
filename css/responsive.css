@@ -83,7 +83,12 @@
     /* La barre supérieure se cale sous l'en-tête mobile, qui est lui-même collant. */
     #app-topbar { top: 56px; padding: 0 var(--space-5); gap: var(--space-3); height: 60px; }
     .topbar-search { max-width: none; }
+    /* Raccourcis clavier : sans objet sans clavier physique, et la place gagnée
+       revient au champ de recherche. */
+    .topbar-shortcuts-btn { display: none; }
     .app-content { padding: var(--space-5); }
+    .stats-range { margin-left: 0; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
