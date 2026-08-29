@@ -2,7 +2,7 @@
         <div class="player-info" onclick="openSmartPlayer()" style="cursor:pointer">
             <img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="player-cover" loading="lazy">
             <div style="overflow: hidden; flex: 1;">
-                <div id="play-title" style="font-weight: 700; font-size:0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo t('player_ready'); ?></div>
+                <div id="play-title" class="marquee-wrap player-title"><span><?php echo t('player_ready'); ?></span></div>
                 <div id="play-status" class="player-artist-link" style="font-size: 0.75em; color: var(--accent); margin-top:2px;"><?php echo t('player_stopped'); ?></div>
             </div>
         </div>
@@ -91,7 +91,7 @@
             </div>
         </div>
         <div class="fp-info-area">
-            <div id="fp-title"><?php echo t('title_placeholder'); ?></div>
+            <div id="fp-title" class="marquee-wrap"><span><?php echo t('title_placeholder'); ?></span></div>
             <div id="fp-artist" class="player-artist-link" style="font-size:1.1em; color:var(--accent); font-weight:500;"><?php echo t('artist_placeholder'); ?></div>
         </div>
         <div class="fp-progress-wrapper">
@@ -168,7 +168,7 @@
                 </div>
                 <div class="dfp-info-col">
                     <span class="dfp-eyebrow"><?php echo t('now_playing_label'); ?></span>
-                    <div id="dp-title" class="dfp-title"><?php echo t('title_placeholder'); ?></div>
+                    <div id="dp-title" class="dfp-title marquee-wrap"><span><?php echo t('title_placeholder'); ?></span></div>
                     <div id="dp-artist" class="dfp-artist player-artist-link"><?php echo t('artist_placeholder'); ?></div>
 
                     <div class="dfp-progress-wrapper">

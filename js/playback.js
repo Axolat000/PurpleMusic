@@ -99,7 +99,19 @@ function loadTrack(autoPlay = true) {
         if (name) showArtistPage(name);
     };
 
-    if (playTitle) playTitle.innerText = track.title;
+    // Les trois titres de lecteur (mini-barre, plein écran mobile, grand lecteur
+    // desktop) passent désormais par le MÊME composant .marquee-wrap et la même
+    // fonction de mesure. Avant : la mini-barre tronquait sans jamais défiler, le
+    // plein écran réimplémentait le marquee en dur ici, et le lecteur desktop
+    // n'avait qu'une ellipse CSS — trois comportements pour un seul besoin.
+    const setPlayerTitle = (el, text) => {
+        if (!el) return;
+        const span = el.querySelector('span') || el;
+        span.textContent = text;
+        applyMarqueeIfOverflowing(el);
+    };
+
+    setPlayerTitle(playTitle, track.title);
     if (playCover) playCover.src = 'covers/' + (track.cover || 'default.png');
     if (playStatus) { playStatus.innerText = track.artist || 'Artiste inconnu'; playStatus.onclick = goToTrackArtist; }
 
@@ -110,20 +122,11 @@ function loadTrack(autoPlay = true) {
     const dpArtist = document.getElementById('dp-artist');
     const dpCover = document.getElementById('dp-cover');
 
-    if (fpTitle) {
-        const safeFpTitle = escapeHTML(track.title);
-        fpTitle.innerHTML = `<span id="fp-title-text">${safeFpTitle}</span>`;
-        const titleSpan = document.getElementById('fp-title-text');
-        titleSpan.classList.remove('scrolling-active');
-        if (titleSpan.scrollWidth > fpTitle.clientWidth) {
-            titleSpan.classList.add('scrolling-active');
-        }
-    }
+    setPlayerTitle(fpTitle, track.title);
     if (fpArtist) { fpArtist.innerText = track.artist || 'Artiste inconnu'; fpArtist.onclick = goToTrackArtist; }
     if (fpCover) fpCover.src = 'covers/' + (track.cover || 'default.png');
 
-    // Carte desktop : pas de marquee (largeur confortable), simple troncature CSS (ellipsis).
-    if (dpTitle) dpTitle.innerText = track.title;
+    setPlayerTitle(dpTitle, track.title);
     if (dpArtist) { dpArtist.innerText = track.artist || 'Artiste inconnu'; dpArtist.onclick = goToTrackArtist; }
     if (dpCover) dpCover.src = 'covers/' + (track.cover || 'default.png');
 

@@ -164,6 +164,11 @@ function openLyricsFromPlayerBar() {
             document.body.style.overflow = 'hidden';
         }
         applyVisualizerForContext('mobile');
+        // Le titre n'est mesurable qu'une fois la surface reellement affichee :
+        // tant qu'elle est fermee, clientWidth vaut 0 et applyMarqueeIfOverflowing()
+        // refuse (a juste titre) de trancher. On relance donc la mesure ici.
+        if (window.Alpine) Alpine.nextTick(() => applyMarqueeIfOverflowing(document.getElementById('fp-title')));
+
     }
 }
 
@@ -179,6 +184,10 @@ function openSmartPlayer() {
             document.body.style.overflow = 'hidden';
         }
         applyVisualizerForContext('mobile');
+        // Le titre n'est mesurable qu'une fois la surface reellement affichee :
+        // tant qu'elle est fermee, clientWidth vaut 0 et applyMarqueeIfOverflowing()
+        // refuse (a juste titre) de trancher. On relance donc la mesure ici.
+        if (window.Alpine) Alpine.nextTick(() => applyMarqueeIfOverflowing(document.getElementById('fp-title')));
     } else {
         openDesktopPlayer();
     }
@@ -218,6 +227,10 @@ function openDesktopPlayer() {
         // Toujours rouvrir sur la carte lecteur, jamais coincé sur paroles/file d'attente d'une session précédente.
         Alpine.store('ui').desktopPlayerView = 'player';
         if (dpVol) dpVol.value = audio ? audio.volume : dpVol.value;
+        // Le titre n'est mesurable qu'une fois la carte réellement affichée :
+        // fermée, elle rapporte clientWidth = 0 et applyMarqueeIfOverflowing()
+        // refuse (à juste titre) de trancher. D'où cette relance à l'ouverture.
+        Alpine.nextTick(() => applyMarqueeIfOverflowing(document.getElementById('dp-title')));
     }
     applyVisualizerForContext('desktop');
 }

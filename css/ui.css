@@ -451,6 +451,11 @@ html.theme-light .fp-ambient.is-visible { opacity: 0.75; }
 #full-player > *:not(.fp-ambient),
 .dfp-card-player > *:not(.fp-ambient) { position: relative; z-index: 1; }
 
+/* Titre de la mini-barre : reprend .marquee-wrap comme les deux autres lecteurs
+   (il n'avait qu'une ellipse, sans défilement, alors que c'est la surface la plus
+   étroite des trois). */
+.player-title { font-weight: var(--weight-bold); font-size: var(--text-sm); }
+
 /* --- GESTION DES GENRES (Panel Admin) ----------------------------------------- */
 .adm-genre-list {
     max-height: 300px; overflow-y: auto;

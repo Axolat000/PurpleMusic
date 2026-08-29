@@ -36,9 +36,22 @@ function showSection(id, doUpdateUrl = true) {
 // <span> interne d'un conteneur .marquee-wrap seulement si le texte dépasse réellement la largeur
 // disponible — jamais pour un titre qui tient déjà sur une ligne.
 function applyMarqueeIfOverflowing(wrapperEl) {
+    if (!wrapperEl) return;
     const span = wrapperEl.querySelector('span');
     if (!span) return;
     span.classList.remove('scrolling-active');
+
+    // Un élément qui n'est pas mis en page (surface fermée, ancêtre en
+    // display:none) rapporte clientWidth = 0. La comparaison devenait alors
+    // "scrollWidth > 0", vraie pour n'importe quel texte : le titre du lecteur
+    // plein écran défilait donc en permanence, même sur un mot de cinq lettres.
+    // Symétriquement, le grand lecteur desktop mesurait 0 des deux côtés et
+    // n'activait jamais le défilement, même sur un titre trop long.
+    //
+    // On ne décide pas sur une mesure invalide : la surface concernée relance
+    // cette fonction à son ouverture (voir openSmartPlayer()/openDesktopPlayer()).
+    if (wrapperEl.clientWidth === 0) return;
+
     if (span.scrollWidth > wrapperEl.clientWidth) span.classList.add('scrolling-active');
 }
 
