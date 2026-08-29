@@ -318,6 +318,17 @@ function showAlbumPage(name, pushState = true) {
 // Biographie Wikipedia : appel REST public direct depuis le navigateur (CORS ouvert), aucune dépendance
 // serveur. Un jeton évite qu'une réponse tardive d'une ancienne recherche n'écrase la bio de l'artiste
 // affiché entre-temps si l'utilisateur navigue vite entre plusieurs artistes.
+// Biographie d'artiste — désormais servie par api.php?action=artist_bio, qui
+// interroge Wikipédia UNE fois puis met le résultat en cache en base.
+//
+// Auparavant chaque navigateur appelait Wikipédia directement, à chaque
+// ouverture d'une page artiste : jusqu'à trois requêtes (résumé, recherche en
+// cas d'homonymie, résumé de la page trouvée) refaites par chaque visiteur, pour
+// un contenu qui ne bouge pratiquement jamais. La résolution d'homonymie vit
+// maintenant dans wikipedia_summary() (api/helpers.php).
+//
+// Le jeton empêche la réponse tardive d'un artiste précédent d'écraser la bio de
+// celui affiché entre-temps si l'utilisateur navigue vite.
 async function fetchArtistBio(name) {
     const bioEl = document.getElementById('artist-page-bio');
     if (!bioEl) return;
@@ -325,45 +336,18 @@ async function fetchArtistBio(name) {
     bioEl.innerText = T('loading_bio');
     const lang = (typeof LANG !== 'undefined' && LANG === 'en') ? 'en' : 'fr';
     try {
-        let data = await fetchWikipediaSummary(name, lang);
-        if ((!data || !data.extract) && lang !== 'en') data = await fetchWikipediaSummary(name, 'en');
+        const res = await fetch(`api.php?action=artist_bio&name=${encodeURIComponent(name)}&lang=${lang}`);
+        const data = await res.json();
         if (myToken !== artistBioToken) return;
         if (data && data.extract) {
-            const pageUrl = data.content_urls?.desktop?.page;
             bioEl.innerHTML = escapeHTML(data.extract) +
-                (pageUrl ? ` <a href="${escapeHTML(pageUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(T('wikipedia_link'))}</a>` : '');
+                (data.url ? ` <a href="${escapeHTML(data.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(T('wikipedia_link'))}</a>` : '');
         } else {
             bioEl.innerText = T('no_bio_available');
         }
     } catch (e) {
         if (myToken === artistBioToken) bioEl.innerText = T('no_bio_available');
     }
-}
-
-async function fetchWikipediaSummary(name, lang) {
-    try {
-        const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.type !== 'disambiguation' && data.extract) return data;
-        }
-    } catch (e) { /* on retente via la recherche ci-dessous */ }
-    // Nom ambigu (page d'homonymie) ou introuvable tel quel : on cherche parmi les résultats la première
-    // page "standard" correspondante (ex. "Drake" -> page d'homonymie -> "Drake (musician)").
-    try {
-        const searchRes = await fetch(`https://${lang}.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(name)}&limit=5`);
-        if (!searchRes.ok) return null;
-        const searchData = await searchRes.json();
-        const candidates = (searchData.pages || []).map(p => p.title).filter(t => t.toLowerCase() !== name.toLowerCase());
-        for (const title of candidates) {
-            const res2 = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
-            if (res2.ok) {
-                const data2 = await res2.json();
-                if (data2.type !== 'disambiguation' && data2.extract) return data2;
-            }
-        }
-    } catch (e) { /* pas de bio trouvée */ }
-    return null;
 }
 
 const _observer = new IntersectionObserver((entries) => {

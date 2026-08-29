@@ -93,14 +93,38 @@
                 <input type="text" name="adm_new_genre" placeholder="<?php echo htmlspecialchars(t('admin_new_genre_placeholder')); ?>">
 
                 <label style="font-weight:bold; display:block; margin-bottom:5px;"><?php echo t('admin_active_genres_label'); ?></label>
-                <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); padding:10px; border-radius:10px;">
-                    <?php foreach($genresList as $g): ?>
+                <!-- Chaque ligne affiche son nombre de pistes : supprimer ou fusionner
+                     sans cette information revenait à agir à l'aveugle sur toute la
+                     bibliothèque. -->
+                <div class="adm-genre-list">
+                    <?php foreach($genresList as $g):
+                        $gJson = json_encode($g, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+                        $gCount = $genreCounts[$g] ?? 0;
+                    ?>
                         <div class="adm-genre-item">
-                            <span><?php echo htmlspecialchars($g); ?></span>
-                            <a href="#" style="color:var(--danger); text-decoration:none; font-weight:bold;" onclick="return confirmPostAction('<?php echo t('confirm_delete_genre'); ?>', 'delete_genre', { name: <?php echo json_encode($g, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?> })">✕</a>
+                            <span class="adm-genre-name"><?php echo htmlspecialchars($g); ?></span>
+                            <span class="adm-genre-count tabular"><?php echo t('tracks_count_label', ['n' => $gCount]); ?></span>
+                            <span class="adm-genre-actions">
+                                <button type="button" class="track-row-btn" title="<?php echo htmlspecialchars(t('admin_genre_rename')); ?>" aria-label="<?php echo htmlspecialchars(t('admin_genre_rename')); ?>"
+                                        onclick="renameGenre(<?php echo $gJson; ?>)">
+                                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-edit"></use></svg>
+                                </button>
+                                <button type="button" class="track-row-btn" title="<?php echo htmlspecialchars(t('admin_genre_merge')); ?>" aria-label="<?php echo htmlspecialchars(t('admin_genre_merge')); ?>"
+                                        onclick="mergeGenre(<?php echo $gJson; ?>)">
+                                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-playlist-add"></use></svg>
+                                </button>
+                                <button type="button" class="track-row-btn danger" title="<?php echo htmlspecialchars(t('btn_delete_short')); ?>" aria-label="<?php echo htmlspecialchars(t('btn_delete_short')); ?>"
+                                        onclick="return confirmPostAction('<?php echo t('admin_genre_delete_confirm', ['n' => $gCount]); ?>', 'delete_genre', { name: <?php echo $gJson; ?> })">
+                                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-trash"></use></svg>
+                                </button>
+                            </span>
                         </div>
                     <?php endforeach; ?>
                 </div>
+                <script>
+                    // Liste des genres exposée au JS pour le sélecteur de cible de fusion.
+                    var ADMIN_GENRES = <?php echo json_encode(array_values($genresList), JSON_UNESCAPED_UNICODE); ?>;
+                </script>
             </div>
 
             <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users'" x-cloak>

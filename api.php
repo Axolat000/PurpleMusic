@@ -137,7 +137,8 @@ $actionDomains = [
     'playlists' => ['playlists', 'playlist_create', 'playlist_mod', 'delete_playlist', 'playlist_save', 'get_playlist_tracks', 'playlist_reorder', 'playlist_toggle_visibility'],
     'likes_recommendations' => ['report_listen', 'toggle_like', 'my_likes', 'recommendations'],
     'stats' => ['stats'],
-    'admin' => ['save_admin_settings', 'delete_genre', 'toggle_admin', 'delete_user', 'trigger_update', 'check_update'],
+    'bio' => ['artist_bio'],
+    'admin' => ['save_admin_settings', 'delete_genre', 'genre_manage', 'toggle_admin', 'delete_user', 'trigger_update', 'check_update'],
     'lyrics' => ['get_lyrics'],
 ];
 

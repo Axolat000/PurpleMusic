@@ -22,6 +22,12 @@ document.addEventListener('alpine:init', () => {
         hiddenGemTracks: [],   // "Pépites oubliées" : les moins écoutées, hors jamais-jouées
         homeLoaded: false,     // passe à true quand les rangées serveur ont répondu -> retire les squelettes
         confirmState: { open: false, message: '', onConfirm: null },
+        // Saisie modale générique (texte libre ou choix dans une liste).
+        // L'app avait déjà remplacé window.confirm() par un dialogue maison ;
+        // window.prompt() restait le seul trou — il ne suit aucun thème, ne se
+        // traduit pas et est bloqué par certains navigateurs. options non vide =>
+        // liste déroulante, sinon champ texte.
+        promptState: { open: false, title: '', value: '', options: [], onSubmit: null },
         toastState: { visible: false, message: '', kind: 'info' },
         toastTimer: null,
 
@@ -338,6 +344,21 @@ document.addEventListener('alpine:init', () => {
         },
         confirmNo() {
             this.confirmState = { open: false, message: '', onConfirm: null };
+        },
+
+        promptAction(title, initialValue, onSubmit, options = []) {
+            this.promptState = { open: true, title, value: initialValue || '', options, onSubmit };
+        },
+        promptSubmit() {
+            const cb = this.promptState.onSubmit;
+            const value = this.promptState.value;
+            this.promptState = { open: false, title: '', value: '', options: [], onSubmit: null };
+            // Valeur vide : on annule plutôt que de laisser l'appelant décider —
+            // aucun des usages actuels n'accepte une saisie vide.
+            if (cb && value && value.trim()) cb(value.trim());
+        },
+        promptCancel() {
+            this.promptState = { open: false, title: '', value: '', options: [], onSubmit: null };
         },
 
         // kind : 'info' (défaut) | 'success' | 'error' — porté par un liseré coloré à

@@ -495,6 +495,39 @@ function updateUrl() {
     window.history.pushState({ path: newUrl }, '', newUrl);
 }
 
+// --- GESTION DES GENRES (Panel Admin) ---------------------------------------
+// Renommer et fusionner : sans eux, les doublons ("Hip-Hop" / "Hip Hop" créés par
+// deux imports différents) s'accumulaient sans recours, la seule action possible
+// étant la suppression — qui perdait l'information au lieu de la regrouper.
+function renameGenre(from) {
+    if (!window.Alpine) return;
+    Alpine.store('ui').promptAction(
+        T('admin_genre_rename_prompt', { name: from }),
+        from,
+        (to) => {
+            if (to === from) return;
+            postApiAction('genre_manage', { mode: 'rename', from, to });
+        }
+    );
+}
+
+function mergeGenre(from) {
+    if (!window.Alpine || typeof ADMIN_GENRES === 'undefined') return;
+    // La cible se choisit dans la liste existante : fusionner vers un genre à
+    // créer serait un renommage, déjà couvert par l'action ci-dessus.
+    const targets = ADMIN_GENRES.filter(g => g !== from);
+    if (!targets.length) {
+        Alpine.store('ui').showToast(T('admin_genre_merge_none'), 'error');
+        return;
+    }
+    Alpine.store('ui').promptAction(
+        T('admin_genre_merge_prompt', { name: from }),
+        targets[0],
+        (to) => postApiAction('genre_manage', { mode: 'merge', from, to }),
+        targets
+    );
+}
+
 function toggleGenreSetting(genre, isChecked) {
     if (isChecked) {
         if (!hiddenGenres.includes(genre)) hiddenGenres.push(genre);

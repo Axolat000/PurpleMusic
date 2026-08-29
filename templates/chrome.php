@@ -284,6 +284,34 @@
         </div>
     </div>
 
+    <!-- Saisie modale générique (renommage/fusion de genre). Remplace window.prompt(),
+         qui ne suit aucun thème, ne se traduit pas et est bloqué par certains
+         navigateurs — l'app avait déjà fait ce remplacement pour confirm(). -->
+    <div class="modal" x-show="$store.ui.promptState.open" x-transition.opacity.duration.200ms x-cloak
+         @click.self="$store.ui.promptCancel()" @keydown.escape.window="$store.ui.promptCancel()">
+        <div class="modal-content" style="max-width:420px;">
+            <h2 style="margin-top:0; font-size:1.1em;" x-text="$store.ui.promptState.title"></h2>
+
+            <template x-if="$store.ui.promptState.options.length === 0">
+                <input type="text" x-model="$store.ui.promptState.value"
+                       @keydown.enter.prevent="$store.ui.promptSubmit()"
+                       x-effect="$store.ui.promptState.open && $nextTick(() => $el.focus())">
+            </template>
+            <template x-if="$store.ui.promptState.options.length > 0">
+                <select x-model="$store.ui.promptState.value">
+                    <template x-for="opt in $store.ui.promptState.options" :key="opt">
+                        <option :value="opt" x-text="opt"></option>
+                    </template>
+                </select>
+            </template>
+
+            <div style="display:flex; gap:15px; margin-top:10px;">
+                <button type="button" class="btn" style="flex:1; justify-content:center; border:1px solid var(--border-color); color:var(--text-muted);" @click="$store.ui.promptCancel()"><?php echo t('btn_cancel'); ?></button>
+                <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" @click="$store.ui.promptSubmit()"><?php echo t('btn_confirm'); ?></button>
+            </div>
+        </div>
+    </div>
+
     <!-- role="status" + aria-live : un lecteur d'écran annonce le message sans
          voler le focus (contrairement à role="alert", trop intrusif pour une
          confirmation d'action). -->

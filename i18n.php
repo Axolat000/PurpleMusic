@@ -36,6 +36,13 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Paramètres',
         'btn_logout' => 'Sortir',
+        // --- Gestion des genres (Panel Admin) ---
+        'admin_genre_rename' => 'Renommer',
+        'admin_genre_merge' => 'Fusionner',
+        'admin_genre_rename_prompt' => 'Nouveau nom pour « {name} »',
+        'admin_genre_merge_prompt' => 'Fusionner « {name} » dans :',
+        'admin_genre_merge_none' => 'Aucun autre genre disponible.',
+        'admin_genre_delete_confirm' => 'Supprimer ce genre ? Les {n} piste(s) concernées passeront en « Autre ».',
         'admin_theme_live_preview' => 'Aperçu en direct',
         'admin_theme_reset_preview' => 'Annuler l\'aperçu',
 
@@ -385,6 +392,13 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Settings',
         'btn_logout' => 'Log Out',
+        // --- Gestion des genres (Panel Admin) ---
+        'admin_genre_rename' => 'Rename',
+        'admin_genre_merge' => 'Merge',
+        'admin_genre_rename_prompt' => 'New name for “{name}”',
+        'admin_genre_merge_prompt' => 'Merge “{name}” into:',
+        'admin_genre_merge_none' => 'No other genre available.',
+        'admin_genre_delete_confirm' => 'Delete this genre? The {n} affected track(s) will move to “Autre”.',
         'admin_theme_live_preview' => 'Live preview',
         'admin_theme_reset_preview' => 'Cancel preview',
 
@@ -719,6 +733,13 @@ $I18N = [
         'btn_upload' => 'Subir',
         'btn_settings' => 'Ajustes',
         'btn_logout' => 'Salir',
+        // --- Gestion des genres (Panel Admin) ---
+        'admin_genre_rename' => 'Renombrar',
+        'admin_genre_merge' => 'Fusionar',
+        'admin_genre_rename_prompt' => 'Nuevo nombre para «{name}»',
+        'admin_genre_merge_prompt' => 'Fusionar «{name}» en:',
+        'admin_genre_merge_none' => 'No hay otro género disponible.',
+        'admin_genre_delete_confirm' => '¿Eliminar este género? Las {n} pista(s) afectadas pasarán a «Autre».',
         'admin_theme_live_preview' => 'Vista previa en vivo',
         'admin_theme_reset_preview' => 'Cancelar vista previa',
 
@@ -1053,6 +1074,13 @@ $I18N = [
         'btn_upload' => 'Hochladen',
         'btn_settings' => 'Einstellungen',
         'btn_logout' => 'Abmelden',
+        // --- Gestion des genres (Panel Admin) ---
+        'admin_genre_rename' => 'Umbenennen',
+        'admin_genre_merge' => 'Zusammenführen',
+        'admin_genre_rename_prompt' => 'Neuer Name für „{name}“',
+        'admin_genre_merge_prompt' => '„{name}“ zusammenführen mit:',
+        'admin_genre_merge_none' => 'Kein anderes Genre verfügbar.',
+        'admin_genre_delete_confirm' => 'Dieses Genre löschen? Die {n} betroffenen Titel wechseln zu „Autre“.',
         'admin_theme_live_preview' => 'Live-Vorschau',
         'admin_theme_reset_preview' => 'Vorschau abbrechen',
 
@@ -1419,6 +1447,9 @@ const I18N_CLIENT_KEYS = [
     'loading_bio',
     'no_bio_available',
     'wikipedia_link',
+    'admin_genre_rename_prompt',
+    'admin_genre_merge_prompt',
+    'admin_genre_merge_none',
     'nav_stats',
     'stats_title',
     'stats_range_30',

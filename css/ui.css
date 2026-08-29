@@ -451,6 +451,27 @@ html.theme-light .fp-ambient.is-visible { opacity: 0.75; }
 #full-player > *:not(.fp-ambient),
 .dfp-card-player > *:not(.fp-ambient) { position: relative; z-index: 1; }
 
+/* --- GESTION DES GENRES (Panel Admin) ----------------------------------------- */
+.adm-genre-list {
+    max-height: 300px; overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+}
+.adm-genre-item {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--rule-faint);
+}
+.adm-genre-item:last-child { border-bottom: none; }
+.adm-genre-name { flex: 1; min-width: 0; font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-genre-count { flex-shrink: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.adm-genre-actions { display: flex; gap: var(--space-1); flex-shrink: 0; }
+/* Les boutons d'action des lignes de piste sont masqués hors survol ; dans cette
+   liste d'administration ils doivent rester visibles en permanence — on ne
+   survole pas 30 genres pour trouver lequel porte quelle action. */
+.adm-genre-actions .track-row-btn { opacity: 1; }
+
 /* --- APERÇU DE THÈME (Panel Admin) -------------------------------------------- */
 .admin-preview-bar {
     display: flex; align-items: center; justify-content: space-between;

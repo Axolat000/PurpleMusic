@@ -144,6 +144,16 @@ try {
         $genresList = ['Phonk/Funk', 'Rap', 'Pop', 'Rock', 'Electro', 'Hyperpop', 'Nightcore', 'Qualité inférieure', 'Autre'];
     }
 
+    // Nombre de pistes par genre : affiché dans le Panel Admin à côté de chaque
+    // genre. Supprimer ou fusionner sans savoir combien de morceaux sont
+    // concernés revenait à agir à l'aveugle sur toute la bibliothèque.
+    $genreCounts = [];
+    if ($is_admin) {
+        foreach ($db->query("SELECT COALESCE(NULLIF(genre, ''), 'Autre') AS g, COUNT(*) AS n FROM tracks GROUP BY g")->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $genreCounts[$row['g']] = (int) $row['n'];
+        }
+    }
+
     // like_count : public. is_liked : propre à l'utilisateur connecté (contrairement à api.php?action=list,
     // qui reste anonyme -- ici la session PHP donne déjà l'identité, pas besoin d'un endpoint séparé
     // comme my_likes côté Android).
