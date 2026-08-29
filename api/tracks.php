@@ -157,6 +157,7 @@ switch ($action) {
             
             if(move_uploaded_file($file['tmp_name'], $musicDir.'/'.$fn)) {
                 $db->prepare("INSERT INTO tracks (filename, title, artist, album, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $al, $cn, $ge, $auth['id'], $duration]);
+                register_genre($db, $ge);
                 echo json_encode(["status" => "success"]);
             } else echo json_encode(["status" => "error", "message" => "Erreur de déplacement du fichier"]);
         } else echo json_encode(["status" => "error", "message" => "Fichier audio manquant"]);
@@ -179,8 +180,10 @@ switch ($action) {
             $sets = ["title = ?", "artist = ?", "album = ?"]; $params = [$cleanTitle, $cleanArtist, $cleanAlbum];
 
             if(isset($_POST['new_genre'])) {
+                $editGenre = sanitize_text($_POST['new_genre'], 50);
                 $sets[] = "genre = ?";
-                $params[] = sanitize_text($_POST['new_genre'], 50);
+                $params[] = $editGenre;
+                register_genre($db, $editGenre);
             }
 
             if(!empty($_FILES['new_cover']['name'])) {

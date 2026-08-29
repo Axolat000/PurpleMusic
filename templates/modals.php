@@ -1,3 +1,12 @@
+    <!-- Suggestions de genres, partagees par les formulaires d'import et d'edition.
+         Un <datalist> propose les genres existants sans jamais empecher d'en saisir
+         un nouveau — contrairement au <select> qu'il remplace. -->
+    <datalist id="genre-suggestions">
+        <?php foreach($genresList as $g): ?>
+            <option value="<?php echo htmlspecialchars($g); ?>"></option>
+        <?php endforeach; ?>
+    </datalist>
+
     <!-- Aide des raccourcis clavier (touche « ? » ou icône de la barre supérieure).
          Les touches sont listées ici et non dans un fichier d'aide séparé : la table
          reste à côté du code qui les gère (js/shortcuts.js). -->
@@ -96,11 +105,14 @@ docker stop purplemusic && docker rm purplemusic</code>
             <input type="text" name="artist" placeholder="<?php echo htmlspecialchars(t('upload_artist_placeholder')); ?>">
             <input type="text" name="album" placeholder="<?php echo htmlspecialchars(t('upload_album_placeholder')); ?>">
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('select_genre_label'); ?></label>
-            <select name="genre">
-                <?php foreach($genresList as $g): ?>
-                    <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars($g); ?></option>
-                <?php endforeach; ?>
-            </select>
+            <!-- Saisie libre avec suggestions plutôt qu'une liste fermée : le genre
+                 était limité aux entrées créées par un admin, donc tout ce qui n'y
+                 figurait pas atterrissait dans "Autre" — d'où plus de la moitié de
+                 la bibliothèque sans genre réel. Le <datalist> garde les genres
+                 existants à portée de clic sans interdire d'en écrire un nouveau,
+                 qui est alors enregistré côté serveur (voir api/tracks.php). -->
+            <input type="text" name="genre" list="genre-suggestions" maxlength="50"
+                   placeholder="<?php echo htmlspecialchars(t('genre_free_placeholder')); ?>">
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('audio_file_label'); ?></label>
             <input type="file" name="music" accept="audio/*" required>
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('cover_file_label'); ?></label>
@@ -121,11 +133,11 @@ docker stop purplemusic && docker rm purplemusic</code>
             <input type="text" name="artist" id="edit-track-artist" placeholder="<?php echo htmlspecialchars(t('artist_placeholder')); ?>">
             <input type="text" name="album" id="edit-track-album" placeholder="<?php echo htmlspecialchars(t('album_placeholder')); ?>">
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('edit_genre_label'); ?></label>
-            <select name="new_genre" id="edit-track-genre">
-                <?php foreach($genresList as $g): ?>
-                    <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars($g); ?></option>
-                <?php endforeach; ?>
-            </select>
+            <!-- Même saisie libre qu'à l'import (voir plus haut) : corriger le genre
+                 d'une piste ne doit pas obliger à passer d'abord par le Panel Admin
+                 pour créer le genre voulu. -->
+            <input type="text" name="new_genre" id="edit-track-genre" list="genre-suggestions" maxlength="50"
+                   placeholder="<?php echo htmlspecialchars(t('genre_free_placeholder')); ?>">
             <label style="font-size:0.85em; color:var(--text-muted); display:block; margin-bottom:5px;"><?php echo t('change_cover_label'); ?></label>
             <input type="file" name="new_cover" accept="image/*">
             <div style="display:flex; gap:15px; margin-top:20px;">

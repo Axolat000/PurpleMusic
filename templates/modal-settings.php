@@ -4,7 +4,6 @@
         <div class="settings-tabs">
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'"><?php echo t('settings_tab_general'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'theme' }" @click="activeTab = 'theme'"><?php echo t('settings_tab_theme'); ?></button>
-            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'library' }" @click="activeTab = 'library'"><?php echo t('settings_tab_library'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'account' }" @click="activeTab = 'account'"><?php echo t('settings_tab_account'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'eq' }" @click="activeTab = 'eq'"><?php echo t('settings_tab_eq'); ?></button>
         </div>
@@ -178,15 +177,6 @@
                     <input type="checkbox" :checked="$store.ui.appDynamicThemeEnabled" @change="setAppDynamicThemeEnabled($event.target.checked)">
                     <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
                 </label>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'library'" x-cloak>
-            <p style="color:var(--text-muted); font-size:0.9em; margin-bottom: 20px;"><?php echo t('settings_hide_intro_pre'); ?> <strong style="color:var(--danger);"><?php echo t('settings_hide_word'); ?></strong> :</p>
-            <div class="settings-grid">
-                <?php foreach($genresList as $g): ?>
-                    <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>', this.checked)"> <?php echo htmlspecialchars($g); ?></label>
-                <?php endforeach; ?>
             </div>
         </div>
 

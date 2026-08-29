@@ -404,10 +404,7 @@ function playTrackById(id, autoPlay = true) {
 
 async function playPlaylist(ids, pId = null) {
     const res = await fetch('api.php?action=get_playlist_tracks&q=' + ids);
-    let data = await res.json();
-    if (hiddenGenres.length > 0) {
-        data = data.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
-    }
+    const data = await res.json();
     if(data.length > 0) {
         currentPlaylistId = pId;
         originalQueue = [...data];

@@ -528,13 +528,4 @@ function mergeGenre(from) {
     );
 }
 
-function toggleGenreSetting(genre, isChecked) {
-    if (isChecked) {
-        if (!hiddenGenres.includes(genre)) hiddenGenres.push(genre);
-    } else {
-        hiddenGenres = hiddenGenres.filter(g => g !== genre);
-    }
-    localStorage.setItem('hiddenGenres', JSON.stringify(hiddenGenres));
-    filterAndSortTracks();
-}
 

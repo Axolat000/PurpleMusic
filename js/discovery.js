@@ -97,7 +97,6 @@ function buildArtistIndex() {
     if (typeof ALL_MUSIC_DATA === 'undefined') return [];
     const map = new Map();
     ALL_MUSIC_DATA.forEach(t => {
-        if (hiddenGenres.includes(t.genre || 'Autre')) return;
         splitArtistNames(t.artist).forEach(name => {
             const key = name.toLowerCase();
             if (!map.has(key)) map.set(key, { name, count: 0, cover: null, topId: -1 });
@@ -154,7 +153,6 @@ function buildAlbumIndex() {
     ALL_MUSIC_DATA.forEach(t => {
         const album = (t.album || '').trim();
         if (!album) return;
-        if (hiddenGenres.includes(t.genre || 'Autre')) return;
         const key = album.toLowerCase();
         if (!map.has(key)) map.set(key, { name: album, count: 0, cover: null, topId: -1, artists: new Set() });
         const entry = map.get(key);
@@ -233,7 +231,6 @@ function computeSearchResults(term) {
     if (!q || typeof ALL_MUSIC_DATA === 'undefined') return { tracks, artists: [], albums: [] };
 
     ALL_MUSIC_DATA.forEach(t => {
-        if (hiddenGenres.includes(t.genre || 'Autre')) return;
         const title = (t.title || '').toLowerCase();
         const artist = (t.artist || '').toLowerCase();
         const album = (t.album || '').toLowerCase();
@@ -389,7 +386,7 @@ function playEntityAll(shuffled) {
     const source = (containerId === 'album-track-list')
         ? ALL_MUSIC_DATA.filter(t => (t.album || '').trim().toLowerCase() === (currentAlbumName || '').trim().toLowerCase())
         : ALL_MUSIC_DATA.filter(t => splitArtistNames(t.artist).some(n => n.toLowerCase() === (currentArtistName || '').trim().toLowerCase()));
-    const tracks = source.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+    const tracks = source;
     if (!tracks.length) {
         if (window.Alpine) Alpine.store('ui').showToast(T('toast_no_music'), 'error');
         return;
@@ -425,7 +422,7 @@ function buildRadioQueue(seed) {
     const seedGenre = (seed.genre || 'Autre').toLowerCase();
 
     const pool = ALL_MUSIC_DATA.filter(t =>
-        t.id !== seed.id && !hiddenGenres.includes(t.genre || 'Autre'));
+        t.id !== seed.id);
 
     const sameArtist = [];
     const sameGenre = [];
@@ -493,7 +490,7 @@ function startEntityRadio() {
     const source = isAlbum
         ? ALL_MUSIC_DATA.filter(t => (t.album || '').trim().toLowerCase() === (currentAlbumName || '').trim().toLowerCase())
         : ALL_MUSIC_DATA.filter(t => splitArtistNames(t.artist).some(n => n.toLowerCase() === (currentArtistName || '').trim().toLowerCase()));
-    const tracks = source.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+    const tracks = source;
     if (!tracks.length) {
         Alpine.store('ui').showToast(T('toast_no_music'), 'error');
         return;

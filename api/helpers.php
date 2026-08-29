@@ -119,6 +119,31 @@ function split_artist_names($raw) {
 }
 
 /**
+ * Enregistre un genre dans la table `genres` s'il n'y est pas déjà.
+ *
+ * Le genre se saisit désormais librement à l'import et à l'édition d'une piste
+ * (auparavant : liste fermée, alimentée uniquement depuis le Panel Admin — tout
+ * ce qui n'y figurait pas atterrissait dans "Autre", d'où plus de la moitié de la
+ * bibliothèque sans genre réel). Sans cet enregistrement, un genre saisi à la main
+ * existerait sur la piste mais resterait absent des suggestions et du Panel Admin.
+ *
+ * Comparaison insensible à la casse : "phonk" et "Phonk" ne doivent pas créer deux
+ * entrées. "Autre" n'est jamais enregistré — c'est la valeur de repli, pas un genre.
+ */
+function register_genre($db, $name) {
+    $name = trim((string) $name);
+    if ($name === '' || mb_strtolower($name) === 'autre') return;
+
+    $stmt = $db->prepare("SELECT 1 FROM genres WHERE LOWER(name) = LOWER(?)");
+    $stmt->execute([$name]);
+    if ($stmt->fetch()) return;
+
+    // INSERT OR IGNORE : deux imports simultanés du même genre nouveau ne doivent
+    // pas faire échouer le second sur une contrainte d'unicité.
+    $db->prepare("INSERT OR IGNORE INTO genres (name) VALUES (?)")->execute([$name]);
+}
+
+/**
  * Requête HTTP GET JSON simple, partagée par les intégrations externes.
  *
  * Retourne null en cas d'échec réseau, de code non-200 ou de JSON invalide :

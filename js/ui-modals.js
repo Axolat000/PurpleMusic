@@ -96,8 +96,12 @@ function openEditTrackModal(id, title, artist, genre, album = '') {
     document.getElementById('edit-track-title').value = title;
     document.getElementById('edit-track-artist').value = artist;
     document.getElementById('edit-track-album').value = album;
-    const gSelect = document.getElementById('edit-track-genre');
-    if (gSelect && genre) gSelect.value = genre;
+    // Champ texte libre (avec suggestions) et non plus une liste fermée : on
+    // affecte donc la valeur telle quelle, y compris un genre qui n'existe pas
+    // encore dans la table genres — un <select> l'aurait silencieusement ignorée
+    // et affiché la première option à la place.
+    const gInput = document.getElementById('edit-track-genre');
+    if (gInput) gInput.value = genre || '';
     openModal('editTrackModal');
 }
 

@@ -36,6 +36,7 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Paramètres',
         'btn_logout' => 'Sortir',
+        'genre_free_placeholder' => 'Genre (ex : Phonk, Nightcore, OST...)',
         // --- Radio ---
         'ctx_start_radio' => 'Démarrer une radio',
         'radio_started' => 'Radio lancée à partir de « {name} »',
@@ -396,6 +397,7 @@ $I18N = [
         'btn_upload' => 'Upload',
         'btn_settings' => 'Settings',
         'btn_logout' => 'Log Out',
+        'genre_free_placeholder' => 'Genre (e.g. Phonk, Nightcore, OST...)',
         // --- Radio ---
         'ctx_start_radio' => 'Start radio',
         'radio_started' => 'Radio started from “{name}”',
@@ -741,6 +743,7 @@ $I18N = [
         'btn_upload' => 'Subir',
         'btn_settings' => 'Ajustes',
         'btn_logout' => 'Salir',
+        'genre_free_placeholder' => 'Genero (ej. Phonk, Nightcore, OST...)',
         // --- Radio ---
         'ctx_start_radio' => 'Iniciar radio',
         'radio_started' => 'Radio iniciada desde «{name}»',
@@ -1086,6 +1089,7 @@ $I18N = [
         'btn_upload' => 'Hochladen',
         'btn_settings' => 'Einstellungen',
         'btn_logout' => 'Abmelden',
+        'genre_free_placeholder' => 'Genre (z. B. Phonk, Nightcore, OST...)',
         // --- Radio ---
         'ctx_start_radio' => 'Radio starten',
         'radio_started' => 'Radio gestartet ab „{name}“',

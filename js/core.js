@@ -42,8 +42,10 @@ document.addEventListener('alpine:init', () => {
         recentSearches: [],
 
         // --- FILTRE DE GENRE DE L'ACCUEIL : recompose les rangées sans recharger.
-        // null = aucun filtre. Distinct de hiddenGenres (Paramètres > Bibliothèque),
-        // qui masque durablement des genres partout dans l'app.
+        // null = aucun filtre. Purement visuel et non persisté : c'est le seul
+        // filtrage par genre qui subsiste, l'ancien masquage durable (Paramètres >
+        // Bibliothèque) ayant été retiré — il cachait des morceaux sans que rien ne
+        // l'indique depuis l'écran où ils manquaient.
         genrePills: [],
         activeGenre: null,
 
@@ -130,7 +132,6 @@ document.addEventListener('alpine:init', () => {
             if (typeof ALL_MUSIC_DATA === 'undefined') return;
             const pool = ALL_MUSIC_DATA.filter(t => {
                 const g = t.genre || 'Autre';
-                if (typeof hiddenGenres !== 'undefined' && hiddenGenres.includes(g)) return false;
                 if (this.activeGenre !== null && g !== this.activeGenre) return false;
                 return true;
             });
@@ -199,7 +200,6 @@ document.addEventListener('alpine:init', () => {
                 const counts = new Map();
                 ALL_MUSIC_DATA.forEach(t => {
                     const g = t.genre || 'Autre';
-                    if (typeof hiddenGenres !== 'undefined' && hiddenGenres.includes(g)) return;
                     counts.set(g, (counts.get(g) || 0) + 1);
                 });
                 this.genrePills = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
@@ -758,4 +758,9 @@ let loopMode = 0;
 let isShuffle = false;
 let currentPlaylistId = null;
 let currentSection = 'accueil';
-let hiddenGenres = JSON.parse(localStorage.getItem('hiddenGenres') || '[]');
+// Le masquage de genres par utilisateur a ete retire : il cachait durablement
+// des morceaux sans que ce soit visible depuis l'ecran ou ils manquaient, et la
+// saisie libre du genre a l'import (voir templates/modals.php) rend le filtrage
+// par liste fermee sans objet. La cle localStorage 'hiddenGenres' est nettoyee
+// une fois au chargement pour ne pas laisser trainer un reglage devenu inerte.
+try { localStorage.removeItem('hiddenGenres'); } catch (e) { /* stockage indisponible : sans effet */ }

@@ -210,11 +210,8 @@ function filterAndSortTracks() {
 
     const searchTerm = searchInput.value.toLowerCase();
     const sortValue = sortSelect.value;
-    let filtered = ALL_MUSIC_DATA.filter(t => {
-        const trackGenre = t.genre || 'Autre';
-        if (hiddenGenres.includes(trackGenre)) return false;
-        return t.title.toLowerCase().includes(searchTerm) || t.artist.toLowerCase().includes(searchTerm);
-    });
+    let filtered = ALL_MUSIC_DATA.filter(t =>
+        t.title.toLowerCase().includes(searchTerm) || t.artist.toLowerCase().includes(searchTerm));
 
     filtered.sort(compareTracksBySort(sortValue));
     CURRENT_VIEW_DATA = filtered;
@@ -227,7 +224,7 @@ function filterAndSortTracks() {
 // l'ancien seeAllHome() qui changeait le tri de l'accueil lui-même).
 function openBrowseAll(sortValue, title, pushState = true) {
     browseSort = sortValue;
-    let filtered = ALL_MUSIC_DATA.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+    let filtered = [...ALL_MUSIC_DATA];
     filtered.sort(compareTracksBySort(sortValue));
     BROWSE_VIEW_DATA = filtered;
     browseRenderedCount = 0;
@@ -370,10 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Constructeur de thème personnalisé (Paramètres > Général) : pré-remplit les <input type="color">
     // à partir des couleurs actuellement résolues (voir initCustomThemeBuilder() plus haut).
     initCustomThemeBuilder();
-
-    document.querySelectorAll('.genre-filter-cb').forEach(cb => {
-        if (hiddenGenres.includes(cb.dataset.genre)) cb.checked = true;
-    });
 
     const trigger = document.getElementById('load-more-trigger');
     if (trigger) _observer.observe(trigger);
