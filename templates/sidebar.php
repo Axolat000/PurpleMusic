@@ -58,6 +58,11 @@
             <span class="sidebar-link-label"><?php echo t('nav_history'); ?></span>
         </button>
 
+        <button type="button" class="sidebar-link" :class="{ active: $store.ui.section === 'stats-page' }" @click="showStatsPage()">
+            <svg class="ico" aria-hidden="true"><use href="#ico-stats"></use></svg>
+            <span class="sidebar-link-label"><?php echo t('nav_stats'); ?></span>
+        </button>
+
         <?php if ($is_admin): ?>
         <p class="sidebar-group-label"><?php echo t('admin_badge'); ?></p>
         <button type="button" class="sidebar-link sidebar-link-admin" :class="{ active: $store.ui.section === 'admin' }" @click="showSection('admin')">

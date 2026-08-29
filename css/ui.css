@@ -419,6 +419,75 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
    la matière principale (les titres, en dessous, le sont). */
 .entity-grid-compact { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: var(--space-4); }
 
+/* --- PAGE STATISTIQUES --------------------------------------------------------
+   Information design plutôt que typographie : on met en avant les 4 chiffres
+   clés, puis les classements. Chiffres en tabular-nums pour qu'ils s'alignent
+   d'une tuile à l'autre. */
+.stats-range { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-left: auto; }
+.stats-section { margin-top: var(--space-10); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); }
+.stat-tile {
+    padding: var(--space-5);
+    background: var(--bg-panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+}
+.stat-tile-value {
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-black);
+    letter-spacing: var(--tracking-tight);
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    line-height: var(--leading-tight);
+}
+.stat-tile-label { margin-top: var(--space-1); font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+
+/* Histogramme par heure : barres CSS (pas de <canvas>) pour qu'il suive le thème
+   et reste net à tous les niveaux de zoom. */
+.hour-chart {
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    align-items: end;
+    gap: 3px;
+    height: 160px;
+    padding: var(--space-4);
+    background: var(--bg-panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+}
+.hour-bar-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: var(--space-2); }
+.hour-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(180deg, var(--accent), var(--primary));
+    min-height: 2px;
+}
+/* Heures sans écoute : présentes mais neutres — leur absence de barre est une
+   information (le creux de la nuit), pas un trou. */
+.hour-bar.is-empty { background: var(--hairline); }
+.hour-bar-label { font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); height: 12px; }
+
+/* Classements (titres / artistes / genres) */
+.rank-list { display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); overflow: hidden; }
+.rank-row {
+    display: flex; align-items: center; gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    background: none; border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: var(--text); font-family: inherit; text-align: left;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out);
+}
+.rank-row:last-child { border-bottom: none; }
+.rank-row:hover { background: rgba(255,255,255,0.06); }
+.rank-index { width: 22px; flex-shrink: 0; color: var(--text-muted); font-size: var(--text-sm); text-align: right; }
+.rank-cover { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
+.rank-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rank-title { font-weight: var(--weight-semibold); font-size: var(--text-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-sub { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-count { flex-shrink: 0; font-size: var(--text-xs); color: var(--text-muted); }
+
 /* --- MODALE DES RACCOURCIS ---------------------------------------------------- */
 .shortcut-list { display: grid; gap: var(--space-2); }
 .shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) 0; border-bottom: 1px solid var(--hairline); }

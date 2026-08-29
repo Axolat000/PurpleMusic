@@ -60,7 +60,7 @@
                  sur plusieurs lignes selon la largeur de la modale. -->
             <div class="theme-swatch-row">
                 <div class="theme-swatch-item">
-                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'violet' }" style="--sw-primary:#8E44AD; --sw-accent:#BB86FC;" title="<?php echo htmlspecialchars(t('theme_violet_default')); ?>" @click="applyThemePreset('violet')"></button>
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'violet' }" style="--sw-primary:#8E44AD; --sw-accent:#BB86FC;" aria-label="<?php echo htmlspecialchars(t('theme_violet_default')); ?>" title="<?php echo htmlspecialchars(t('theme_violet_default')); ?>" @click="applyThemePreset('violet')"></button>
                     <span class="theme-swatch-label">Violet</span>
                 </div>
                 <div class="theme-swatch-item">
@@ -104,11 +104,11 @@
                     <span class="theme-swatch-label">Slate</span>
                 </div>
                 <div class="theme-swatch-item">
-                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'light' }" style="--sw-primary:#F5F3F8; --sw-accent:#8E44AD;" title="<?php echo htmlspecialchars(t('theme_light_label')); ?>" @click="applyThemePreset('light')"></button>
+                    <button type="button" class="theme-swatch" :class="{ active: $store.ui.themePreset === 'light' }" style="--sw-primary:#F5F3F8; --sw-accent:#8E44AD;" aria-label="<?php echo htmlspecialchars(t('theme_light_label')); ?>" title="<?php echo htmlspecialchars(t('theme_light_label')); ?>" @click="applyThemePreset('light')"></button>
                     <span class="theme-swatch-label"><?php echo t('theme_light_label'); ?></span>
                 </div>
                 <div class="theme-swatch-item">
-                    <button type="button" class="theme-swatch theme-swatch-custom" :class="{ active: $store.ui.themePreset === 'custom' }" title="<?php echo htmlspecialchars(t('theme_custom')); ?>" @click="activateCustomTheme()"></button>
+                    <button type="button" class="theme-swatch theme-swatch-custom" :class="{ active: $store.ui.themePreset === 'custom' }" aria-label="<?php echo htmlspecialchars(t('theme_custom')); ?>" title="<?php echo htmlspecialchars(t('theme_custom')); ?>" @click="activateCustomTheme()"></button>
                     <span class="theme-swatch-label"><?php echo t('theme_custom'); ?></span>
                 </div>
             </div>

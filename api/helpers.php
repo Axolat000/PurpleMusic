@@ -72,6 +72,52 @@ function is_valid_audio($path, $ext) {
 // play_count, sans quoi il mentirait sur ce qu'il prétend montrer). Les pistes déjà beaucoup écoutées par
 // CET utilisateur sont fortement dépriorisées (pas exclues) : la recommandation sert à découvrir, pas à
 // re-suggérer ce que l'utilisateur retrouve déjà tout seul dans Récents/Plus écoutés.
+/**
+ * Découpe un champ artiste multi-noms ("A & B", "A feat. B") en noms individuels.
+ *
+ * Portage PHP de splitArtistNames() (js/library.js) : les statistiques agrègent
+ * par artiste alors que la colonne est une chaîne libre que SQL ne sait pas
+ * découper. Les deux implémentations doivent rester alignées, sinon un même
+ * artiste serait compté différemment côté page Artiste et côté Statistiques.
+ *
+ * @return string[] noms nettoyés, sans doublon d'espaces ni crochet orphelin
+ */
+function split_artist_names($raw) {
+    if ($raw === null || trim($raw) === '') return [];
+
+    // Mention de featuring encadrée : on retire les crochets, on garde le contenu.
+    $s = preg_replace('/[(\[]\s*((?:feat|ft|featuring|avec|with)\b\.?\s*[^)\]]*)[)\]]/iu', ' $1 ', $raw);
+
+    $parts = preg_split(
+        '/\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+et\s+|\s*;\s*/iu',
+        $s
+    );
+
+    $out = [];
+    foreach ($parts as $part) {
+        $p = trim($part);
+        // Marqueur de featuring resté en tête après un découpage sur virgule.
+        $p = preg_replace('/^(?:feat|ft|featuring|avec|with|and|et|x)\b\.?\s*/iu', '', $p);
+        $p = trim(preg_replace('/\s{2,}/u', ' ', $p));
+
+        // Crochets orphelins uniquement (pendant parti dans un autre fragment) :
+        // un décapage inconditionnel casserait un alias légitime "Nom (Alias)".
+        $guard = 0;
+        while ($guard++ < 8) {
+            $opens = preg_match_all('/[(\[]/u', $p);
+            $closes = preg_match_all('/[)\]]/u', $p);
+            if ($closes > $opens && preg_match('/^[)\]]/u', $p)) { $p = trim(mb_substr($p, 1)); continue; }
+            if ($opens > $closes && preg_match('/[(\[]$/u', $p)) { $p = trim(mb_substr($p, 0, -1)); continue; }
+            if ($closes > $opens && preg_match('/[)\]]$/u', $p)) { $p = trim(mb_substr($p, 0, -1)); continue; }
+            if ($opens > $closes && preg_match('/^[(\[]/u', $p)) { $p = trim(mb_substr($p, 1)); continue; }
+            break;
+        }
+
+        if ($p !== '') $out[] = $p;
+    }
+    return $out;
+}
+
 function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
     $sevenDaysAgo = time() - (7 * 24 * 3600);
 

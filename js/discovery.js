@@ -649,4 +649,5 @@ document.addEventListener('DOMContentLoaded', () => {
     if (page === 'artists-page') showArtistsIndex(false);
     else if (page === 'albums-page') showAlbumsIndex(false);
     else if (page === 'history-page') showHistoryPage(false);
+    else if (page === 'stats-page') showStatsPage(false);
 });

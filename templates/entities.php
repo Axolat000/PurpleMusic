@@ -35,6 +35,26 @@
          Volontairement pas côté serveur : listen_events existe déjà en base pour
          l'analytique/les recommandations, mais l'exposer par utilisateur demanderait
          un nouvel endpoint ; ici on ne fait que refléter ce que CE navigateur a joué. -->
+    <!-- Statistiques d'écoute personnelles (voir api/stats.php). Toutes les données
+         viennent de listen_events, alimentée depuis longtemps mais jusqu'ici
+         exploitée uniquement pour les recommandations : rien n'en était restitué
+         à l'utilisateur. -->
+    <main id="stats-page" x-show="$store.ui.section === 'stats-page'" x-cloak>
+        <div class="page-head">
+            <h2 class="page-title"><?php echo t('stats_title'); ?></h2>
+            <div class="stats-range" role="group" aria-label="<?php echo htmlspecialchars(t('stats_title')); ?>">
+                <?php
+                // 0 = depuis toujours (voir $days dans api/stats.php).
+                $ranges = [30 => t('stats_range_30'), 90 => t('stats_range_90'), 365 => t('stats_range_365'), 0 => t('stats_range_all')];
+                foreach ($ranges as $d => $label): ?>
+                <button type="button" class="genre-pill" :class="{ active: $store.ui.statsRange === <?php echo $d; ?> }"
+                        @click="loadStats(<?php echo $d; ?>)"><?php echo htmlspecialchars($label); ?></button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <div id="stats-body"></div>
+    </main>
+
     <main id="history-page" x-show="$store.ui.section === 'history-page'" x-cloak>
         <div class="page-head">
             <h2 class="page-title"><?php echo t('nav_history'); ?></h2>

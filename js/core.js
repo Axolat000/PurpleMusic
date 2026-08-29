@@ -49,6 +49,10 @@ document.addEventListener('alpine:init', () => {
         currentTrackId: null,
         isPlaying: false,
 
+        // --- PAGE STATISTIQUES : fenêtre d'analyse en jours (0 = depuis toujours).
+        // Voir loadStats() dans js/stats.js.
+        statsRange: 30,
+
         // --- THÈME VISUEL (preset par utilisateur, stocké en localStorage) ---
         themePreset: 'violet',
 
