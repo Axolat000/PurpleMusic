@@ -161,6 +161,18 @@ function loadTrack(autoPlay = true) {
         });
         setupMediaSessionHandlers();
     }
+    // Fond d'ambiance des deux lecteurs : même pochette que #fp-cover/#dp-cover,
+    // floutée en CSS (voir .fp-ambient). Posée en background-image plutôt que via
+    // une <img> pour que background-size:cover gère le recadrage quel que soit le
+    // format de la pochette.
+    const ambientUrl = `url("covers/${encodeURIComponent(track.cover || 'default.png')}")`;
+    ['fp-ambient', 'dp-ambient'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.backgroundImage = ambientUrl;
+        el.classList.add('is-visible');
+    });
+
     pushListenHistory(track.id);
     updateUrl();
     applyDynamicThemeForCurrentTrack();

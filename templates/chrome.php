@@ -46,6 +46,13 @@
     </div>
 
     <div id="full-player">
+        <!-- Fond d'ambiance : la pochette en cours, floutée et saturée, derrière
+             le dégradé du thème. Le dégradé seul (--fp-gradient-1/2) donnait le
+             même fond à tous les morceaux ; ici chaque piste colore réellement
+             son lecteur. La source est posée par loadTrack() (js/playback.js).
+             aria-hidden : pure décoration, la pochette est déjà annoncée par
+             #fp-cover juste en dessous. -->
+        <div class="fp-ambient" id="fp-ambient" aria-hidden="true"></div>
         <div class="fp-header">
             <button class="fp-btn" onclick="closeFullPlayer()" aria-label="<?php echo htmlspecialchars(t('btn_close')); ?>">
                 <svg viewBox="0 0 24 24" style="width:30px; height:30px; fill:white;"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
@@ -116,8 +123,19 @@
         </div>
         <div class="fp-lyrics-toggle-row">
             <button type="button" class="fp-lyrics-btn" :class="{ active: $store.ui.showLyricsInPlayer }" @click="toggleLyricsInPlayer()">
-                <svg viewBox="0 0 24 24"><path d="M14 17H4v2h10v-2zM20 9H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg>
+                <svg class="ico" aria-hidden="true"><use href="#ico-lyrics"></use></svg>
                 <span><?php echo t('btn_lyrics'); ?></span>
+            </button>
+            <!-- Égaliseur : il n'était atteignable que par Paramètres > Égaliseur,
+                 c'est-à-dire en quittant le lecteur — alors que c'est justement en
+                 écoutant qu'on veut y toucher. -->
+            <button type="button" class="fp-lyrics-btn" @click="openSettingsTab('eq')">
+                <svg class="ico" aria-hidden="true"><use href="#ico-eq"></use></svg>
+                <span><?php echo t('settings_tab_eq'); ?></span>
+            </button>
+            <button type="button" class="fp-lyrics-btn" :class="{ active: $store.ui.sleepTimerActive }" @click="openSettingsTab('general')">
+                <svg class="ico" aria-hidden="true"><use href="#ico-sleep"></use></svg>
+                <span x-text="$store.ui.sleepTimerActive ? formatSleepTimerRemaining($store.ui.sleepTimerRemaining) : T('btn_sleep_timer')"><?php echo t('btn_sleep_timer'); ?></span>
             </button>
         </div>
     </div>
@@ -142,6 +160,8 @@
 
             <!-- Carte 1/3 : lecteur (vue par défaut) -->
             <div class="dfp-card dfp-card-player" :class="{ 'dfp-card-out-up': $store.ui.desktopPlayerView === 'lyrics', 'dfp-card-out-down': $store.ui.desktopPlayerView === 'queue' }">
+                <!-- Même fond d'ambiance que le lecteur plein écran mobile (voir #fp-ambient). -->
+                <div class="fp-ambient" id="dp-ambient" aria-hidden="true"></div>
                 <div class="dfp-art-col">
                     <img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="dp-cover" loading="lazy" class="dfp-cover">
                     <canvas id="dp-visualizer-canvas" class="dfp-visualizer-canvas" x-show="$store.ui.visualizerEnabled" x-cloak></canvas>

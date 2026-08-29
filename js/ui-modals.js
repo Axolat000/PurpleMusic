@@ -53,6 +53,27 @@ function refreshHomeRowMarquees() {
 function openModal(id) {
     if (window.Alpine) Alpine.store('ui').openModal(id);
 }
+
+// Ouvre la modale Paramètres directement sur un onglet donné.
+//
+// L'onglet actif vit dans le composant settingsModalForm (x-data posé sur
+// .modal-content), pas dans le store : on l'atteint via Alpine.$data() sur
+// l'élément plutôt que d'ajouter un état global qui n'aurait servi qu'ici.
+// Utilisé par les boutons Égaliseur / Minuteur du lecteur plein écran, qui
+// devaient sinon faire sortir l'utilisateur du lecteur pour rien.
+function openSettingsTab(tab) {
+    openModal('settingsModal');
+    if (!window.Alpine) return;
+    // nextTick : la modale est masquée par x-show au moment de l'appel ; son
+    // composant existe déjà, mais on laisse Alpine appliquer l'ouverture d'abord
+    // pour que le panneau ciblé soit celui réellement affiché.
+    Alpine.nextTick(() => {
+        const el = document.querySelector('#settingsModal .modal-content');
+        if (!el) return;
+        const data = Alpine.$data(el);
+        if (data) data.activeTab = tab;
+    });
+}
 function closeModal(id) {
     if (window.Alpine) Alpine.store('ui').closeModal(id);
 }

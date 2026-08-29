@@ -419,6 +419,38 @@ input[type="number"]:focus, input[type="search"]:focus, input[type="url"]:focus,
    la matière principale (les titres, en dessous, le sont). */
 .entity-grid-compact { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: var(--space-4); }
 
+/* --- FOND D'AMBIANCE DES LECTEURS ---------------------------------------------
+   Pochette en cours, floutée et sur-saturée, posée derrière le dégradé du thème.
+   Sans elle, tous les morceaux partageaient exactement le même fond
+   (--fp-gradient-1/2), quel que soit leur visuel.
+
+   scale(1.25) : le flou échantillonne au-delà des bords de l'élément et laisse
+   sinon un liseré transparent tout autour. brightness réduite pour que le texte
+   et les contrôles restent lisibles par-dessus — c'est un fond, pas une image. */
+.fp-ambient {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-position: center;
+    background-size: cover;
+    filter: blur(52px) saturate(1.7) brightness(0.55);
+    transform: scale(1.25);
+    opacity: 0;
+    transition: opacity var(--dur-slow) var(--ease-out), background-image var(--dur-slow) var(--ease-out);
+    pointer-events: none;
+}
+.fp-ambient.is-visible { opacity: 1; }
+/* En mode clair le fond doit s'éclaircir, pas s'assombrir : la même image
+   assombrie donnerait un lecteur sombre au milieu d'une interface claire. */
+html.theme-light .fp-ambient { filter: blur(52px) saturate(1.6) brightness(1.35); opacity: 0; }
+html.theme-light .fp-ambient.is-visible { opacity: 0.75; }
+
+/* Le contenu des deux lecteurs doit passer AU-DESSUS du fond (qui est en
+   position:absolute) — sans ça, la pochette et les contrôles se retrouvent
+   derrière lui. */
+#full-player > *:not(.fp-ambient),
+.dfp-card-player > *:not(.fp-ambient) { position: relative; z-index: 1; }
+
 /* --- APERÇU DE THÈME (Panel Admin) -------------------------------------------- */
 .admin-preview-bar {
     display: flex; align-items: center; justify-content: space-between;
