@@ -1,3 +1,43 @@
+/* --- POLICE : Manrope, auto-hébergée ----------------------------------------
+   L'app tournait sur la pile système ('Segoe UI' sur Windows, autre chose
+   ailleurs) : le rendu changeait donc d'un appareil à l'autre, et n'appartenait
+   à personne. Manrope (SIL OFL 1.1, voir fonts/OFL.txt) donne une identité
+   propre au projet.
+
+   Servie depuis l'instance elle-même, jamais depuis un CDN tiers : sur un
+   serveur auto-hébergé, faire télécharger la police par Google reviendrait à
+   signaler chaque visite à un tiers, ce qui contredit le principe même du
+   self-hosting. Coût : ~39 Ko dans l'image (24,8 Ko latin + 15,1 Ko latin-ext).
+
+   Un seul fichier par sous-ensemble, pas un par graisse : le format variable
+   couvre 400 à 800 en continu, donc les graisses 500/600/700/800 utilisées dans
+   l'app ne coûtent aucun octet supplémentaire — et plus aucune fausse graisse
+   synthétisée par le navigateur.
+
+   Les deux sous-ensembles sont découpés par unicode-range : latin-ext ne se
+   télécharge que si la page affiche réellement un caractère qui s'y trouve.
+   Cyrillique, grec et vietnamien ne sont pas embarqués (l'app se traduit en
+   FR/EN/ES/DE) ; ces caractères retombent sur la pile système.
+
+   font-display:swap : le texte s'affiche immédiatement dans la police système
+   puis bascule, plutôt que de laisser une page blanche le temps du chargement. */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 400 800;
+    font-display: swap;
+    src: url('../fonts/manrope-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 400 800;
+    font-display: swap;
+    src: url('../fonts/manrope-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* =============================================================================
    TOKENS — socle du système de design
    =============================================================================
@@ -62,7 +102,7 @@
     --tracking-wide: 0.04em;
     --tracking-caps: 0.08em;
 
-    --font-sans: 'Segoe UI', system-ui, -apple-system, 'Inter', Roboto, sans-serif;
+    --font-sans: 'Manrope', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
     /* Chiffres alignés pour tout ce qui se lit en colonne ou change en place
        (durées, compteurs, gains d'égaliseur) : sans ça la largeur variable des
        chiffres fait "sauter" le texte à chaque seconde écoulée. */

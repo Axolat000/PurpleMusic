@@ -203,6 +203,17 @@ try {
     <?php
     // style.css a été scindé en plusieurs fichiers (css/*.css) -- la cascade CSS ne dépend que de l'ordre
     // relatif des règles, préservé ici puisque les fichiers sont chargés dans le même ordre que l'original.
+    // Préchargement de la police : sans lui, le navigateur ne découvre le woff2
+    // qu'après avoir téléchargé ET analysé tokens.css, donc la page s'affiche un
+    // instant en police système avant de basculer (font-display:swap). Seul le
+    // sous-ensemble latin est préchargé -- latin-ext ne sert qu'à quelques
+    // caractères et ne doit pas être payé par tout le monde.
+    // crossorigin est OBLIGATOIRE même en même origine : une police est toujours
+    // récupérée en mode CORS, et sans cet attribut le préchargement ne serait pas
+    // réutilisé (le fichier serait téléchargé deux fois).
+    ?>
+    <link rel="preload" href="fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <?php
     $appStyles = ['tokens', 'base', 'components', 'ui', 'player', 'responsive'];
     foreach ($appStyles as $s): ?>
     <link rel="stylesheet" href="css/<?php echo $s; ?>.css?v=<?php echo urlencode($assetVersion); ?>">
