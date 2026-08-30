@@ -143,4 +143,47 @@ switch ($action) {
             'by_hour' => $byHour,
         ], JSON_UNESCAPED_UNICODE);
         break;
+
+    // Classement du serveur : tous comptes confondus, sur une fenetre glissante
+    // de 7 jours. C'est le seul endpoint de ce fichier qui ne borne PAS par
+    // user_id -- d'ou son action separee plutot qu'un parametre de `stats`, pour
+    // qu'aucune requete personnelle ne puisse devenir globale par accident.
+    //
+    // Vie privee : uniquement des agregats. On expose combien de comptes
+    // distincts ont ecoute un morceau, jamais lesquels -- le classement dit ce
+    // qui tourne sur le serveur, pas qui ecoute quoi.
+    case 'server_top':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        // Meme seuil de 10s que report_listen et que les statistiques personnelles :
+        // sans lui, zapper vingt morceaux d'affilee ferait un classement.
+        $MIN_SECONDS = 10;
+        $since = time() - (7 * 86400);
+
+        $stmt = $db->prepare(
+            "SELECT t.id, t.title, t.artist, t.album, t.cover,
+                    COUNT(*) AS plays,
+                    COUNT(DISTINCT le.user_id) AS listeners
+             FROM listen_events le JOIN tracks t ON t.id = le.track_id
+             WHERE le.listened_seconds >= ? AND le.created_at >= ?
+             GROUP BY t.id
+             ORDER BY plays DESC, listeners DESC, t.id DESC
+             LIMIT 20"
+        );
+        $stmt->execute([$MIN_SECONDS, $since]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) {
+            $r['id'] = (int) $r['id'];
+            $r['plays'] = (int) $r['plays'];
+            $r['listeners'] = (int) $r['listeners'];
+        }
+        unset($r);
+
+        echo json_encode([
+            'status' => 'success',
+            'since' => $since,
+            'tracks' => $rows,
+        ], JSON_UNESCAPED_UNICODE);
+        break;
 }

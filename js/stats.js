@@ -9,6 +9,46 @@
 
 let _statsToken = 0;
 
+// Classement du serveur : fenêtre fixe de 7 jours, donc indépendant de la période
+// choisie pour les statistiques personnelles. Mis en cache pour ne pas repartir en
+// requête à chaque changement de période, qui ne le concerne pas.
+let _serverTopCache = null;
+
+async function fetchServerTop() {
+    if (_serverTopCache) return _serverTopCache;
+    try {
+        const res = await fetch('api.php?action=server_top');
+        const data = await res.json();
+        _serverTopCache = (data && data.status === 'success') ? data.tracks : [];
+    } catch (e) {
+        _serverTopCache = [];
+    }
+    return _serverTopCache;
+}
+
+// Rendu séparé : cette section s'affiche MÊME quand l'utilisateur n'a encore rien
+// écouté. C'est justement là qu'elle est la plus utile — un compte tout neuf voit
+// ce qui tourne sur le serveur au lieu d'un écran vide.
+function serverTopSectionHTML(tracks) {
+    if (!tracks || !tracks.length) return '';
+    return `
+        <section class="stats-section">
+            <h3 class="home-row-title">${escapeHTML(T('stats_server_top'))}
+                <span class="search-count">${escapeHTML(T('stats_server_top_sub'))}</span></h3>
+            <div class="rank-list">${renderRankedList(tracks, {
+                kind: 'track',
+                value: it => it.id,
+                title: it => it.title,
+                sub: it => it.artist,
+                cover: it => it.cover,
+                // Le nombre de comptes distincts dit quelque chose que le nombre de
+                // lectures ne dit pas : un titre joué 40 fois par une seule personne
+                // n'est pas un titre du serveur, c'est une obsession personnelle.
+                count: it => T('stats_plays_count', { n: it.plays }) + ' · ' + T('stats_listeners_count', { n: it.listeners }),
+            })}</div>
+        </section>`;
+}
+
 function formatListeningTime(totalSeconds) {
     const s = Math.max(0, parseInt(totalSeconds, 10) || 0);
     const hours = Math.floor(s / 3600);
@@ -55,7 +95,7 @@ function renderRankedList(items, opts) {
                 <span class="rank-title">${escapeHTML(opts.title(item))}</span>
                 ${opts.sub ? `<span class="rank-sub">${escapeHTML(opts.sub(item))}</span>` : ''}
             </span>
-            <span class="rank-count tabular">${escapeHTML(T('stats_plays_count', { n: item.plays }))}</span>
+            <span class="rank-count tabular">${escapeHTML(opts.count ? opts.count(item) : T('stats_plays_count', { n: item.plays }))}</span>
         </button>`).join('');
 }
 
@@ -76,10 +116,16 @@ async function loadStats(days) {
         </div>
         <div class="skeleton" style="height:200px; border-radius:var(--radius-lg); margin-top:var(--space-8);"></div>`;
 
-    let data;
+    // Les deux requêtes partent ensemble : le classement du serveur ne dépend pas
+    // de la période choisie, l'enchaîner ferait attendre l'affichage pour rien.
+    let data, serverTop;
     try {
-        const res = await fetch('api.php?action=stats&days=' + encodeURIComponent(days));
+        const [res, top] = await Promise.all([
+            fetch('api.php?action=stats&days=' + encodeURIComponent(days)),
+            fetchServerTop(),
+        ]);
         data = await res.json();
+        serverTop = top;
     } catch (e) {
         if (myToken !== _statsToken) return;
         body.innerHTML = emptyStateHTML('ico-stats', T('err_action_failed'), '');
@@ -88,7 +134,11 @@ async function loadStats(days) {
     if (myToken !== _statsToken) return;
 
     if (!data || data.status !== 'success' || !data.totals || data.totals.plays === 0) {
-        body.innerHTML = emptyStateHTML('ico-stats', T('stats_empty_title'), T('stats_empty_hint'));
+        // Pas encore d'écoute personnelle : on montre quand même le classement du
+        // serveur sous le message, plutôt qu'une page entièrement vide.
+        body.innerHTML = emptyStateHTML('ico-stats', T('stats_empty_title'), T('stats_empty_hint'))
+            + serverTopSectionHTML(serverTop);
+        attachRankRowHandlers(body);
         return;
     }
 
@@ -144,10 +194,16 @@ async function loadStats(days) {
             </section>`;
     }
 
-    body.innerHTML = html;
+    html += serverTopSectionHTML(serverTop);
 
-    // Délégation : une seule écoute pour toutes les lignes, plutôt qu'un
-    // gestionnaire par élément re-attaché à chaque changement de période.
+    body.innerHTML = html;
+    attachRankRowHandlers(body);
+}
+
+// Une seule écoute par ligne, posée après chaque rendu — extraite de loadStats()
+// parce que le cas "aucune écoute personnelle" rend lui aussi des lignes
+// cliquables (celles du classement du serveur).
+function attachRankRowHandlers(body) {
     body.querySelectorAll('.rank-row').forEach(row => {
         row.onclick = () => {
             const kind = row.dataset.kind;
