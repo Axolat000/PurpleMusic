@@ -46,6 +46,94 @@
     </div>
 
 
+
+    <?php /* Generation d'une playlist par filtre. Le nombre de correspondances est
+             annonce AVANT la creation : creer puis constater qu'on a 3000 titres (ou
+             zero) est desagreable a defaire. */ ?>
+    <div id="playlistGenerateModal" class="modal" x-show="$store.ui.activeModal === 'playlistGenerateModal'" x-transition.opacity.duration.200ms x-cloak
+         @click.self="$store.ui.closeModal('playlistGenerateModal')" @keydown.escape.window="$store.ui.closeModal('playlistGenerateModal')">
+        <div class="modal-content" x-show="$store.ui.activeModal === 'playlistGenerateModal'" x-transition.duration.200ms style="max-width:560px;" x-data="playlistGenerateForm">
+            <h2 style="margin-top:0;"><?php echo t('playlist_gen_title'); ?></h2>
+            <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('playlist_gen_intro'); ?></p>
+
+            <label><?php echo t('playlist_gen_name'); ?></label>
+            <input type="text" x-model="name" maxlength="100" placeholder="<?php echo htmlspecialchars(t('playlist_gen_name_placeholder')); ?>">
+
+            <div class="gen-grid">
+                <div>
+                    <label><?php echo t('playlist_gen_genre'); ?></label>
+                    <input type="text" x-model="genre" @input="schedulePreview()" list="gen-genre-list" placeholder="<?php echo htmlspecialchars(t('playlist_gen_any')); ?>">
+                    <datalist id="gen-genre-list">
+                        <template x-for="g in genreSuggestions" :key="g"><option :value="g"></option></template>
+                    </datalist>
+                </div>
+                <div>
+                    <label><?php echo t('playlist_gen_artist'); ?></label>
+                    <input type="text" x-model="artist" @input="schedulePreview()" placeholder="<?php echo htmlspecialchars(t('playlist_gen_any')); ?>">
+                </div>
+                <div>
+                    <label><?php echo t('playlist_gen_added'); ?></label>
+                    <select x-model="days" @change="preview()">
+                        <option value="0"><?php echo t('playlist_gen_any_time'); ?></option>
+                        <option value="7"><?php echo t('playlist_gen_days', ['n' => 7]); ?></option>
+                        <option value="30"><?php echo t('playlist_gen_days', ['n' => 30]); ?></option>
+                        <option value="90"><?php echo t('playlist_gen_days', ['n' => 90]); ?></option>
+                        <option value="365"><?php echo t('playlist_gen_days', ['n' => 365]); ?></option>
+                    </select>
+                </div>
+                <div>
+                    <label><?php echo t('playlist_gen_min_plays'); ?></label>
+                    <select x-model="minPlays" @change="preview()">
+                        <option value="0"><?php echo t('playlist_gen_any'); ?></option>
+                        <option value="1">1+</option>
+                        <option value="10">10+</option>
+                        <option value="50">50+</option>
+                        <option value="100">100+</option>
+                    </select>
+                </div>
+                <div>
+                    <label><?php echo t('playlist_gen_sort'); ?></label>
+                    <select x-model="sort">
+                        <option value="recent"><?php echo t('sort_recent'); ?></option>
+                        <option value="oldest"><?php echo t('sort_oldest'); ?></option>
+                        <option value="popular"><?php echo t('sort_popular'); ?></option>
+                        <option value="alpha"><?php echo t('sort_alpha_asc'); ?></option>
+                        <option value="random"><?php echo t('playlist_gen_random'); ?></option>
+                    </select>
+                </div>
+                <div>
+                    <label><?php echo t('playlist_gen_limit'); ?></label>
+                    <select x-model="limit" @change="preview()">
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="250">250</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+            </div>
+
+            <label class="gen-check">
+                <input type="checkbox" x-model="likedOnly" @change="preview()">
+                <span><?php echo t('playlist_gen_liked_only'); ?></span>
+            </label>
+            <label class="gen-check">
+                <input type="checkbox" x-model="isPrivate">
+                <span><?php echo t('playlist_private_label'); ?></span>
+            </label>
+
+            <p class="gen-count">
+                <span x-show="previewing"><?php echo t('search_loading'); ?></span>
+                <span x-show="!previewing && count !== null" x-text="T('playlist_gen_match', { n: count })"></span>
+            </p>
+
+            <div style="display:flex; gap:12px; margin-top:6px;">
+                <button type="button" class="btn btn-outline" style="flex:1; justify-content:center;" @click="$store.ui.closeModal('playlistGenerateModal')"><?php echo t('btn_cancel'); ?></button>
+                <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" :disabled="creating || !count" @click="create()"><?php echo t('playlist_gen_create'); ?></button>
+            </div>
+        </div>
+    </div>
+
     <?php /* Lien de partage d'une playlist. La modale montre le lien EN CLAIR et
              previent de sa portee : c'est le seul endroit de l'app ou l'on rend
              quelque chose lisible sans compte, ca doit etre dit avant le clic, pas

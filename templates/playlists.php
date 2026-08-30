@@ -8,10 +8,19 @@
     <main id="playlists" x-show="$store.ui.section === 'playlists'" x-cloak>
         <div class="page-head">
             <h2 class="page-title"><?php echo t('home_public_playlists'); ?></h2>
-            <button type="button" class="btn btn-outline btn-sm" onclick="openCreateModal()">
-                <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-plus"></use></svg>
-                <?php echo t('btn_create_playlist'); ?>
-            </button>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="openCreateModal()">
+                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-plus"></use></svg>
+                    <?php echo t('btn_create_playlist'); ?>
+                </button>
+                <?php /* Generer et creer sont deux facons de faire la meme chose : elles
+                         doivent etre cote a cote, pas l'une en tete de page et l'autre
+                         enfouie plus bas. */ ?>
+                <button type="button" class="btn btn-outline btn-sm" onclick="openPlaylistGenerate()">
+                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-sort"></use></svg>
+                    <?php echo t('playlist_gen_button'); ?>
+                </button>
+            </div>
         </div>
         <?php if (empty($publicPlaylists)): ?>
             <!-- État vide explicite : une grille vide ressemblait à un chargement bloqué. -->

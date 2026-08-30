@@ -250,4 +250,122 @@ switch ($action) {
         echo json_encode(['status' => 'success', 'token' => $token]);
         break;
 
+
+    // Generation d'une playlist par filtre : "tout le rock ajoute ce mois-ci".
+    //
+    // Le filtrage est fait par le SERVEUR et non par le navigateur, pour la meme
+    // raison que la recherche (voir api/search.php) : c'est la seule facon d'ecrire
+    // les regles une fois. Un filtrage cote client aurait redonne un second jeu de
+    // regles a garder aligne, exactement le piege deja rencontre avec le decoupage
+    // des genres.
+    //
+    // dry_run=1 renvoie seulement le nombre de correspondances : c'est ce qui permet
+    // a l'interface d'annoncer "142 morceaux" AVANT de creer quoi que ce soit. Creer
+    // puis constater est le comportement qu'on veut eviter -- une playlist vide ou de
+    // 3000 titres est desagreable a defaire.
+    case 'playlist_generate':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+        $uid = (int) $auth['id'];
+
+        $dryRun = !empty($_POST['dry_run']);
+        $name = sanitize_text($_POST['name'] ?? '');
+        $genre = trim((string) ($_POST['genre'] ?? ''));
+        $artist = trim((string) ($_POST['artist'] ?? ''));
+        $days = filter_var($_POST['days'] ?? 0, FILTER_VALIDATE_INT) ?: 0;
+        $minPlays = filter_var($_POST['min_plays'] ?? 0, FILTER_VALIDATE_INT) ?: 0;
+        $likedOnly = !empty($_POST['liked_only']);
+        $sort = (string) ($_POST['sort'] ?? 'recent');
+        // Borne haute : une playlist de plusieurs milliers de titres n'est plus une
+        // playlist, et song_ids est une simple chaine en base.
+        $limit = min(500, max(1, filter_var($_POST['limit'] ?? 100, FILTER_VALIDATE_INT) ?: 100));
+
+        $where = ['1=1'];
+        $params = [];
+
+        if ($days > 0) {
+            // upload_date est un DATETIME texte ('YYYY-MM-DD HH:MM:SS') : la
+            // comparaison se fait donc en SQL sur la meme forme, pas sur un
+            // timestamp qui n'existe pas dans cette colonne.
+            $where[] = "tracks.upload_date >= datetime('now', ?)";
+            $params[] = '-' . $days . ' days';
+        }
+        if ($minPlays > 0) {
+            // CAST explicite : PDO lie ce parametre comme du TEXTE, et COALESCE()
+            // renvoie une valeur SANS affinite de colonne -- SQLite comparait donc un
+            // entier a une chaine, ce qui est toujours faux chez lui (les entiers
+            // trient avant le texte). Le filtre ne remontait rien, en silence.
+            $where[] = "COALESCE(tracks.play_count, 0) >= CAST(? AS INTEGER)";
+            $params[] = $minPlays;
+        }
+        if ($likedOnly) {
+            $where[] = "EXISTS (SELECT 1 FROM likes WHERE likes.track_id = tracks.id AND likes.user_id = ?)";
+            $params[] = $uid;
+        }
+        // Genre et artiste sont pre-filtres en SQL (LIKE large) puis VERIFIES en PHP :
+        // les deux champs contiennent des listes ("Phonk, Nightcore", "A & B") que
+        // seul split_genres()/split_artist_names() sait decouper. Un LIKE seul
+        // rangerait "Post-Rock" sous "Rock" et "Bob Marley" sous "Marley".
+        if ($genre !== '') {
+            $where[] = "LOWER(COALESCE(tracks.genre, '')) LIKE ?";
+            $params[] = '%' . mb_strtolower($genre) . '%';
+        }
+        if ($artist !== '') {
+            $where[] = "LOWER(tracks.artist) LIKE ?";
+            $params[] = '%' . mb_strtolower($artist) . '%';
+        }
+
+        $orderBy = [
+            'recent'  => 'tracks.id DESC',
+            'oldest'  => 'tracks.id ASC',
+            'popular' => 'tracks.play_count DESC, tracks.id DESC',
+            'random'  => 'RANDOM()',
+            'alpha'   => 'tracks.title COLLATE NOCASE ASC',
+        ][$sort] ?? 'tracks.id DESC';
+
+        $sql = "SELECT tracks.id, tracks.genre, tracks.artist FROM tracks WHERE " . implode(' AND ', $where) . " ORDER BY $orderBy";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+
+        $ids = [];
+        $needleGenre = mb_strtolower($genre);
+        $needleArtist = mb_strtolower($artist);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if ($genre !== '') {
+                $match = false;
+                foreach (split_genres($row['genre']) as $g) {
+                    if (mb_strtolower($g) === $needleGenre) { $match = true; break; }
+                }
+                if (!$match) continue;
+            }
+            if ($artist !== '') {
+                $match = false;
+                foreach (split_artist_names($row['artist']) as $a) {
+                    if (mb_strtolower($a) === $needleArtist) { $match = true; break; }
+                }
+                if (!$match) continue;
+            }
+            $ids[] = (int) $row['id'];
+            if (count($ids) >= $limit) break;
+        }
+
+        if ($dryRun) {
+            echo json_encode(['status' => 'success', 'count' => count($ids)]);
+            break;
+        }
+
+        if (!$ids) { echo json_encode(["status" => "error", "message" => "Aucun morceau ne correspond."]); exit; }
+        if ($name === '') { echo json_encode(["status" => "error", "message" => "Nom de playlist manquant."]); exit; }
+
+        $isPrivate = !empty($_POST['is_private']) ? 1 : 0;
+        $db->prepare("INSERT INTO playlists (name, creator_id, song_ids, is_private) VALUES (?, ?, ?, ?)")
+           ->execute([$name, $uid, implode(',', $ids), $isPrivate]);
+
+        echo json_encode([
+            'status' => 'success',
+            'playlist_id' => (int) $db->lastInsertId(),
+            'count' => count($ids),
+        ], JSON_UNESCAPED_UNICODE);
+        break;
+
 }

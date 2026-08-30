@@ -681,3 +681,14 @@ kbd {
 /* Champ du lien de partage : monospace et selectionnable d'un clic -- on vient
    ici pour copier une chaine, pas pour la lire. */
 .share-link-input { font-family: var(--font-mono); font-size: var(--text-sm); width: 100%; }
+
+
+/* --- GENERATION DE PLAYLIST PAR FILTRE -------------------------------------- */
+.gen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3) var(--space-4); margin-top: var(--space-3); }
+.gen-grid label { display: block; }
+.gen-grid input, .gen-grid select { width: 100%; margin: 0; }
+.gen-check { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-muted); cursor: pointer; }
+/* Le compte de correspondances est l'information qui decide : il est affiche en
+   grand, au-dessus du bouton, pas en note de bas de modale. */
+.gen-count { margin: var(--space-5) 0 var(--space-2); font-weight: var(--weight-semibold); color: var(--accent); min-height: 1.4em; }
+@media (max-width: 560px) { .gen-grid { grid-template-columns: 1fr; } }
