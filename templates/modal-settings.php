@@ -1,4 +1,4 @@
-    <div id="settingsModal" class="modal" x-show="$store.ui.activeModal === 'settingsModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('settingsModal')"><div class="modal-content" x-data="settingsModalForm()">
+    <div id="settingsModal" class="modal" x-show="$store.ui.activeModal === 'settingsModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('settingsModal')"><div class="modal-content" x-show="$store.ui.activeModal === 'settingsModal'" x-transition.duration.200ms x-data="settingsModalForm()">
         <h2 style="margin-top:0;"><?php echo t('settings_title'); ?></h2>
 
         <div class="settings-tabs">

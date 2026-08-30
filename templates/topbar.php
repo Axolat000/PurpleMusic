@@ -55,17 +55,39 @@
     </div>
 
     <div class="topbar-actions">
-        <div class="topbar-sort" x-show="$store.ui.section === 'accueil' && $store.ui.searchTerm.trim() === ''" x-cloak>
-            <svg class="ico" aria-hidden="true"><use href="#ico-sort"></use></svg>
-            <select id="sortSelect" onchange="filterAndSortTracks()" aria-label="<?php echo htmlspecialchars(t('tooltip_sort')); ?>">
-                <option value="recommended" selected><?php echo t('sort_recommended'); ?></option>
-                <option value="popular"><?php echo t('sort_popular'); ?></option>
-                <option value="date_desc"><?php echo t('sort_recent'); ?></option>
-                <option value="date_asc"><?php echo t('sort_oldest'); ?></option>
-                <option value="alpha_asc"><?php echo t('sort_alpha_asc'); ?></option>
-                <option value="alpha_desc"><?php echo t('sort_alpha_desc'); ?></option>
-                <option value="artist"><?php echo t('sort_artist'); ?></option>
-            </select>
+        <?php /* Le tri etait un <select> natif : rendu par le systeme, donc hors du
+                 theme de l'app (menu blanc sur une interface sombre, police et rayons
+                 du systeme, aucun etat actif lisible). Remplace par un menu overlay
+                 maison, avec la semantique ARIA d'un groupe de boutons radio pour que
+                 le choix courant reste annonce aux lecteurs d'ecran -- ce que le
+                 <select> donnait gratuitement et qu'il aurait ete facile de perdre.
+                 La valeur vit maintenant dans le store Alpine ($store.ui.sortValue) et
+                 non dans le DOM : c'etait la valeur d'un element cache qui servait
+                 d'etat, un piege classique. */ ?>
+        <div class="topbar-sort" x-data @keydown.escape.window="$store.ui.sortMenuOpen = false"
+             @click.outside="$store.ui.sortMenuOpen = false"
+             x-show="$store.ui.section === 'accueil' && $store.ui.searchTerm.trim() === ''" x-cloak>
+            <button type="button" class="sort-trigger" id="sortTrigger"
+                    @click="$store.ui.sortMenuOpen = !$store.ui.sortMenuOpen"
+                    :aria-expanded="$store.ui.sortMenuOpen ? 'true' : 'false'"
+                    aria-haspopup="true"
+                    aria-label="<?php echo htmlspecialchars(t('tooltip_sort')); ?>">
+                <svg class="ico" aria-hidden="true"><use href="#ico-sort"></use></svg>
+                <span class="sort-trigger-label" x-text="$store.ui.sortLabel()"></span>
+                <svg class="ico ico-sm sort-trigger-caret" aria-hidden="true"><use href="#ico-chevron-down"></use></svg>
+            </button>
+            <div class="sort-menu" role="radiogroup" aria-labelledby="sortTrigger"
+                 x-show="$store.ui.sortMenuOpen" x-transition.opacity.duration.150ms x-cloak>
+                <template x-for="opt in SORT_OPTIONS" :key="opt.value">
+                    <button type="button" class="sort-menu-item" role="radio"
+                            :class="{ active: $store.ui.sortValue === opt.value }"
+                            :aria-checked="$store.ui.sortValue === opt.value ? 'true' : 'false'"
+                            @click="$store.ui.setSort(opt.value)">
+                        <span x-text="opt.label"></span>
+                        <svg class="ico ico-sm sort-menu-check" aria-hidden="true"><use href="#ico-check"></use></svg>
+                    </button>
+                </template>
+            </div>
         </div>
 
         <!-- Aide des raccourcis : sans objet sur un appareil tactile sans clavier,

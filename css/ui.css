@@ -600,3 +600,38 @@ kbd {
 /* Nombre TOTAL de correspondances cote serveur, pas le nombre de lignes affichees. */
 .search-count { color: var(--text-muted); font-size: 0.65em; font-weight: 600; letter-spacing: 0.5px; margin-left: var(--space-2); text-transform: uppercase; }
 .search-load-more { margin-top: var(--space-4); width: 100%; justify-content: center; }
+
+
+/* --- FIL D'ARIANE ----------------------------------------------------------- */
+/* Ligne de tete des pages Artiste/Album : le bouton Retour (pile de navigation
+   reelle) et le fil d'ariane (position dans la bibliotheque) cohabitent, ils ne
+   repondent pas a la meme question. */
+.entity-topline { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.breadcrumb { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.breadcrumb-link { background: none; border: none; padding: 0; font: inherit; color: var(--text-muted); cursor: pointer; white-space: nowrap; border-radius: var(--radius-xs); transition: color var(--dur-fast) var(--ease-out); }
+.breadcrumb-link:hover { color: var(--accent); text-decoration: underline; }
+.breadcrumb-sep { color: var(--text-muted); opacity: 0.5; }
+/* Le maillon courant peut etre un titre d'album a rallonge : c'est lui, et lui
+   seul, qui se fait tronquer -- les parents restent entiers pour rester
+   cliquables et comprehensibles. */
+.breadcrumb-current { color: var(--text); font-weight: var(--weight-semibold); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+
+/* --- MENU DE TRI (overlay) -------------------------------------------------- */
+/* Remplace le <select> natif, qui etait le dernier controle de l'app rendu par le
+   systeme d'exploitation plutot que par le theme. */
+.topbar-sort { position: relative; }
+.sort-trigger { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: var(--radius-full); color: var(--text-muted); font: inherit; font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; white-space: nowrap; transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sort-trigger:hover { color: var(--text); border-color: var(--accent); }
+.sort-trigger[aria-expanded="true"] { color: var(--text); border-color: var(--accent); }
+.sort-trigger-caret { transition: transform var(--dur-fast) var(--ease-out); }
+.sort-trigger[aria-expanded="true"] .sort-trigger-caret { transform: rotate(180deg); }
+
+.sort-menu { position: absolute; top: calc(100% + var(--space-2)); right: 0; z-index: 1200; min-width: 220px; padding: var(--space-2); background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); box-shadow: var(--elev-3, 0 20px 50px rgba(0,0,0,0.45)); }
+.sort-menu-item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); width: 100%; padding: var(--space-2) var(--space-3); background: none; border: none; border-radius: var(--radius-sm); color: var(--text-muted); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sort-menu-item:hover { background: var(--tint-1); color: var(--text); }
+.sort-menu-item.active { color: var(--accent); font-weight: var(--weight-semibold); }
+/* La coche n'est visible que sur l'option retenue, mais elle occupe la place dans
+   tous les cas : sans ca, la ligne survolee se decalerait horizontalement. */
+.sort-menu-check { opacity: 0; flex-shrink: 0; }
+.sort-menu-item.active .sort-menu-check { opacity: 1; }

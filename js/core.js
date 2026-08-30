@@ -14,6 +14,22 @@ document.addEventListener('alpine:init', () => {
         playlistTitleEditing: false,
         playlistTitleDraft: '',
         browseTitle: '', // titre de la page "Voir tout" (page dédiée, voir openBrowseAll())
+
+        // --- TRI DE LA BIBLIOTHÈQUE : la valeur vit ici et non dans le DOM.
+        // Elle était lue sur #sortSelect.value, c'est-à-dire qu'un élément de
+        // formulaire servait d'état applicatif — impossible de changer le tri sans
+        // toucher au DOM, et impossible de le rendre autrement qu'avec un <select>.
+        sortValue: 'recommended',
+        sortMenuOpen: false,
+        sortLabel() {
+            const opt = (typeof SORT_OPTIONS !== 'undefined') ? SORT_OPTIONS.find(o => o.value === this.sortValue) : null;
+            return opt ? opt.label : '';
+        },
+        setSort(value) {
+            this.sortValue = value;
+            this.sortMenuOpen = false;
+            filterAndSortTracks();
+        },
         recentTracks: [],
         popularTracks: [],
         playlistsPreview: [],
@@ -231,8 +247,7 @@ document.addEventListener('alpine:init', () => {
             fetch('api.php?action=recommendations&full=1').then(r => r.json()).then(data => {
                 if (!Array.isArray(data)) return;
                 RECOMMENDED_RANK = new Map(data.map((t, i) => [t.id, i]));
-                const sortSelect = document.getElementById('sortSelect');
-                if (sortSelect && sortSelect.value === 'recommended') filterAndSortTracks();
+                if (Alpine.store('ui').sortValue === 'recommended') filterAndSortTracks();
             }).catch(e => console.error(e));
             this.themePreset = localStorage.getItem('purpleMusicTheme') || 'violet';
             this.sleepTimerLastMinutes = parseInt(localStorage.getItem('purpleMusicSleepTimerLastMinutes') || '0', 10) || 0;

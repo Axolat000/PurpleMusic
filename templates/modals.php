@@ -12,7 +12,7 @@
          reste à côté du code qui les gère (js/shortcuts.js). -->
     <div id="shortcutsModal" class="modal" x-show="$store.ui.activeModal === 'shortcutsModal'" x-transition.opacity.duration.200ms x-cloak
          @click.self="$store.ui.closeModal('shortcutsModal')" @keydown.escape.window="$store.ui.closeModal('shortcutsModal')">
-        <div class="modal-content" style="max-width:480px;">
+        <div class="modal-content" x-show="$store.ui.activeModal === 'shortcutsModal'" x-transition.duration.200ms style="max-width:480px;">
             <h2 style="margin-top:0;"><?php echo t('shortcuts_title'); ?></h2>
             <div class="shortcut-list">
                 <?php
@@ -44,7 +44,7 @@
 
     <!-- Révélation du mot de passe temporaire généré par un admin (Admin Panel > Utilisateurs > Réinitialiser).
          Reste affiché jusqu'à fermeture manuelle (pas de toast auto-dismiss) pour laisser le temps de le copier. -->
-    <div id="adminResetPasswordModal" class="modal" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('adminResetPasswordModal')"><div class="modal-content" style="max-width:420px;">
+    <div id="adminResetPasswordModal" class="modal" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('adminResetPasswordModal')"><div class="modal-content" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.duration.200ms style="max-width:420px;">
         <h2 style="margin-top:0;"><?php echo t('admin_users_reset_password_title'); ?></h2>
         <p style="color:var(--text-muted); font-size:0.9em; margin-bottom:15px;" x-text="T('admin_users_reset_password_intro', { username: $store.ui.adminGeneratedPassword.username })"></p>
         <input type="text" readonly x-model="$store.ui.adminGeneratedPassword.password" onclick="this.select()" style="font-family:monospace; font-weight:700; text-align:center; letter-spacing:1px; margin-bottom:0;">
@@ -59,7 +59,7 @@
          configuré côté serveur (bouton "Mettre à jour") ou non (install docker-compose sans sidecar /
          install "docker run" simple -> instructions manuelles, voir DOCKER.md/README.md). -->
     <?php if ($is_admin): ?>
-    <div id="updateAvailableModal" class="modal" x-show="$store.ui.activeModal === 'updateAvailableModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.dismissUpdateNotice()"><div class="modal-content" style="max-width:480px;">
+    <div id="updateAvailableModal" class="modal" x-show="$store.ui.activeModal === 'updateAvailableModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.dismissUpdateNotice()"><div class="modal-content" x-show="$store.ui.activeModal === 'updateAvailableModal'" x-transition.duration.200ms style="max-width:480px;">
         <h2 style="margin-top:0;"><?php echo t('update_available_title'); ?></h2>
 
         <template x-if="$store.ui.updateTriggerState !== 'updating'">
@@ -97,7 +97,7 @@ docker stop purplemusic && docker rm purplemusic</code>
     </div></div>
     <?php endif; ?>
 
-    <div id="uploadModal" class="modal" x-show="$store.ui.activeModal === 'uploadModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('uploadModal')"><div class="modal-content">
+    <div id="uploadModal" class="modal" x-show="$store.ui.activeModal === 'uploadModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('uploadModal')"><div class="modal-content" x-show="$store.ui.activeModal === 'uploadModal'" x-transition.duration.200ms>
         <h2 style="margin-top:0;"><?php echo t('btn_upload'); ?></h2>
         <form method="post" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'upload')">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
@@ -124,7 +124,7 @@ docker stop purplemusic && docker rm purplemusic</code>
         </form>
     </div></div>
 
-    <div id="editTrackModal" class="modal" x-show="$store.ui.activeModal === 'editTrackModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('editTrackModal')"><div class="modal-content">
+    <div id="editTrackModal" class="modal" x-show="$store.ui.activeModal === 'editTrackModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('editTrackModal')"><div class="modal-content" x-show="$store.ui.activeModal === 'editTrackModal'" x-transition.duration.200ms>
         <h2 style="margin-top:0;"><?php echo t('edit_track_title'); ?></h2>
         <form method="post" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'edit_track')">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
@@ -147,7 +147,7 @@ docker stop purplemusic && docker rm purplemusic</code>
         </form>
     </div></div>
 
-    <div id="playlistModal" class="modal" x-show="$store.ui.activeModal === 'playlistModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('playlistModal')"><div class="modal-content">
+    <div id="playlistModal" class="modal" x-show="$store.ui.activeModal === 'playlistModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('playlistModal')"><div class="modal-content" x-show="$store.ui.activeModal === 'playlistModal'" x-transition.duration.200ms>
         <h2 id="modal-playlist-title" style="margin-top:0;">Playlist</h2>
         <form method="post" id="playlist-form" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'playlist_save')">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">

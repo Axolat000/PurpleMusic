@@ -175,7 +175,7 @@
     <audio id="mainAudio"></audio>
 
     <div class="modal" x-show="$store.ui.confirmState.open" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.confirmNo()" @keydown.escape.window="$store.ui.confirmNo()">
-        <div class="modal-content" style="max-width:420px; text-align:center;">
+        <div class="modal-content" x-show="$store.ui.confirmState.open" x-transition.duration.200ms style="max-width:420px; text-align:center;">
             <p style="font-size:1.1em; margin:0 0 25px 0;" x-text="$store.ui.confirmState.message"></p>
             <div style="display:flex; gap:15px;">
                 <button type="button" class="btn" style="flex:1; justify-content:center; border:1px solid var(--border-color); color:var(--text-muted);" @click="$store.ui.confirmNo()"><?php echo t('btn_cancel'); ?></button>
@@ -189,7 +189,7 @@
          navigateurs — l'app avait déjà fait ce remplacement pour confirm(). -->
     <div class="modal" x-show="$store.ui.promptState.open" x-transition.opacity.duration.200ms x-cloak
          @click.self="$store.ui.promptCancel()" @keydown.escape.window="$store.ui.promptCancel()">
-        <div class="modal-content" style="max-width:420px;">
+        <div class="modal-content" x-show="$store.ui.promptState.open" x-transition.duration.200ms style="max-width:420px;">
             <h2 style="margin-top:0; font-size:1.1em;" x-text="$store.ui.promptState.title"></h2>
 
             <template x-if="$store.ui.promptState.options.length === 0">

@@ -138,7 +138,7 @@ function home_row(string $storeKey, string $title, string $keyPrefix, ?string $s
     </main>
 
     <!-- Page "Voir tout" : liste dédiée pré-triée (Ajouts récents / Les plus écoutés), séparée de la
-         bibliothèque de l'accueil -- ne modifie jamais #sortSelect, voir openBrowseAll() dans app.js. -->
+         bibliothèque de l'accueil -- ne modifie jamais $store.ui.sortValue, voir openBrowseAll(). -->
     <main id="browse" x-show="$store.ui.section === 'browse'" x-cloak>
         <div class="page-head">
             <button class="btn btn-outline btn-sm" onclick="goBackSection()"><?php echo t('btn_back'); ?></button>
@@ -152,7 +152,10 @@ function home_row(string $storeKey, string $title, string $keyPrefix, ?string $s
          library.js), pas de nouvel appel réseau -- filtrage de ALL_MUSIC_DATA côté client. Peuplée par
          showArtistPage()/fetchArtistBio() (JS), pas de réactivité Alpine ici (comme #browse). -->
     <main id="artist-page" x-show="$store.ui.section === 'artist-page'" x-cloak>
-        <button class="btn btn-outline btn-sm entity-back" onclick="goBackSection()"><?php echo t('btn_back'); ?></button>
+        <div class="entity-topline">
+            <button class="btn btn-outline btn-sm entity-back" onclick="goBackSection()"><?php echo t('btn_back'); ?></button>
+            <nav class="breadcrumb" id="artist-breadcrumb" aria-label="<?php echo htmlspecialchars(t('breadcrumb_label')); ?>"></nav>
+        </div>
         <div class="entity-page-hero has-groove">
             <img id="artist-hero-bg-img" class="entity-page-hero-bg" alt="">
             <div class="entity-page-hero-content">
@@ -185,7 +188,10 @@ function home_row(string $storeKey, string $title, string $keyPrefix, ?string $s
     <!-- Page Album : regroupe les pistes dont le champ album correspond (insensible à la casse) -- pas de
          table albums séparée, le nom sert de clé de regroupement (voir Track.album). -->
     <main id="album-page" x-show="$store.ui.section === 'album-page'" x-cloak>
-        <button class="btn btn-outline btn-sm entity-back" onclick="goBackSection()"><?php echo t('btn_back'); ?></button>
+        <div class="entity-topline">
+            <button class="btn btn-outline btn-sm entity-back" onclick="goBackSection()"><?php echo t('btn_back'); ?></button>
+            <nav class="breadcrumb" id="album-breadcrumb" aria-label="<?php echo htmlspecialchars(t('breadcrumb_label')); ?>"></nav>
+        </div>
         <div class="entity-page-hero has-groove">
             <img id="album-hero-bg-img" class="entity-page-hero-bg" alt="">
             <div class="entity-page-hero-content">

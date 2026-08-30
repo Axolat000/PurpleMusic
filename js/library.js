@@ -237,11 +237,10 @@ function compareTracksBySort(sortValue) {
 
 function filterAndSortTracks() {
     const searchInput = document.getElementById('searchInput');
-    const sortSelect = document.getElementById('sortSelect');
-    if (!searchInput || !sortSelect) return;
+    if (!searchInput || !window.Alpine) return;
 
     const searchTerm = searchInput.value.toLowerCase();
-    const sortValue = sortSelect.value;
+    const sortValue = Alpine.store('ui').sortValue;
     let filtered = ALL_MUSIC_DATA.filter(t =>
         t.title.toLowerCase().includes(searchTerm) || t.artist.toLowerCase().includes(searchTerm));
 
@@ -252,8 +251,8 @@ function filterAndSortTracks() {
 }
 
 // "Voir tout" (à côté d'Ajouts récents / Les plus écoutés) : ouvre une page dédiée pré-triée, séparée
-// de la bibliothèque de l'accueil -- ne touche jamais #sortSelect/CURRENT_VIEW_DATA (contrairement à
-// l'ancien seeAllHome() qui changeait le tri de l'accueil lui-même).
+// de la bibliothèque de l'accueil -- ne touche jamais $store.ui.sortValue/CURRENT_VIEW_DATA
+// (contrairement à l'ancien seeAllHome() qui changeait le tri de l'accueil lui-même).
 function openBrowseAll(sortValue, title, pushState = true) {
     browseSort = sortValue;
     let filtered = [...ALL_MUSIC_DATA];
@@ -270,6 +269,55 @@ function openBrowseAll(sortValue, title, pushState = true) {
 let currentArtistName = null;
 let currentAlbumName = null;
 let artistBioToken = 0;
+
+// -----------------------------------------------------------------------------
+// FIL D'ARIANE
+// -----------------------------------------------------------------------------
+// Reflete le chemin REELLEMENT emprunte, pas une hierarchie theorique : arriver
+// sur un album depuis une page artiste ne raconte pas la meme chose qu'y arriver
+// depuis l'index Albums, et afficher toujours « Albums > X » mentirait dans le
+// premier cas.
+//
+// Le fil s'arrete a l'entite. Un morceau n'a pas d'ecran a lui (il se joue, il
+// ne s'ouvre pas) : il n'y a rien a empiler apres l'album, malgre l'intuition
+// "Artiste > Album > Morceau".
+//
+// Le bouton Retour reste a cote : il suit la pile de navigation reelle
+// (goBackSection), qui peut ramener ailleurs que le parent -- les deux repondent
+// a deux questions differentes, "d'ou je viens" et "ou je suis".
+let BREADCRUMB = [];
+
+function renderBreadcrumb(containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = '';
+    BREADCRUMB.forEach((item, i) => {
+        if (i > 0) {
+            const sep = document.createElement('span');
+            sep.className = 'breadcrumb-sep';
+            sep.setAttribute('aria-hidden', 'true');
+            sep.textContent = '\u203A';
+            el.appendChild(sep);
+        }
+        // Le dernier maillon est la page courante : ni lien ni bouton, et
+        // aria-current pour que la position soit annoncee, pas seulement vue.
+        if (i === BREADCRUMB.length - 1) {
+            const cur = document.createElement('span');
+            cur.className = 'breadcrumb-current';
+            cur.setAttribute('aria-current', 'page');
+            cur.textContent = item.label;
+            el.appendChild(cur);
+        } else {
+            const link = document.createElement('button');
+            link.type = 'button';
+            link.className = 'breadcrumb-link';
+            link.textContent = item.label;
+            link.onclick = item.go;
+            el.appendChild(link);
+        }
+    });
+}
+
 
 // Rend une liste de pistes (déjà filtrée/triée par l'appelant) dans un conteneur -- même
 // buildTrackRowElement() que la bibliothèque, pas de gabarit HTML séparé pour ces pages.
@@ -303,6 +351,12 @@ function showArtistPage(name, pushState = true) {
     const heroBgImg = document.getElementById('artist-hero-bg-img');
     if (pfpImg) pfpImg.src = heroCover;
     if (heroBgImg) heroBgImg.src = heroCover;
+
+    BREADCRUMB = [
+        { label: T('nav_artists'), go: () => showArtistsIndex() },
+        { label: name },
+    ];
+    renderBreadcrumb('artist-breadcrumb');
 
     renderTrackListInto('artist-track-list', tracks);
     fetchArtistBio(name);
@@ -339,6 +393,22 @@ function showAlbumPage(name, pushState = true) {
     const heroBgImg = document.getElementById('album-hero-bg-img');
     if (pfpImg) pfpImg.src = heroCover;
     if (heroBgImg) heroBgImg.src = heroCover;
+
+    // currentSection vaut encore la section QUITTEE ici (showSection() n'est
+    // appele qu'en fin de fonction) : c'est ce qui permet de savoir si on arrive
+    // depuis une page artiste.
+    const parentArtist = (currentSection === 'artist-page' && currentArtistName) ? currentArtistName : null;
+    BREADCRUMB = parentArtist
+        ? [
+            { label: T('nav_artists'), go: () => showArtistsIndex() },
+            { label: parentArtist, go: () => showArtistPage(parentArtist) },
+            { label: name },
+        ]
+        : [
+            { label: T('nav_albums'), go: () => showAlbumsIndex() },
+            { label: name },
+        ];
+    renderBreadcrumb('album-breadcrumb');
 
     renderTrackListInto('album-track-list', tracks);
     showSection('album-page', pushState);

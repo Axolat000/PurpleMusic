@@ -90,7 +90,7 @@ input[type="range"].vol-slider:hover::-moz-range-thumb, input[type="range"].vol-
 
 [x-cloak] { display: none !important; }
 .modal { position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
-.modal-content { background: var(--surface-overlay); margin: 5% auto; padding:30px; width:90%; max-width:550px; border-radius: 28px; border: 1px solid var(--tint-3); box-shadow: 0 25px 80px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.modal-content { background: var(--surface-overlay); margin: 5% auto; padding:30px; width:90%; max-width:550px; border-radius: 28px; border: 1px solid var(--tint-3); box-shadow: 0 25px 80px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; }
 @keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 input[type="text"], input[type="password"], input[type="email"], input[type="file"], select { width:100%; padding:14px; margin:10px 0 20px 0; background:var(--surface-sunken); border:1px solid var(--border-color); color:var(--text); border-radius: 12px; outline:none; transition: 0.3s; }
@@ -189,3 +189,20 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focu
 .player-artist-link { cursor: pointer; }
 .player-artist-link:hover { text-decoration: underline; }
 
+
+
+/* --- TRANSITION DES MODALES ------------------------------------------------
+   Le voile et la carte etaient animes par deux mecanismes independants : le voile
+   par x-transition (Alpine), la carte par l'animation CSS modalPop posee sur
+   .modal-content. Or une animation CSS ne joue qu'a l'apparition -- la carte
+   arrivait en douceur mais disparaissait d'un coup, pendant que le voile, lui,
+   s'effacait proprement. Asymetrie visible sur les neuf modales de l'app.
+
+   Les deux sont desormais deux x-transition Alpine : opacite seule sur le voile,
+   opacite + echelle sur la carte (comportement par defaut de x-transition). La
+   carte a donc enfin une sortie, symetrique de son entree.
+
+   modalPop reste defini plus haut : .auth-page et .dfp-stage s'en servent encore,
+   et ni l'une ni l'autre n'a de contrepartie de fermeture a animer (la page de
+   connexion ne se ferme pas, le grand lecteur a sa propre transition de
+   carrousel). */
