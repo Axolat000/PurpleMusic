@@ -27,6 +27,9 @@
                     [t('shortcut_shuffle'), ['S']],
                     [t('shortcut_loop'), ['R']],
                     [t('shortcut_search'), ['/', 'Ctrl+K']],
+                    [t('shortcut_close'), ['Echap']],
+                    [t('shortcut_queue_move'), ['Alt+↑', 'Alt+↓']],
+                    [t('shortcut_queue_remove'), ['Suppr']],
                     [t('shortcut_help'), ['?']],
                 ];
                 foreach ($shortcuts as [$label, $keys]): ?>

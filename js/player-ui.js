@@ -162,6 +162,7 @@ function openLyricsFromPlayerBar() {
         if (fp) {
             fp.classList.add('active');
             document.body.style.overflow = 'hidden';
+            rememberFocusAndEnter(fp);
         }
         applyVisualizerForContext('mobile');
         // Le titre n'est mesurable qu'une fois la surface reellement affichee :
@@ -176,12 +177,69 @@ function closeLyricsPanel() {
     if (window.Alpine) Alpine.store('ui').lyricsPanelOpen = false;
 }
 
+
+// -----------------------------------------------------------------------------
+// FOCUS DES SURFACES DE LECTURE (plein écran mobile, grand lecteur desktop)
+// -----------------------------------------------------------------------------
+// Ces surfaces se superposent à la page mais n'en retirent pas le contenu : sans
+// piège de focus, tabuler depuis le lecteur ouvert emmenait dans la bibliothèque
+// derrière, invisible mais focusable. On sortait de l'écran sans le savoir.
+//
+// Le focus est aussi mémorisé à l'ouverture et rendu à la fermeture : sans ça, il
+// repart de <body> et il faut retraverser toute la page pour revenir là où on en
+// était.
+const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+let _focusReturnTarget = null;
+
+function trapFocusIn(container, e) {
+    if (!container || e.key !== 'Tab') return;
+    const bounds = container.getBoundingClientRect();
+    const items = [...container.querySelectorAll(FOCUSABLE_SELECTOR)].filter(el => {
+        if (el.offsetParent === null) return false;
+        // Le grand lecteur est un carrousel : ses cartes "paroles" et "file
+        // d'attente" restent dans le DOM, simplement translatees hors du cadre. Sans
+        // ce test, la tabulation traversait les controles de cartes invisibles --
+        // le focus disparaissait de l'ecran sans rien fermer.
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        return cx >= bounds.left && cx <= bounds.right && cy >= bounds.top && cy <= bounds.bottom;
+    });
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    // Le cycle est refermé à la main : le navigateur, lui, continuerait vers le
+    // contenu de la page derrière la surface.
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+function rememberFocusAndEnter(container) {
+    _focusReturnTarget = document.activeElement;
+    if (!container) return;
+    const first = container.querySelector(FOCUSABLE_SELECTOR);
+    if (first) first.focus();
+}
+
+function restoreFocusAfterClose() {
+    if (_focusReturnTarget && document.contains(_focusReturnTarget)) _focusReturnTarget.focus();
+    _focusReturnTarget = null;
+}
+
+document.addEventListener('keydown', (e) => {
+    const fp = document.getElementById('full-player');
+    if (fp && fp.classList.contains('active')) { trapFocusIn(fp, e); return; }
+    const dp = document.getElementById('desktop-player');
+    if (dp && dp.classList.contains('active')) trapFocusIn(dp, e);
+});
+
 function openSmartPlayer() {
     if (window.innerWidth <= 768) {
         const fp = document.getElementById('full-player');
         if (fp) {
             fp.classList.add('active');
             document.body.style.overflow = 'hidden';
+            rememberFocusAndEnter(fp);
         }
         applyVisualizerForContext('mobile');
         // Le titre n'est mesurable qu'une fois la surface reellement affichee :
@@ -198,6 +256,7 @@ function closeFullPlayer() {
     if (fp) {
         fp.classList.remove('active');
         document.body.style.overflow = 'auto';
+        restoreFocusAfterClose();
     }
     // Arrête la boucle requestAnimationFrame du visualiseur mobile si elle tournait -- ne doit jamais
     // continuer à animer un canvas caché en arrière-plan. Le réglage visualizerEnabled lui-même n'est PAS
@@ -213,6 +272,7 @@ function openDesktopPlayer() {
     if (dp) {
         dp.classList.add('active');
         document.body.style.overflow = 'hidden';
+        rememberFocusAndEnter(dp);
     }
     // La mini-barre reste sinon visible/au-dessus du grand lecteur (aucun z-index ne l'en empêche) : on la
     // masque tant que le grand lecteur est ouvert, restaurée dans closeDesktopPlayer().
@@ -236,6 +296,7 @@ function openDesktopPlayer() {
 }
 
 function closeDesktopPlayer() {
+    restoreFocusAfterClose();
     const dp = document.getElementById('desktop-player');
     if (dp) {
         dp.classList.remove('active');
@@ -311,6 +372,13 @@ function renderQueueListInto(container) {
         // ou celui en cours n'a pas de sens et compliquerait le suivi de currentIndex.
         div.draggable = !isCurrent && !isPast;
         div.dataset.index = String(index);
+        // La ligne se comportait comme un bouton (elle lance la piste au clic) sans
+        // en être un : ni focusable, ni activable au clavier, ni annoncée comme
+        // cliquable. Le glisser-déposer, lui, n'avait aucune contrepartie clavier --
+        // réordonner la file était donc impossible sans souris.
+        div.tabIndex = 0;
+        div.setAttribute('role', 'button');
+        div.setAttribute('aria-label', `${track.title} — ${track.artist}`);
 
         div.innerHTML = `
             <span class="queue-drag-handle" aria-hidden="true">
@@ -328,6 +396,38 @@ function renderQueueListInto(container) {
         `;
 
         div.onclick = () => { currentIndex = index; loadTrack(true); };
+        div.onkeydown = (e) => {
+            // Entrée/Espace : convention d'activation d'un role="button".
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                currentIndex = index;
+                loadTrack(true);
+                return;
+            }
+            // Suppr/Retour arrière : retirer la piste, comme le ferait le × de la ligne.
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !isCurrent) {
+                e.preventDefault();
+                removeFromQueue(index);
+                // La ligne disparaît : on rend le focus à celle qui prend sa place,
+                // sinon il retombe sur <body> et on perd sa position dans la liste.
+                focusQueueItem(container, Math.min(index, queue.length - 1));
+                return;
+            }
+            // Alt + flèches : équivalent clavier du glisser-déposer. Alt et non les
+            // flèches seules, qui pilotent déjà le volume et l'avance globalement.
+            if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && div.draggable) {
+                e.preventDefault();
+                const to = index + (e.key === 'ArrowUp' ? -1 : 1);
+                // On ne remonte pas au-dessus de la piste en cours : cette zone est
+                // l'historique, et y déposer une piste "à venir" n'a pas de sens.
+                if (to <= currentIndex || to >= queue.length) return;
+                moveQueueItem(index, to);
+                if (window.Alpine) Alpine.store('ui').showToast(T('toast_queue_reordered'), 'success');
+                // updateQueueUI() a reconstruit la liste : le nœud qui avait le focus
+                // n'existe plus, il faut le rendre à la ligne déplacée.
+                focusQueueItem(container, to);
+            }
+        };
         const removeBtn = div.querySelector('.queue-item-remove');
         if (removeBtn) {
             removeBtn.onclick = (e) => {
@@ -341,6 +441,15 @@ function renderQueueListInto(container) {
     });
 
     attachQueueDragHandlers(container);
+}
+
+// Redonne le focus à une ligne de file après une reconstruction de la liste.
+// Sans ça, chaque déplacement au clavier renvoie le focus sur <body> et il faut
+// retraverser toute la page à la tabulation pour déplacer la piste suivante.
+function focusQueueItem(container, index) {
+    if (!container || index < 0) return;
+    const el = container.querySelector(`.queue-item[data-index="${index}"]`);
+    if (el) el.focus();
 }
 
 // Glisser-déposer HTML5 natif (pas de bibliothèque tierce) : l'app n'a aucune

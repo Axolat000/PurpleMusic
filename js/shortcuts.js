@@ -52,6 +52,22 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    // Echap ferme les surfaces de lecture. Elles ne sont pas des modales et
+    // n'etaient donc couvertes par aucun gestionnaire : le lecteur plein ecran et
+    // les panneaux lateraux ne se fermaient qu'a la souris, sur leur propre bouton.
+    // Traite AVANT la garde de saisie : on doit pouvoir s'echapper meme depuis un
+    // champ situe a l'interieur d'un panneau.
+    if (e.key === 'Escape') {
+        if (window.Alpine && Alpine.store('ui').activeModal) return; // la modale gere son propre Echap
+        const fp = document.getElementById('full-player');
+        if (fp && fp.classList.contains('active')) { closeFullPlayer(); return; }
+        const dp = document.getElementById('desktop-player');
+        if (dp && dp.classList.contains('active')) { closeDesktopPlayer(); return; }
+        if (window.Alpine && Alpine.store('ui').lyricsPanelOpen) { closeLyricsPanel(); return; }
+        if (queuePanel && queuePanel.classList.contains('open')) { toggleQueue(); return; }
+        return;
+    }
+
     if (isTypingContext(e.target)) return;
     if (hasForeignModifier(e)) return;
 
