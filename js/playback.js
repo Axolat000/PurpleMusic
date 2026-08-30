@@ -119,6 +119,7 @@ function loadTrack(autoPlay = true) {
     pmEach('cover', el => { el.src = coverUrl; });
 
     pmEach('progress-bar', el => { el.style.width = '0%'; });
+    setWaveformProgress(0);
     pmText('curr', '0:00');
     pmText('total', '0:00');
 
@@ -148,6 +149,7 @@ function loadTrack(autoPlay = true) {
         el.classList.add('is-visible');
     });
 
+    loadWaveformFor(track);
     pushListenHistory(track.id);
     updateUrl();
     applyDynamicThemeForCurrentTrack();
@@ -217,6 +219,7 @@ if (audio) {
         if (scrubbing) return;
         const pct = (audio.currentTime / audio.duration) * 100;
         pmEach('progress-bar', el => { el.style.width = (pct || 0) + '%'; });
+        setWaveformProgress(pct);
         pmText('curr', formatTime(audio.currentTime));
         if (audio.duration) pmText('total', formatTime(audio.duration));
 
@@ -332,6 +335,7 @@ function attachSeekHandlers(areaEl) {
     // mini-barre, puis sautait d'un coup au relachement.
     const preview = (ratio) => {
         pmEach('progress-bar', el => { el.style.width = (ratio * 100) + '%'; });
+        setWaveformProgress(ratio * 100);
         if (audio.duration) pmText('curr', formatTime(ratio * audio.duration));
     };
 

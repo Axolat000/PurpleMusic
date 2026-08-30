@@ -91,6 +91,12 @@ function pm_progress(string $variant): void
     ?>
     <div class="<?php echo $wrap; ?> pm-progress" data-pm-progress>
         <div class="progress-bg" id="<?php echo $p; ?>progress-area" data-pm-progress-area>
+            <?php /* Forme d'onde : un seul calque masque (voir js/waveform.js). Vide et
+                     invisible tant qu'aucun pic n'est connu -- la barre pleine d'origine
+                     reste alors affichee telle quelle. aria-hidden : c'est une aide
+                     visuelle, la position de lecture est deja annoncee par le role=slider
+                     porte par la barre elle-meme. */ ?>
+            <div class="pm-wave" data-pm-wave aria-hidden="true"></div>
             <div class="progress-fill" id="<?php echo $p; ?>progress-bar" data-pm-progress-bar></div>
         </div>
         <div class="pm-time-row">

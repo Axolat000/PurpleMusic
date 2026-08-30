@@ -107,6 +107,7 @@ try {
     // ouvrent la meme base, celui qui tourne en premier applique le schema.
     require_once __DIR__ . '/migrations.php';
     purplemusic_migrate_albums($db);
+    purplemusic_migrate_waveform($db);
 
 } catch (Exception $e) { die(json_encode(["status" => "error", "message" => "Erreur BDD"])); }
 
@@ -147,6 +148,7 @@ $actionDomains = [
     'lyrics' => ['get_lyrics'],
     'search' => ['search'],
     'albums' => ['albums', 'album_save', 'album_assign', 'album_delete'],
+    'waveform' => ['waveform', 'waveform_save'],
 ];
 
 foreach ($actionDomains as $domainFile => $actions) {

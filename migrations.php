@@ -101,3 +101,25 @@ function purplemusic_migrate_albums(PDO $db): void
         throw $e;
     }
 }
+
+/**
+ * Forme d'onde des pistes.
+ *
+ * Une colonne de plus sur `tracks` plutôt qu'une table : c'est une donnée
+ * strictement 1-pour-1 avec la piste, dérivée d'elle, et qui meurt avec elle.
+ *
+ * Le calcul n'est PAS fait par le serveur. Extraire des pics demanderait ffmpeg,
+ * une dépendance binaire qu'une instance auto-hébergée n'a pas forcément — et le
+ * jour où elle manque, la fonctionnalité disparaît sans explication. C'est donc
+ * le navigateur qui décode la piste qu'il est déjà en train de lire, calcule les
+ * pics une seule fois, et les renvoie ici (action=waveform_save) : le prochain
+ * auditeur, sur n'importe quel appareil, les reçoit tout faits.
+ */
+function purplemusic_migrate_waveform(PDO $db): void
+{
+    $cols = $db->query("PRAGMA table_info(tracks)")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($cols as $c) {
+        if ($c['name'] === 'waveform') return;
+    }
+    $db->exec("ALTER TABLE tracks ADD COLUMN waveform TEXT DEFAULT NULL");
+}

@@ -167,3 +167,34 @@ html.theme-light #fp-masterPlay .ico, html.theme-light .dfp-master-play .ico { f
    simplement coupe, sans barre de defilement pour le rattraper). */
 .fp-art-container { min-height: 0; }
 #fp-cover { max-height: 100%; }
+
+/* --- FORME D'ONDE DE LA PROGRESSION ----------------------------------------
+   Un seul element, pas un <canvas> ni une barre par pic : les barres forment la
+   SILHOUETTE (mask-image, un SVG genere a la volee par js/waveform.js) et le fond
+   est un degrade a arret net dont la position vient de --pm-progress. Une seule
+   propriete change a chaque tick de lecture, quel que soit le nombre de barres,
+   et les couleurs restent celles du theme.
+
+   Tant qu'aucun pic n'est connu, .has-waveform est absente : la barre pleine
+   d'origine reste affichee, inchangee. Aucune piste ne se retrouve sans
+   progression lisible. */
+.pm-wave { display: none; }
+.progress-bg.has-waveform { background: transparent; overflow: visible; }
+.progress-bg.has-waveform .progress-fill { display: none; }
+.progress-bg.has-waveform .pm-wave {
+    display: block;
+    position: absolute;
+    inset: -7px 0;                 /* la forme d'onde deborde la piste de 6px : c'est elle qui porte la hauteur */
+    background: linear-gradient(90deg, var(--accent) 0 var(--pm-progress, 0%), var(--tint-4) var(--pm-progress, 0%) 100%);
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+    pointer-events: none;          /* le clic et le scrub restent geres par .progress-bg */
+    transition: background 0.08s linear;
+}
+/* Sur les deux grands lecteurs, la piste non lue est plus discrete et la partie
+   lue reprend le blanc du reste de la surface (voir .progress-fill plus haut). */
+#full-player .progress-bg.has-waveform .pm-wave,
+#desktop-player .progress-bg.has-waveform .pm-wave {
+    inset: -9px 0;
+    background: linear-gradient(90deg, var(--player-fg) 0 var(--pm-progress, 0%), var(--tint-4) var(--pm-progress, 0%) 100%);
+}
