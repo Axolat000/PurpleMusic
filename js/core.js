@@ -654,15 +654,37 @@ function submitFormToApi(formEl, action) {
 }
 
 const audio = document.getElementById('mainAudio');
-const progressBar = document.getElementById('progress-bar');
-const progressArea = document.getElementById('progress-area');
-const masterPlay = document.getElementById('masterPlay');
-const playTitle = document.getElementById('play-title');
-const playCover = document.getElementById('player-cover');
-const playStatus = document.getElementById('play-status');
-const queueList = document.getElementById('queue-list');
 const queuePanel = document.getElementById('queue-panel');
-const dpQueueList = document.getElementById('dp-queue-list');
+
+// --- SURFACES DE LECTEUR -----------------------------------------------------
+// Les trois surfaces (mini-barre, plein ecran mobile, grand lecteur desktop) sont
+// rendues par les memes briques PHP (templates/player-parts.php) et marquent
+// chaque element que le JS doit tenir a jour d'un attribut data-pm-*.
+//
+// AVANT : chaque mise a jour d'etat s'ecrivait trois fois de suite --
+// getElementById('curr-time'), puis 'fp-curr-time', puis 'dp-curr-time', chacune
+// avec son test de nullite. Un oubli sur l'une des trois ne se voyait que sur
+// cette surface-la, donc tard.
+//
+// MAINTENANT : le JS ne connait plus le nombre de surfaces, il ecrit dans toutes
+// celles qui portent l'attribut. Ajouter une quatrieme surface ne demande aucune
+// modification de ce fichier.
+const pmEach = (part, fn) => document.querySelectorAll('[data-pm-' + part + ']').forEach(fn);
+const pmText = (part, value) => pmEach(part, el => { el.innerText = value; });
+
+// Bascule lecture/pause sur toutes les surfaces d'un coup. La forme du bouton
+// (taille, couleur, centrage optique du triangle) est desormais entierement CSS :
+// seul le symbole du sprite change ici, au lieu des SVG recopies en JS avec leurs
+// styles en ligne -- il y en avait trois jeux, un par surface.
+const pmSetPlayIcon = (playing) => {
+    const label = (typeof T === 'function') ? T(playing ? 'tooltip_pause' : 'tooltip_play') : '';
+    pmEach('play', btn => {
+        btn.classList.toggle('is-playing', playing);
+        const use = btn.querySelector('use');
+        if (use) use.setAttribute('href', playing ? '#ico-pause' : '#ico-play');
+        if (label) { btn.setAttribute('aria-label', label); btn.setAttribute('title', label); }
+    });
+};
 
 // --- GRAPHE AUDIO PARTAGÉ (Égaliseur + Visualiseur) ---
 // AudioContext.createMediaElementSource(audio) ne peut être appelé qu'UNE SEULE fois sur toute la durée

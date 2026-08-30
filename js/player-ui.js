@@ -381,8 +381,7 @@ function attachQueueDragHandlers(container) {
 }
 
 function updateQueueUI() {
-    renderQueueListInto(queueList);
-    renderQueueListInto(dpQueueList);
+    pmEach('queue-list', renderQueueListInto);
 }
 
 function playTrackById(id, autoPlay = true) {

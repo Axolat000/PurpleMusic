@@ -67,10 +67,9 @@ function toggleMute() {
 function refreshVolumeIcon() {
     if (!audio) return;
     const muted = audio.muted || audio.volume <= 0;
-    const path = muted ? mutedVolumeIconPath : volumeIconPath;
-    ['vol-icon-desktop-vol', 'vol-icon-dp-vol'].forEach(id => {
-        const svg = document.getElementById(id);
-        if (svg) svg.innerHTML = `<path d="${path}"/>`;
+    pmEach('vol-icon', svg => {
+        const use = svg.querySelector('use');
+        if (use) use.setAttribute('href', muted ? '#ico-volume-mute' : '#ico-volume');
     });
 }
 

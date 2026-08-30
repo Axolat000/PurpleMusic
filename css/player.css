@@ -36,7 +36,6 @@
 .dfp-eyebrow { font-size: 0.78em; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
 .dfp-title { font-size: 2em; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -12px; }
 .dfp-artist { font-size: 1.15em; color: var(--accent); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -14px; }
-.dfp-time-row { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.85em; color: var(--text); font-family: monospace; }
 .dfp-controls { display: flex; align-items: center; gap: 14px; }
 .dfp-controls .control-btn svg { width: 26px; height: 26px; }
 .dfp-skip-btn svg { width: 30px; height: 30px; }
@@ -95,3 +94,76 @@
 .admin-page-tabs { flex-wrap: wrap; }
 .admin-page-tabs .settings-tab-btn { flex: 1 1 auto; min-width: 110px; }
 
+
+
+/* --- SURFACES DE LECTEUR : STYLES PARTAGES ---------------------------------
+   Le transport, la barre de progression et les temps sont rendus une seule fois
+   (templates/player-parts.php) pour les trois surfaces. Ce qui les distingue --
+   taille des icones, ecartement, couleur de la piste -- vit desormais ici, au
+   lieu d'attributs style="..." recopies a la main dans chaque copie du markup.
+   Plusieurs de ces valeurs etaient d'ailleurs en dur (fill:black, background:
+   white, rgba(255,255,255,0.2)) et ignoraient donc completement le mode clair. */
+
+/* Bouton lecture/pause. Le triangle de lecture est optiquement decentre vers la
+   gauche dans sa boite ; on le decale d'un cheveu, alors que le carre de pause
+   est deja centre. Le decalage est en % de la boite de l'icone, donc juste a
+   toutes les tailles -- avant, chaque surface portait son propre margin-left en
+   pixels (2px, 3px, 4px), a maintenir a la main. */
+.pm-play .ico { transform: translateX(7%); transition: transform var(--dur-fast) var(--ease-out); }
+.pm-play.is-playing .ico { transform: none; }
+
+/* Pastille "1" du mode boucle-sur-un-titre, commune aux trois surfaces. */
+.pm-btn-loop { position: relative; }
+.loop-status { position: absolute; top: 0; right: 0; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 999px; background: var(--accent); color: var(--bg-dark); font-size: 9px; font-weight: 800; line-height: 15px; text-align: center; pointer-events: none; }
+.loop-status[hidden] { display: none; }
+
+/* Temps ecoule / duree totale. */
+.pm-time-row { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.7em; color: var(--text-muted); font-family: var(--font-mono); }
+#full-player .pm-time-row, #desktop-player .pm-time-row { margin-top: 10px; font-size: 0.85em; color: var(--text); }
+
+/* Piste et remplissage de la progression sur les deux grands lecteurs : ils
+   forçaient rgba(255,255,255,0.2) et background:white, soit un remplissage blanc
+   sur fond clair -- invisible -- des que le theme clair etait actif. */
+#full-player .progress-bg, #desktop-player .progress-bg { background: var(--tint-4); }
+#full-player .progress-fill, #desktop-player .progress-fill { background: var(--player-fg); }
+
+/* Lecteur plein ecran mobile : memes boutons que la mini-barre, agrandis. */
+#full-player .pm-btn-shuffle, #full-player .pm-btn-loop { transform: scale(1.2); }
+#full-player .pm-btn-prev, #full-player .pm-btn-next { transform: scale(1.5); }
+#fp-masterPlay { background: #fff; border: none; width: 75px; height: 75px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 40px var(--tint-4); flex-shrink: 0; transition: transform 0.2s, box-shadow 0.2s; }
+#fp-masterPlay:hover { transform: scale(1.06); }
+#fp-masterPlay .ico { width: 35px; height: 35px; fill: #0f0c1d; }
+.fp-btn .ico { width: 28px; height: 28px; fill: var(--player-fg); }
+
+/* Grand lecteur desktop : la taille des icones de transport est deja fixee par
+   .dfp-controls/.dfp-skip-btn plus haut, seul le bouton central manquait. */
+.dfp-master-play .ico { width: 28px; height: 28px; fill: #0f0c1d; }
+
+/* Mode clair : le bouton central etait un disque blanc sur fond clair, avec un
+   glyphe noir -- l'equivalent de l'override deja en place pour la mini-barre
+   (#masterPlay, css/tokens.css) manquait simplement aux deux autres surfaces. */
+html.theme-light #fp-masterPlay, html.theme-light .dfp-master-play { background: var(--primary); }
+html.theme-light #fp-masterPlay .ico, html.theme-light .dfp-master-play .ico { fill: #fff; }
+
+/* Bouton-icone du volume : la couleur etait ecrite en dur (#a196b4) dans le
+   markup des deux surfaces qui en portent un. */
+.vol-icon-btn { color: var(--text-muted); }
+.vol-icon-btn:hover { color: var(--text); }
+
+/* Bloc titre/artiste du lecteur plein ecran : sans flex-shrink:0, ce conteneur --
+   qui a overflow:hidden -- se faisait ecraser a la hauteur du seul titre par la
+   repartition flex de #full-player, et le nom de l'artiste, rendu juste en
+   dessous, tombait hors de la zone visible. Bug anterieur a l'unification des
+   lecteurs (verifie sur la version precedente) : le nom n'apparaissait sur aucun
+   telephone assez court. C'est .fp-art-container, deja en flex-grow, qui absorbe
+   desormais la compression. */
+.fp-info-area { flex-shrink: 0; }
+
+/* Contrepartie du flex-shrink:0 ci-dessus : c'est la pochette qui doit ceder la
+   place quand l'ecran est court. Sans min-height:0, un conteneur flex ne descend
+   jamais sous la hauteur intrinseque de son contenu -- la pochette imposait donc
+   sa taille et poussait le bas du lecteur hors du cadre (#full-player est en
+   overflow:hidden pour contenir le fond d'ambiance, donc ce qui deborde est
+   simplement coupe, sans barre de defilement pour le rattraper). */
+.fp-art-container { min-height: 0; }
+#fp-cover { max-height: 100%; }

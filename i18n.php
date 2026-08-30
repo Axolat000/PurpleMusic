@@ -323,6 +323,7 @@ $I18N = [
         'tooltip_shuffle' => 'Aléatoire',
         'tooltip_prev' => 'Précédent',
         'tooltip_play' => 'Lecture',
+        'tooltip_pause' => 'Pause',
         'tooltip_next' => 'Suivant',
         'tooltip_loop' => 'Boucle',
         'tooltip_mute' => 'Muet',
@@ -671,6 +672,7 @@ $I18N = [
         'tooltip_shuffle' => 'Shuffle',
         'tooltip_prev' => 'Previous',
         'tooltip_play' => 'Play',
+        'tooltip_pause' => 'Pause',
         'tooltip_next' => 'Next',
         'tooltip_loop' => 'Repeat',
         'tooltip_mute' => 'Mute',
@@ -1017,6 +1019,7 @@ $I18N = [
         'tooltip_shuffle' => 'Aleatorio',
         'tooltip_prev' => 'Anterior',
         'tooltip_play' => 'Reproducir',
+        'tooltip_pause' => 'Pausa',
         'tooltip_next' => 'Siguiente',
         'tooltip_loop' => 'Repetir',
         'tooltip_mute' => 'Silenciar',
@@ -1363,6 +1366,7 @@ $I18N = [
         'tooltip_shuffle' => 'Zufallswiedergabe',
         'tooltip_prev' => 'Zurück',
         'tooltip_play' => 'Abspielen',
+        'tooltip_pause' => 'Pause',
         'tooltip_next' => 'Weiter',
         'tooltip_loop' => 'Wiederholen',
         'tooltip_mute' => 'Stumm',
@@ -1430,6 +1434,10 @@ function t($key, $vars = []) {
 
 // --- Sous-ensemble exposé au JS : uniquement les clés utilisées par du HTML généré côté client ---
 const I18N_CLIENT_KEYS = [
+    // Bouton lecture/pause : son libelle accessible bascule cote client a chaque
+    // changement d'etat (pmSetPlayIcon(), js/core.js), sur les trois surfaces.
+    'tooltip_play',
+    'tooltip_pause',
     'no_tracks_found',
     'confirm_delete_generic',
     'confirm_delete_playlist',

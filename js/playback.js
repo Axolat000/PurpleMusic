@@ -111,42 +111,16 @@ function loadTrack(autoPlay = true) {
         applyMarqueeIfOverflowing(el);
     };
 
-    setPlayerTitle(playTitle, track.title);
-    if (playCover) playCover.src = 'covers/' + (track.cover || 'default.png');
-    if (playStatus) { playStatus.innerText = track.artist || 'Artiste inconnu'; playStatus.onclick = goToTrackArtist; }
+    const coverUrl = 'covers/' + (track.cover || 'default.png');
+    const artistLabel = track.artist || 'Artiste inconnu';
 
-    const fpTitle = document.getElementById('fp-title');
-    const fpArtist = document.getElementById('fp-artist');
-    const fpCover = document.getElementById('fp-cover');
-    const dpTitle = document.getElementById('dp-title');
-    const dpArtist = document.getElementById('dp-artist');
-    const dpCover = document.getElementById('dp-cover');
+    pmEach('title', el => setPlayerTitle(el, track.title));
+    pmEach('artist', el => { el.innerText = artistLabel; el.onclick = goToTrackArtist; });
+    pmEach('cover', el => { el.src = coverUrl; });
 
-    setPlayerTitle(fpTitle, track.title);
-    if (fpArtist) { fpArtist.innerText = track.artist || 'Artiste inconnu'; fpArtist.onclick = goToTrackArtist; }
-    if (fpCover) fpCover.src = 'covers/' + (track.cover || 'default.png');
-
-    setPlayerTitle(dpTitle, track.title);
-    if (dpArtist) { dpArtist.innerText = track.artist || 'Artiste inconnu'; dpArtist.onclick = goToTrackArtist; }
-    if (dpCover) dpCover.src = 'covers/' + (track.cover || 'default.png');
-
-    document.getElementById('curr-time').innerText = "0:00";
-    document.getElementById('total-time').innerText = "0:00";
-    progressBar.style.width = "0%";
-
-    const fpProgressBar = document.getElementById('fp-progress-bar');
-    if (fpProgressBar) fpProgressBar.style.width = "0%";
-    const fpCurrTime = document.getElementById('fp-curr-time');
-    if (fpCurrTime) fpCurrTime.innerText = "0:00";
-    const fpTotalTime = document.getElementById('fp-total-time');
-    if (fpTotalTime) fpTotalTime.innerText = "0:00";
-
-    const dpProgressBar = document.getElementById('dp-progress-bar');
-    if (dpProgressBar) dpProgressBar.style.width = "0%";
-    const dpCurrTime = document.getElementById('dp-curr-time');
-    if (dpCurrTime) dpCurrTime.innerText = "0:00";
-    const dpTotalTime = document.getElementById('dp-total-time');
-    if (dpTotalTime) dpTotalTime.innerText = "0:00";
+    pmEach('progress-bar', el => { el.style.width = '0%'; });
+    pmText('curr', '0:00');
+    pmText('total', '0:00');
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -169,9 +143,7 @@ function loadTrack(autoPlay = true) {
     // une <img> pour que background-size:cover gère le recadrage quel que soit le
     // format de la pochette.
     const ambientUrl = `url("covers/${encodeURIComponent(track.cover || 'default.png')}")`;
-    ['fp-ambient', 'dp-ambient'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
+    pmEach('ambient', el => {
         el.style.backgroundImage = ambientUrl;
         el.classList.add('is-visible');
     });
@@ -186,17 +158,9 @@ function loadTrack(autoPlay = true) {
     }
     if (autoPlay) {
         audio.play().catch(e => console.error(e));
-        masterPlay.innerHTML = pauseIcon;
-        const fpMasterPlay = document.getElementById('fp-masterPlay');
-        if (fpMasterPlay) fpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-        const dpMasterPlay = document.getElementById('dp-masterPlay');
-        if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+        pmSetPlayIcon(true);
     } else {
-        masterPlay.innerHTML = playIcon;
-        const fpMasterPlay = document.getElementById('fp-masterPlay');
-        if (fpMasterPlay) fpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black; margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
-        const dpMasterPlay = document.getElementById('dp-masterPlay');
-        if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
+        pmSetPlayIcon(false);
     }
     updateQueueUI();
     syncPlaybackState();
@@ -243,12 +207,7 @@ if (audio) {
     audio.addEventListener('ended', () => syncPlaybackState());
 
     audio.onloadedmetadata = () => {
-        const t = formatTime(audio.duration);
-        document.getElementById('total-time').innerText = t;
-        const fpTotalTime = document.getElementById('fp-total-time');
-        if (fpTotalTime) fpTotalTime.innerText = t;
-        const dpTotalTime = document.getElementById('dp-total-time');
-        if (dpTotalTime) dpTotalTime.innerText = t;
+        pmText('total', formatTime(audio.duration));
     };
     audio.ontimeupdate = () => {
         // Pendant un glissement sur la barre, c'est le curseur qui pilote
@@ -257,23 +216,9 @@ if (audio) {
         // Voir attachSeekHandlers() plus bas.
         if (scrubbing) return;
         const pct = (audio.currentTime / audio.duration) * 100;
-        progressBar.style.width = (pct || 0) + "%";
-        document.getElementById('curr-time').innerText = formatTime(audio.currentTime);
-        if(audio.duration) document.getElementById('total-time').innerText = formatTime(audio.duration);
-
-        const fpProgressBar = document.getElementById('fp-progress-bar');
-        if (fpProgressBar) fpProgressBar.style.width = (pct || 0) + "%";
-        const fpCurrTime = document.getElementById('fp-curr-time');
-        if (fpCurrTime) fpCurrTime.innerText = formatTime(audio.currentTime);
-        const fpTotalTime = document.getElementById('fp-total-time');
-        if (fpTotalTime && audio.duration) fpTotalTime.innerText = formatTime(audio.duration);
-
-        const dpProgressBar = document.getElementById('dp-progress-bar');
-        if (dpProgressBar) dpProgressBar.style.width = (pct || 0) + "%";
-        const dpCurrTime = document.getElementById('dp-curr-time');
-        if (dpCurrTime) dpCurrTime.innerText = formatTime(audio.currentTime);
-        const dpTotalTime = document.getElementById('dp-total-time');
-        if (dpTotalTime && audio.duration) dpTotalTime.innerText = formatTime(audio.duration);
+        pmEach('progress-bar', el => { el.style.width = (pct || 0) + '%'; });
+        pmText('curr', formatTime(audio.currentTime));
+        if (audio.duration) pmText('total', formatTime(audio.duration));
 
         if (window.Alpine) {
             const store = Alpine.store('ui');
@@ -299,11 +244,7 @@ function nextTrack() {
     else {
         audio.pause();
         audio.currentTime = 0;
-        masterPlay.innerHTML = playIcon;
-        const fpMasterPlay = document.getElementById('fp-masterPlay');
-        if (fpMasterPlay) fpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black; margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
-        const dpMasterPlay = document.getElementById('dp-masterPlay');
-        if (dpMasterPlay) dpMasterPlay.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
+        pmSetPlayIcon(false);
     }
 }
 
@@ -316,38 +257,23 @@ function prevTrack() {
 
 function togglePlay() {
     if(!audio.src) return;
-    const fpPlayIcon = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black; margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
-    const fpPauseIcon = '<svg viewBox="0 0 24 24" style="width:35px; height:35px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-    const dpPlayIcon = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black; margin-left:3px;"><path d="M8 5v14l11-7z"/></svg>';
-    const dpPauseIcon = '<svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-    const fpMasterPlay = document.getElementById('fp-masterPlay');
-    const dpMasterPlay = document.getElementById('dp-masterPlay');
-
     if(audio.paused) {
         // Construit/reprend le graphe audio partagé (égaliseur + visualiseur) ici : un clic sur play est
         // un geste utilisateur valide pour démarrer un AudioContext, et c'est le point d'entrée le plus
         // fiable puisqu'une lecture va de toute façon démarrer juste après.
         resumeAudioGraph();
         audio.play();
-        masterPlay.innerHTML = pauseIcon;
-        if (fpMasterPlay) fpMasterPlay.innerHTML = fpPauseIcon;
-        if (dpMasterPlay) dpMasterPlay.innerHTML = dpPauseIcon;
+        pmSetPlayIcon(true);
     }
     else {
         audio.pause();
-        masterPlay.innerHTML = playIcon;
-        if (fpMasterPlay) fpMasterPlay.innerHTML = fpPlayIcon;
-        if (dpMasterPlay) dpMasterPlay.innerHTML = dpPlayIcon;
+        pmSetPlayIcon(false);
     }
 }
 
 function toggleShuffle() {
     isShuffle = !isShuffle;
-    document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
-    const fpShuffleBtn = document.getElementById('fp-shuffleBtn');
-    if (fpShuffleBtn) fpShuffleBtn.classList.toggle('active', isShuffle);
-    const dpShuffleBtn = document.getElementById('dp-shuffleBtn');
-    if (dpShuffleBtn) dpShuffleBtn.classList.toggle('active', isShuffle);
+    pmEach('shuffle', el => el.classList.toggle('active', isShuffle));
 
     if (queue.length > 0) {
         const currentTrack = queue[currentIndex];
@@ -361,24 +287,13 @@ function toggleShuffle() {
 function toggleLoop() {
     loopMode = (loopMode + 1) % 3;
     const isActive = loopMode > 0;
-    document.getElementById('loopBtn').classList.toggle('active', isActive);
-    const fpLoopBtn = document.getElementById('fp-loopBtn');
-    if (fpLoopBtn) fpLoopBtn.classList.toggle('active', isActive);
-    const dpLoopBtn = document.getElementById('dp-loopBtn');
-    if (dpLoopBtn) dpLoopBtn.classList.toggle('active', isActive);
-
-    const loopInd = document.getElementById('loop-ind');
-    if (loopInd) loopInd.style.display = (loopMode === 2) ? 'flex' : 'none';
-    const fpLoopInd = document.getElementById('fp-loop-ind');
-    if (fpLoopInd) {
-        fpLoopInd.style.display = isActive ? 'block' : 'none';
-        fpLoopInd.style.background = (loopMode === 2) ? 'var(--primary)' : 'white';
-    }
-    const dpLoopInd = document.getElementById('dp-loop-ind');
-    if (dpLoopInd) {
-        dpLoopInd.style.display = isActive ? 'block' : 'none';
-        dpLoopInd.style.background = (loopMode === 2) ? 'var(--primary)' : 'white';
-    }
+    pmEach('loop', el => el.classList.toggle('active', isActive));
+    // La pastille "1" ne concerne que la boucle sur un seul titre. Le plein ecran et
+    // le grand lecteur affichaient a la place un point de couleur, qui ne distinguait
+    // pas "boucler la file" de "boucler ce titre" -- les trois surfaces partagent
+    // maintenant la meme pastille, l'etat "boucle active" restant porte par
+    // .control-btn.active sur le bouton lui-meme.
+    pmEach('loop-ind', el => { el.hidden = loopMode !== 2; });
 }
 
 function shuffleArray(arr) {
@@ -399,7 +314,7 @@ function shuffleArray(arr) {
 // de lecture entre deux mouvements de souris et clignotait.
 let scrubbing = false;
 
-function attachSeekHandlers(areaEl, barEl, timeLabelId) {
+function attachSeekHandlers(areaEl) {
     if (!areaEl) return;
 
     const ratioFromEvent = (e) => {
@@ -411,10 +326,13 @@ function attachSeekHandlers(areaEl, barEl, timeLabelId) {
         return rect.width ? (x - rect.left) / rect.width : 0;
     };
 
+    // L'apercu est pousse sur TOUTES les surfaces, pas seulement celle qu'on
+    // manipule : `scrubbing` gele audio.ontimeupdate pour tout le monde, donc
+    // avant, le lecteur plein ecran restait fige pendant qu'on scrubait la
+    // mini-barre, puis sautait d'un coup au relachement.
     const preview = (ratio) => {
-        if (barEl) barEl.style.width = (ratio * 100) + '%';
-        const label = timeLabelId ? document.getElementById(timeLabelId) : null;
-        if (label && audio.duration) label.innerText = formatTime(ratio * audio.duration);
+        pmEach('progress-bar', el => { el.style.width = (ratio * 100) + '%'; });
+        if (audio.duration) pmText('curr', formatTime(ratio * audio.duration));
     };
 
     const commit = (e) => {
@@ -460,7 +378,7 @@ function attachSeekHandlers(areaEl, barEl, timeLabelId) {
     });
 }
 
-attachSeekHandlers(progressArea, progressBar, 'curr-time');
-attachSeekHandlers(document.getElementById('fp-progress-area'), document.getElementById('fp-progress-bar'), 'fp-curr-time');
-attachSeekHandlers(document.getElementById('dp-progress-area'), document.getElementById('dp-progress-bar'), 'dp-curr-time');
+// Toutes les barres rendues par pm_progress() (templates/player-parts.php), quelle
+// que soit leur surface -- une nouvelle surface est branchee sans toucher a ce fichier.
+pmEach('progress-area', attachSeekHandlers);
 
