@@ -8,6 +8,7 @@
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'theme' }" @click="activeTab = 'theme'"><?php echo t('admin_section_theme'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'media' }" @click="activeTab = 'media'"><?php echo t('admin_section_media'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'genres' }" @click="activeTab = 'genres'"><?php echo t('admin_section_genres'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'albums' }" @click="activeTab = 'albums'"><?php echo t('admin_section_albums'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'"><?php echo t('admin_section_users'); ?></button>
         </div>
 
@@ -127,10 +128,120 @@
                 </script>
             </div>
 
-            <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users'" x-cloak>
+            <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users' && activeTab !== 'albums'" x-cloak>
                 <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
             </div>
         </form>
+
+
+        <?php /* Onglet Albums : hors du <form> des reglages, comme l'onglet Utilisateurs --
+                 il a ses propres envois (api/albums.php) et ne doit pas etre emporte par
+                 l'enregistrement global des parametres. */ ?>
+        <div x-show="activeTab === 'albums'" x-cloak x-data="adminAlbumsPanel">
+            <p style="color:var(--text-muted); font-size:0.9em; margin-top:0;"><?php echo t('admin_albums_intro'); ?></p>
+
+            <div class="adm-albums-head">
+                <span class="settings-section-label" style="margin:0;"><?php echo t('admin_section_albums'); ?></span>
+                <button type="button" class="btn btn-outline btn-sm" @click="newAlbum()">
+                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-plus"></use></svg>
+                    <?php echo t('admin_album_new'); ?>
+                </button>
+            </div>
+
+            <template x-if="loading">
+                <div class="adm-album-list">
+                    <div class="skeleton search-skeleton-line"></div>
+                    <div class="skeleton search-skeleton-line"></div>
+                </div>
+            </template>
+
+            <template x-if="!loading && albums.length === 0">
+                <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('admin_albums_empty'); ?></p>
+            </template>
+
+            <div class="adm-album-list" x-show="!loading && albums.length > 0">
+                <template x-for="a in albums" :key="a.id">
+                    <div class="adm-genre-item">
+                        <img class="adm-album-cover" :src="'covers/' + (a.cover || 'default.png')" alt="" loading="lazy" onerror="this.src='covers/default.png'">
+                        <span class="adm-genre-name">
+                            <span x-text="a.name"></span>
+                            <small class="adm-album-sub" x-text="[a.artist, a.year].filter(Boolean).join(' \u00b7 ')"></small>
+                        </span>
+                        <span class="adm-genre-count tabular" x-text="T('tracks_count_label', { n: a.track_count })"></span>
+                        <span class="adm-genre-actions">
+                            <button type="button" class="track-row-btn" :title="T('btn_save')" @click="edit(a)">
+                                <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-edit"></use></svg>
+                            </button>
+                            <button type="button" class="track-row-btn danger" :title="T('btn_delete_short')" @click="remove(a)">
+                                <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-trash"></use></svg>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </div>
+
+            <?php // Formulaire d'edition/creation, ouvert au clic sur un album. ?>
+            <?php /* x-if et non x-show : avec x-show le formulaire reste dans le DOM et
+                     ses x-model="editing.*" sont evalues alors qu'`editing` vaut null --
+                     Alpine levait une TypeError a chaque rendu de la page. */ ?>
+            <template x-if="editing">
+            <form class="adm-album-form" enctype="multipart/form-data" @submit.prevent="save($el)">
+                <label><?php echo t('admin_album_name'); ?></label>
+                <input type="text" x-model="editing.name" required>
+                <label><?php echo t('admin_album_artist'); ?></label>
+                <input type="text" x-model="editing.artist">
+                <label><?php echo t('admin_album_year'); ?></label>
+                <input type="number" x-model="editing.year" min="1900" max="2100" placeholder="2003">
+                <label><?php echo t('admin_album_cover'); ?></label>
+                <input type="file" name="cover" accept="image/*">
+                <div style="display:flex; gap:12px; margin-top:16px;">
+                    <button type="button" class="btn btn-outline" style="flex:1; justify-content:center;" @click="editing = null"><?php echo t('btn_cancel'); ?></button>
+                    <button type="submit" class="btn btn-primary" style="flex:1; justify-content:center;" :disabled="saving"><?php echo t('btn_save'); ?></button>
+                </div>
+            </form>
+            </template>
+
+            <hr class="adm-album-sep">
+
+            <span class="settings-section-label"><?php echo t('admin_albums_assign_title'); ?></span>
+
+            <div class="adm-assign-filters">
+                <input type="search" x-model="trackFilter" placeholder="<?php echo htmlspecialchars(t('admin_albums_filter')); ?>">
+                <label class="adm-assign-checkbox">
+                    <input type="checkbox" x-model="unassignedOnly">
+                    <span><?php echo t('admin_albums_unassigned'); ?></span>
+                </label>
+            </div>
+
+            <div class="adm-assign-list">
+                <?php /* La cle inclut l'album, pas seulement l'id : x-for reutilise les
+                         noeuds dont la cle n'a pas change, et les objets de piste viennent
+                         d'ALL_MUSIC_DATA, un tableau global non reactif -- muter t.album
+                         ne notifie donc personne. Sans l'album dans la cle, une piste
+                         fraichement rattachee gardait son ancien libelle a l'ecran alors
+                         que la donnee etait a jour (constate en vrai). */ ?>
+                <template x-for="t in filteredTracks" :key="t.id + ':' + (t.album || '')">
+                    <label class="adm-assign-row">
+                        <input type="checkbox" :value="t.id" x-model="selected[t.id]">
+                        <span class="adm-assign-title" x-text="t.title"></span>
+                        <span class="adm-assign-meta" x-text="[t.artist, t.album].filter(Boolean).join(' \u00b7 ')"></span>
+                    </label>
+                </template>
+            </div>
+
+            <div class="adm-assign-actions">
+                <span class="adm-assign-count tabular" x-text="T('selected_count', { n: selectedIds.length })"></span>
+                <select x-model="targetAlbumId">
+                    <option value="">— <?php echo t('admin_albums_target_existing'); ?> —</option>
+                    <template x-for="a in albums" :key="a.id">
+                        <option :value="a.id" x-text="a.name"></option>
+                    </template>
+                </select>
+                <input type="text" x-model="targetNewName" placeholder="<?php echo htmlspecialchars(t('admin_albums_target_new')); ?>" :disabled="!!targetAlbumId">
+                <button type="button" class="btn btn-primary" :disabled="assigning || selectedIds.length === 0" @click="assign(false)"><?php echo t('admin_albums_assign_btn'); ?></button>
+                <button type="button" class="btn btn-outline" :disabled="assigning || selectedIds.length === 0" @click="assign(true)"><?php echo t('admin_albums_detach_btn'); ?></button>
+            </div>
+        </div>
 
         <div x-show="activeTab === 'users'" x-cloak>
             <div class="admin-user-table-wrap">

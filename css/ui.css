@@ -635,3 +635,26 @@ kbd {
    tous les cas : sans ca, la ligne survolee se decalerait horizontalement. */
 .sort-menu-check { opacity: 0; flex-shrink: 0; }
 .sort-menu-item.active .sort-menu-check { opacity: 1; }
+
+
+/* --- PANEL ADMIN > ALBUMS --------------------------------------------------- */
+.adm-albums-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin: var(--space-6) 0 var(--space-3); }
+.adm-album-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.adm-album-cover { width: 36px; height: 36px; border-radius: var(--radius-xs); object-fit: cover; flex-shrink: 0; }
+.adm-album-sub { display: block; color: var(--text-muted); font-size: 0.8em; font-weight: 400; }
+.adm-album-form { margin-top: var(--space-5); padding: var(--space-5); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--bg-panel); }
+.adm-album-sep { margin: var(--space-8) 0 var(--space-5); border: none; border-top: 1px solid var(--hairline); }
+
+.adm-assign-filters { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.adm-assign-filters input[type="search"] { flex: 1 1 240px; margin: 0; }
+.adm-assign-checkbox { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; cursor: pointer; }
+/* Hauteur bornee : la selection se fait au filtre, pas au defilement -- une liste
+   sans limite pousserait les boutons d'action hors de l'ecran. */
+.adm-assign-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: var(--space-2); }
+.adm-assign-row { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.9fr); align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; }
+.adm-assign-row:hover { background: var(--tint-1); }
+.adm-assign-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-assign-meta { color: var(--text-muted); font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.adm-assign-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); }
+.adm-assign-actions select, .adm-assign-actions input[type="text"] { margin: 0; width: auto; min-width: 180px; }
+.adm-assign-count { color: var(--text-muted); font-size: var(--text-sm); }
