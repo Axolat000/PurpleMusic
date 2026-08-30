@@ -140,6 +140,7 @@ $actionDomains = [
     'bio' => ['artist_bio'],
     'admin' => ['save_admin_settings', 'delete_genre', 'genre_manage', 'toggle_admin', 'delete_user', 'trigger_update', 'check_update'],
     'lyrics' => ['get_lyrics'],
+    'search' => ['search'],
 ];
 
 foreach ($actionDomains as $domainFile => $actions) {

@@ -218,70 +218,99 @@ function showHistoryPage(pushState = true) {
 }
 
 // -----------------------------------------------------------------------------
-// RECHERCHE CATÉGORISÉE
+// RECHERCHE CATÉGORISÉE (côté serveur, paginée)
 // -----------------------------------------------------------------------------
-// Un seul passage sur la bibliothèque produit les trois catégories : refiltrer
-// séparément pour les artistes, les albums puis les titres traverserait la même
-// liste trois fois pour un résultat identique.
-function computeSearchResults(term) {
-    const q = term.trim().toLowerCase();
-    const tracks = [];
-    const artistMap = new Map();
-    const albumMap = new Map();
-    if (!q || typeof ALL_MUSIC_DATA === 'undefined') return { tracks, artists: [], albums: [] };
+// La recherche parcourait ALL_MUSIC_DATA, c'est-à-dire la bibliothèque entière
+// sérialisée dans le HTML de chaque chargement de page : invisible sur une petite
+// instance, intenable dès qu'elle grossit — et chaque frappe reparcourait tout le
+// tableau. Elle passe désormais par api.php?action=search (voir api/search.php),
+// qui ne renvoie qu'une page de résultats.
+//
+// Il n'existe donc plus qu'UNE implémentation des règles de recherche, côté
+// serveur. Pas de second jeu de règles côté client susceptible de diverger — le
+// piège déjà rencontré avec le découpage des genres, implémenté des deux côtés.
+//
+// Conséquence assumée : sans réseau, la recherche ne répond plus. Chercher un
+// morceau qu'on ne pourrait de toute façon pas écouter (le flux audio vient du
+// même serveur) n'avait pas d'intérêt propre.
+const SEARCH_PAGE_SIZE = 30;
+let SEARCH_STATE = { term: '', offset: 0, total: 0, tracks: [], artists: [], albums: [], reqId: 0, loading: false, failed: false };
 
-    ALL_MUSIC_DATA.forEach(t => {
-        const title = (t.title || '').toLowerCase();
-        const artist = (t.artist || '').toLowerCase();
-        const album = (t.album || '').toLowerCase();
-        const genre = (t.genre || '').toLowerCase();
-
-        // Le titre/artiste étaient les deux seuls champs cherchés : l'album et le
-        // genre sont désormais inclus, ce qui permet de retrouver "tout le phonk"
-        // ou un album dont on ne connaît aucun titre.
-        if (title.includes(q) || artist.includes(q) || album.includes(q) || genre.includes(q)) tracks.push(t);
-
-        splitArtistNames(t.artist).forEach(name => {
-            if (!name.toLowerCase().includes(q)) return;
-            const key = name.toLowerCase();
-            if (!artistMap.has(key)) artistMap.set(key, { name, count: 0, cover: t.cover, topId: t.id });
-            const e = artistMap.get(key);
-            e.count++;
-            if (t.id > e.topId) { e.topId = t.id; e.cover = t.cover; }
-        });
-
-        const rawAlbum = (t.album || '').trim();
-        if (rawAlbum && album.includes(q)) {
-            const key = album;
-            if (!albumMap.has(key)) albumMap.set(key, { name: rawAlbum, count: 0, cover: t.cover, topId: t.id });
-            const e = albumMap.get(key);
-            e.count++;
-            if (t.id > e.topId) { e.topId = t.id; e.cover = t.cover; }
-        }
-    });
-
-    // Le tri des titres suit le mode choisi dans la barre supérieure quand il est
-    // disponible, pour que la recherche ne réordonne pas silencieusement autrement
-    // que le reste de la bibliothèque.
-    const sortSelect = document.getElementById('sortSelect');
-    tracks.sort(compareTracksBySort(sortSelect ? sortSelect.value : 'recommended'));
-
-    return {
-        tracks,
-        artists: [...artistMap.values()].sort((a, b) => b.count - a.count).slice(0, 12),
-        albums: [...albumMap.values()].sort((a, b) => b.count - a.count).slice(0, 12),
-    };
+// Récupère UNE page de résultats. Renvoie null si une frappe plus récente est
+// partie entre-temps : sans ce garde-fou, une réponse lente pour « dra » écrase
+// l'affichage de « drake » tapé juste après (course classique de la recherche au
+// fil de la frappe, d'autant plus probable que les requêtes larges sont lentes).
+async function fetchSearchPage(term, offset) {
+    const reqId = ++SEARCH_STATE.reqId;
+    const params = new URLSearchParams({ action: 'search', q: term, limit: String(SEARCH_PAGE_SIZE), offset: String(offset) });
+    const res = await fetch('api.php?' + params.toString());
+    const data = await res.json();
+    if (reqId !== SEARCH_STATE.reqId) return null;
+    if (!data || data.status !== 'success') throw new Error('search failed');
+    return data;
 }
 
+async function loadSearchPage(append) {
+    const term = SEARCH_STATE.term;
+    SEARCH_STATE.loading = true;
+    SEARCH_STATE.failed = false;
+    paintSearchResults();
+    try {
+        const data = await fetchSearchPage(term, append ? SEARCH_STATE.offset : 0);
+        if (data === null) return; // devancée par une frappe plus récente
+        SEARCH_STATE.tracks = append ? SEARCH_STATE.tracks.concat(data.tracks.items) : data.tracks.items;
+        SEARCH_STATE.offset = SEARCH_STATE.tracks.length;
+        SEARCH_STATE.total = data.tracks.total;
+        SEARCH_STATE.artists = data.artists;
+        SEARCH_STATE.albums = data.albums;
+    } catch (e) {
+        SEARCH_STATE.failed = true;
+        if (!append) { SEARCH_STATE.tracks = []; SEARCH_STATE.artists = []; SEARCH_STATE.albums = []; }
+    } finally {
+        SEARCH_STATE.loading = false;
+        paintSearchResults();
+    }
+}
+
+// Point d'entrée appelé à chaque frappe (onSearchInput) et à l'effacement du
+// champ. Ne relance pas de requête si le terme n'a pas changé : la frappe est
+// déjà débouncée en amont, mais d'autres chemins (retour de navigation, clic sur
+// une recherche récente) réappellent cette fonction avec le même terme.
 function renderSearchResults() {
     const container = document.getElementById('search-results');
     if (!container || !window.Alpine) return;
-    const term = Alpine.store('ui').searchTerm;
-    if (!term.trim()) { container.innerHTML = ''; return; }
+    const term = Alpine.store('ui').searchTerm.trim();
 
-    const { tracks, artists, albums } = computeSearchResults(term);
+    if (!term) {
+        SEARCH_STATE.term = '';
+        SEARCH_STATE.tracks = []; SEARCH_STATE.artists = []; SEARCH_STATE.albums = [];
+        SEARCH_STATE.total = 0; SEARCH_STATE.offset = 0; SEARCH_STATE.failed = false;
+        container.innerHTML = '';
+        return;
+    }
+    if (term === SEARCH_STATE.term && !SEARCH_STATE.failed && SEARCH_STATE.tracks.length) { paintSearchResults(); return; }
+
+    SEARCH_STATE.term = term;
+    SEARCH_STATE.offset = 0;
+    loadSearchPage(false);
+}
+
+function paintSearchResults() {
+    const container = document.getElementById('search-results');
+    if (!container) return;
+    const { tracks, artists, albums, loading, failed, total } = SEARCH_STATE;
     container.innerHTML = '';
 
+    // Premier chargement : squelettes plutôt qu'un écran vide, comme les rangées
+    // d'accueil. Sur une page suivante, la liste déjà affichée reste en place.
+    if (loading && !tracks.length) {
+        container.innerHTML = `<div class="search-skeletons">${'<div class="search-skeleton-line skeleton"></div>'.repeat(6)}</div>`;
+        return;
+    }
+    if (failed && !tracks.length) {
+        container.innerHTML = emptyStateHTML('ico-wifi-off', T('search_failed_title'), T('search_failed_hint'));
+        return;
+    }
     if (!tracks.length && !artists.length && !albums.length) {
         container.innerHTML = emptyStateHTML('ico-search', T('search_no_results_title'), T('search_no_results_hint'));
         return;
@@ -339,17 +368,26 @@ function renderSearchResults() {
     if (tracks.length) {
         const sec = document.createElement('section');
         sec.className = 'search-section';
-        sec.innerHTML = `<h3 class="home-row-title">${escapeHTML(T('search_cat_tracks'))}</h3>`;
+        // Le total annoncé est celui du serveur, pas le nombre de lignes affichées :
+        // l'ancienne version tronquait à 50 sans jamais dire qu'il y avait une suite.
+        sec.innerHTML = `<h3 class="home-row-title">${escapeHTML(T('search_cat_tracks'))} <span class="search-count">${T('tracks_count_label', { n: total })}</span></h3>`;
         const list = document.createElement('div');
         list.className = 'track-list';
-        // Bornée à 50 : au-delà, la recherche devient une deuxième bibliothèque
-        // paginée alors que l'objectif est de retrouver un morceau précis.
-        const shown = tracks.slice(0, 50);
         // La lecture depuis les résultats doit enchaîner sur les résultats, pas sur
         // la bibliothèque complète : on aligne CURRENT_VIEW_DATA dessus.
-        CURRENT_VIEW_DATA = shown;
-        shown.forEach(t => list.appendChild(buildTrackRowElement(t, () => playTrackById(t.id))));
+        CURRENT_VIEW_DATA = tracks;
+        tracks.forEach(t => list.appendChild(buildTrackRowElement(t, () => playTrackById(t.id))));
         sec.appendChild(list);
+
+        if (tracks.length < total) {
+            const more = document.createElement('button');
+            more.type = 'button';
+            more.className = 'btn search-load-more';
+            more.disabled = SEARCH_STATE.loading;
+            more.textContent = SEARCH_STATE.loading ? T('search_loading') : T('search_load_more');
+            more.onclick = () => loadSearchPage(true);
+            sec.appendChild(more);
+        }
         container.appendChild(sec);
         list.querySelectorAll('.marquee-wrap').forEach(applyMarqueeIfOverflowing);
     }

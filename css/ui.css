@@ -589,3 +589,14 @@ kbd {
     border: 0;
 }
 .tabular { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+
+
+/* --- RESULTATS DE RECHERCHE (pagines cote serveur) -------------------------- */
+/* Squelettes du premier chargement : la recherche fait maintenant un aller-retour
+   reseau, l'ecran ne doit pas rester vide pendant ce temps. Meme animation que les
+   squelettes des rangees d'accueil (.skeleton). */
+.search-skeletons { display: flex; flex-direction: column; gap: var(--space-2); }
+.search-skeleton-line { height: 56px; border-radius: var(--radius-md); }
+/* Nombre TOTAL de correspondances cote serveur, pas le nombre de lignes affichees. */
+.search-count { color: var(--text-muted); font-size: 0.65em; font-weight: 600; letter-spacing: 0.5px; margin-left: var(--space-2); text-transform: uppercase; }
+.search-load-more { margin-top: var(--space-4); width: 100%; justify-content: center; }
