@@ -181,6 +181,18 @@
         </div>
 
         <div x-show="activeTab === 'account'" x-cloak>
+            <?php /* Profil d'ecoute public. Desactive par defaut, et l'activation ne peut
+                     venir que de son proprietaire : aucun endpoint ne permet a un
+                     administrateur de rendre public le profil de quelqu'un d'autre. */ ?>
+            <div class="eq-enable-row">
+                <span class="settings-section-label" style="margin:0;"><?php echo t('profiles_setting_label'); ?></span>
+                <label class="switch-toggle">
+                    <input type="checkbox" :checked="$store.ui.profilePublic" @change="setProfilePublic($event.target.checked)">
+                    <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                </label>
+            </div>
+            <p style="font-size:0.8em; color:var(--text-muted); margin:-12px 0 20px;"><?php echo t('profiles_setting_hint'); ?></p>
+
             <p class="settings-section-label"><?php echo t('settings_change_password_title'); ?></p>
             <form @submit.prevent="submitPasswordChange()">
                 <input type="password" placeholder="<?php echo htmlspecialchars(t('settings_current_password_placeholder')); ?>" x-model="pwCurrent" autocomplete="current-password" required>

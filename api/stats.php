@@ -186,4 +186,114 @@ switch ($action) {
             'tracks' => $rows,
         ], JSON_UNESCAPED_UNICODE);
         break;
+
+    // --- PROFILS D'ECOUTE PUBLICS --------------------------------------------
+    //
+    // Ce que quelqu'un ecoute est une donnee personnelle. Elle n'est visible que
+    // si son proprietaire a explicitement active son profil (users.profile_public,
+    // a 0 par defaut), et l'activation ne peut venir que de lui : aucun endpoint
+    // ne permet a un administrateur de rendre public le profil d'un autre.
+    //
+    // Ce qui est expose : le nom du compte, ses titres, artistes et genres les
+    // plus ecoutes sur 30 jours, et des totaux. Ce qui ne l'est JAMAIS : la
+    // chronologie precise (qui a ecoute quoi et quand), qui permettrait de
+    // reconstituer les habitudes de quelqu'un heure par heure.
+
+    case 'profile_visibility':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+        $enabled = !empty($_POST['enabled']) ? 1 : 0;
+        // Toujours sur SOI : jamais de user_id en parametre, meme pour un admin.
+        $db->prepare("UPDATE users SET profile_public = ? WHERE id = ?")->execute([$enabled, (int) $auth['id']]);
+        echo json_encode(['status' => 'success', 'enabled' => (bool) $enabled]);
+        break;
+
+    case 'public_profiles':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $MIN_SECONDS = 10;
+        $since = time() - (30 * 86400);
+        $stmt = $db->prepare(
+            "SELECT u.id, u.username,
+                    (SELECT COUNT(*) FROM listen_events le
+                      WHERE le.user_id = u.id AND le.listened_seconds >= ? AND le.created_at >= ?) AS plays
+             FROM users u
+             WHERE u.profile_public = 1
+             ORDER BY plays DESC, u.username COLLATE NOCASE ASC"
+        );
+        $stmt->execute([$MIN_SECONDS, $since]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) { $r['id'] = (int) $r['id']; $r['plays'] = (int) $r['plays']; }
+        unset($r);
+
+        echo json_encode(['status' => 'success', 'profiles' => $rows], JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'public_profile':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $uid = filter_var($_GET['u'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$uid || $uid <= 0) { echo json_encode(["status" => "error", "message" => "Profil invalide."]); exit; }
+
+        // La visibilite est verifiee ICI et pas seulement a la liste : quelqu'un
+        // qui aurait note un identifiant pendant que le profil etait public ne doit
+        // plus rien obtenir une fois qu'il a ete repasse en prive.
+        $u = $db->prepare("SELECT id, username FROM users WHERE id = ? AND profile_public = 1");
+        $u->execute([$uid]);
+        $user = $u->fetch(PDO::FETCH_ASSOC);
+        if (!$user) { echo json_encode(["status" => "error", "message" => "Profil indisponible."]); exit; }
+
+        $MIN_SECONDS = 10;
+        $since = time() - (30 * 86400);
+        $where = "le.user_id = ? AND le.listened_seconds >= ? AND le.created_at >= ?";
+        $params = [$uid, $MIN_SECONDS, $since];
+
+        $totals = $db->prepare(
+            "SELECT COUNT(*) AS plays, COALESCE(SUM(le.listened_seconds), 0) AS seconds,
+                    COUNT(DISTINCT le.track_id) AS distinct_tracks
+             FROM listen_events le WHERE $where"
+        );
+        $totals->execute($params);
+        $t = $totals->fetch(PDO::FETCH_ASSOC) ?: ['plays' => 0, 'seconds' => 0, 'distinct_tracks' => 0];
+
+        $tracksStmt = $db->prepare(
+            "SELECT tr.id, tr.title, tr.artist, tr.cover, COUNT(*) AS plays
+             FROM listen_events le JOIN tracks tr ON tr.id = le.track_id
+             WHERE $where GROUP BY tr.id ORDER BY plays DESC, tr.id DESC LIMIT 10"
+        );
+        $tracksStmt->execute($params);
+        $topTracks = $tracksStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Artistes : agreges en PHP, comme partout ailleurs, parce qu'un champ
+        // artiste peut contenir plusieurs noms que SQL ne sait pas decouper.
+        $artistRows = $db->prepare(
+            "SELECT tr.artist, COUNT(*) AS plays FROM listen_events le
+             JOIN tracks tr ON tr.id = le.track_id WHERE $where GROUP BY tr.artist"
+        );
+        $artistRows->execute($params);
+        $artistTotals = [];
+        foreach ($artistRows->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            foreach (split_artist_names($row['artist']) as $name) {
+                $key = mb_strtolower($name);
+                if (!isset($artistTotals[$key])) $artistTotals[$key] = ['name' => $name, 'plays' => 0];
+                $artistTotals[$key]['plays'] += (int) $row['plays'];
+            }
+        }
+        usort($artistTotals, fn($a, $b) => $b['plays'] <=> $a['plays']);
+
+        echo json_encode([
+            'status' => 'success',
+            'user' => ['id' => (int) $user['id'], 'username' => $user['username']],
+            'totals' => [
+                'plays' => (int) $t['plays'],
+                'seconds' => (int) $t['seconds'],
+                'distinct_tracks' => (int) $t['distinct_tracks'],
+            ],
+            'top_tracks' => $topTracks,
+            'top_artists' => array_slice(array_values($artistTotals), 0, 10),
+        ], JSON_UNESCAPED_UNICODE);
+        break;
+
 }

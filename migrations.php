@@ -181,3 +181,19 @@ function purplemusic_migrate_playlist_share(PDO $db): void
     $db->exec("ALTER TABLE playlists ADD COLUMN share_token TEXT DEFAULT NULL");
     $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_playlists_share ON playlists(share_token)");
 }
+
+/**
+ * Profil d'écoute public, par utilisateur.
+ *
+ * Désactivé par défaut, et ce n'est pas un détail : ce que quelqu'un écoute est
+ * une donnée personnelle. Elle ne devient visible que si son propriétaire
+ * l'active, jamais par défaut ni par décision d'un administrateur.
+ */
+function purplemusic_migrate_public_profile(PDO $db): void
+{
+    $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($cols as $c) {
+        if ($c['name'] === 'profile_public') return;
+    }
+    $db->exec("ALTER TABLE users ADD COLUMN profile_public INTEGER DEFAULT 0");
+}

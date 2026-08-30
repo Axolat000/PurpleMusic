@@ -110,6 +110,7 @@ try {
     purplemusic_migrate_waveform($db);
     purplemusic_migrate_admin_log($db);
     purplemusic_migrate_playlist_share($db);
+    purplemusic_migrate_public_profile($db);
 
 } catch (Exception $e) { die(json_encode(["status" => "error", "message" => "Erreur BDD"])); }
 
@@ -144,7 +145,7 @@ $actionDomains = [
     'tracks' => ['list', 'increment_play', 'stream', 'cover', 'upload', 'edit_track', 'delete_track'],
     'playlists' => ['playlists', 'playlist_create', 'playlist_mod', 'delete_playlist', 'playlist_save', 'get_playlist_tracks', 'playlist_reorder', 'playlist_toggle_visibility', 'playlist_share', 'playlist_generate'],
     'likes_recommendations' => ['report_listen', 'toggle_like', 'my_likes', 'recommendations'],
-    'stats' => ['stats', 'server_top'],
+    'stats' => ['stats', 'server_top', 'profile_visibility', 'public_profiles', 'public_profile'],
     'bio' => ['artist_bio'],
     'admin' => ['save_admin_settings', 'delete_genre', 'genre_manage', 'toggle_admin', 'delete_user', 'trigger_update', 'check_update', 'admin_log'],
     'lyrics' => ['get_lyrics'],

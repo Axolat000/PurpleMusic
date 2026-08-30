@@ -9,6 +9,7 @@
         const IS_ADMIN = <?php echo json_encode($is_admin); ?>;
         const CSRF_TOKEN = <?php echo json_encode($csrf_token); ?>;
         const TERMS_ENABLED = <?php echo json_encode($terms_enabled); ?>;
+        const PROFILE_PUBLIC = <?php echo json_encode($profile_public ?? false); ?>;
 
         <?php // Modes de tri de la bibliotheque. Emis ici plutot qu'en dur cote JS : les
               // libelles sont traduits par PHP, et la liste sert a la fois au menu overlay

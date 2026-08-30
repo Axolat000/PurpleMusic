@@ -118,14 +118,16 @@ async function loadStats(days) {
 
     // Les deux requêtes partent ensemble : le classement du serveur ne dépend pas
     // de la période choisie, l'enchaîner ferait attendre l'affichage pour rien.
-    let data, serverTop;
+    let data, serverTop, publicProfiles;
     try {
-        const [res, top] = await Promise.all([
+        const [res, top, profiles] = await Promise.all([
             fetch('api.php?action=stats&days=' + encodeURIComponent(days)),
             fetchServerTop(),
+            fetchPublicProfiles(),
         ]);
         data = await res.json();
         serverTop = top;
+        publicProfiles = profiles;
     } catch (e) {
         if (myToken !== _statsToken) return;
         body.innerHTML = emptyStateHTML('ico-stats', T('err_action_failed'), '');
@@ -137,7 +139,8 @@ async function loadStats(days) {
         // Pas encore d'écoute personnelle : on montre quand même le classement du
         // serveur sous le message, plutôt qu'une page entièrement vide.
         body.innerHTML = emptyStateHTML('ico-stats', T('stats_empty_title'), T('stats_empty_hint'))
-            + serverTopSectionHTML(serverTop);
+            + serverTopSectionHTML(serverTop)
+            + publicProfilesSectionHTML(publicProfiles);
         attachRankRowHandlers(body);
         return;
     }
@@ -195,6 +198,7 @@ async function loadStats(days) {
     }
 
     html += serverTopSectionHTML(serverTop);
+    html += publicProfilesSectionHTML(publicProfiles);
 
     body.innerHTML = html;
     attachRankRowHandlers(body);
@@ -204,6 +208,9 @@ async function loadStats(days) {
 // parce que le cas "aucune écoute personnelle" rend lui aussi des lignes
 // cliquables (celles du classement du serveur).
 function attachRankRowHandlers(body) {
+    body.querySelectorAll('.profile-card').forEach(card => {
+        card.onclick = () => openPublicProfile(card.dataset.profile);
+    });
     body.querySelectorAll('.rank-row').forEach(row => {
         row.onclick = () => {
             const kind = row.dataset.kind;
@@ -223,4 +230,87 @@ function attachRankRowHandlers(body) {
 function showStatsPage(pushState = true) {
     showSection('stats-page', pushState);
     if (window.Alpine) loadStats(Alpine.store('ui').statsRange);
+}
+
+// =============================================================================
+// PROFILS D'ÉCOUTE PUBLICS
+// =============================================================================
+// Ce que quelqu'un écoute est une donnée personnelle : un profil n'apparaît ici
+// que si son propriétaire l'a explicitement rendu public (réglage dans
+// Paramètres > Compte, désactivé par défaut). Le serveur revérifie cette
+// visibilité à chaque lecture, pas seulement au moment de dresser la liste —
+// quelqu'un qui aurait noté un identifiant pendant que le profil était public
+// n'obtient plus rien une fois qu'il est repassé en privé.
+
+let _publicProfilesCache = null;
+
+async function fetchPublicProfiles() {
+    if (_publicProfilesCache) return _publicProfilesCache;
+    try {
+        const res = await fetch('api.php?action=public_profiles');
+        const data = await res.json();
+        _publicProfilesCache = (data && data.status === 'success') ? data.profiles : [];
+    } catch (e) {
+        _publicProfilesCache = [];
+    }
+    return _publicProfilesCache;
+}
+
+// Le profil de l'utilisateur courant est retiré de la liste : il a déjà toute la
+// page Statistiques pour lui, se voir proposer son propre profil serait un doublon.
+function publicProfilesSectionHTML(profiles) {
+    const others = (profiles || []).filter(p => String(p.id) !== String(CURRENT_USER_ID));
+    if (!others.length) return '';
+    return `
+        <section class="stats-section">
+            <h3 class="home-row-title">${escapeHTML(T('profiles_title'))}
+                <span class="search-count">${escapeHTML(T('profiles_sub'))}</span></h3>
+            <div class="profile-grid">
+                ${others.map(p => `
+                    <button type="button" class="profile-card" data-profile="${escapeHTML(String(p.id))}">
+                        <span class="profile-avatar" aria-hidden="true">${escapeHTML((p.username || '?').charAt(0).toUpperCase())}</span>
+                        <span class="profile-name">${escapeHTML(p.username)}</span>
+                        <span class="profile-plays">${escapeHTML(T('stats_plays_count', { n: p.plays }))}</span>
+                    </button>`).join('')}
+            </div>
+        </section>`;
+}
+
+async function openPublicProfile(userId) {
+    if (!window.Alpine) return;
+    const store = Alpine.store('ui');
+    store.publicProfile = { loading: true, user: null, totals: null, topTracks: [], topArtists: [] };
+    openModal('publicProfileModal');
+    try {
+        const res = await fetch('api.php?action=public_profile&u=' + encodeURIComponent(userId));
+        const data = await res.json();
+        if (!data || data.status !== 'success') {
+            store.publicProfile = { loading: false, error: data && data.message ? data.message : T('err_action_failed') };
+            return;
+        }
+        store.publicProfile = {
+            loading: false,
+            user: data.user,
+            totals: data.totals,
+            topTracks: data.top_tracks || [],
+            topArtists: data.top_artists || [],
+        };
+    } catch (e) {
+        store.publicProfile = { loading: false, error: T('err_action_failed') };
+    }
+}
+
+function setProfilePublic(enabled) {
+    const fd = new FormData();
+    fd.append('enabled', enabled ? '1' : '0');
+    fd.append('csrf_token', CSRF_TOKEN);
+    fetch('api.php?action=profile_visibility', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status !== 'success') { Alpine.store('ui').showToast(T('err_action_failed'), 'error'); return; }
+            Alpine.store('ui').profilePublic = data.enabled;
+            // Le cache de la liste devient faux des qu'on change sa propre visibilité.
+            _publicProfilesCache = null;
+        })
+        .catch(() => Alpine.store('ui').showToast(T('err_action_failed'), 'error'));
 }

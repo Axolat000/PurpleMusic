@@ -21,6 +21,8 @@ document.addEventListener('alpine:init', () => {
         // toucher au DOM, et impossible de le rendre autrement qu'avec un <select>.
         reverbPreset: 'off',    // ambiance de reverberation, voir js/audio-effects.js
         normalizeEnabled: false, // harmonisation du niveau sonore entre morceaux
+        profilePublic: false,    // mon profil d'ecoute est-il visible par les autres comptes
+        publicProfile: null,     // profil actuellement ouvert dans la modale
         sortValue: 'recommended',
         sortMenuOpen: false,
         sortLabel() {
@@ -256,6 +258,7 @@ document.addEventListener('alpine:init', () => {
             this.visualizerEnabled = localStorage.getItem('purpleMusicVisualizerEnabled') === '1';
             restoreReverbSetting();
             restoreNormalizeSetting();
+            this.profilePublic = (typeof PROFILE_PUBLIC !== 'undefined') && !!PROFILE_PUBLIC;
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';
             this.appDynamicThemeEnabled = localStorage.getItem('purpleMusicAppDynamicThemeEnabled') === '1';
 

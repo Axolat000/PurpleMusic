@@ -47,6 +47,85 @@
 
 
 
+
+    <?php /* Profil d'ecoute public d'un autre compte. Ce que quelqu'un ecoute est une
+             donnee personnelle : rien ne s'affiche ici tant que la personne n'a pas
+             active son profil elle-meme, et le serveur le reverifie a chaque lecture. */ ?>
+    <div id="publicProfileModal" class="modal" x-show="$store.ui.activeModal === 'publicProfileModal'" x-transition.opacity.duration.200ms x-cloak
+         @click.self="$store.ui.closeModal('publicProfileModal')" @keydown.escape.window="$store.ui.closeModal('publicProfileModal')">
+        <div class="modal-content" x-show="$store.ui.activeModal === 'publicProfileModal'" x-transition.duration.200ms style="max-width:540px;">
+            <template x-if="$store.ui.publicProfile && $store.ui.publicProfile.loading">
+                <p style="color:var(--text-muted);"><?php echo t('search_loading'); ?></p>
+            </template>
+
+            <template x-if="$store.ui.publicProfile && $store.ui.publicProfile.error">
+                <p style="color:var(--text-muted);" x-text="$store.ui.publicProfile.error"></p>
+            </template>
+
+            <template x-if="$store.ui.publicProfile && $store.ui.publicProfile.user">
+                <div>
+                    <div class="profile-head">
+                        <span class="profile-avatar profile-avatar-lg" aria-hidden="true"
+                              x-text="($store.ui.publicProfile.user.username || '?').charAt(0).toUpperCase()"></span>
+                        <div>
+                            <h2 style="margin:0;" x-text="$store.ui.publicProfile.user.username"></h2>
+                            <p class="share-sub" style="margin:4px 0 0; color:var(--text-muted); font-size:0.85em;"
+                               x-text="T('profiles_window')"></p>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid" style="margin-top:18px;">
+                        <div class="stat-tile">
+                            <div class="stat-tile-value" x-text="$store.ui.publicProfile.totals.plays"></div>
+                            <div class="stat-tile-label"><?php echo t('stats_total_plays'); ?></div>
+                        </div>
+                        <div class="stat-tile">
+                            <div class="stat-tile-value" x-text="$store.ui.publicProfile.totals.distinct_tracks"></div>
+                            <div class="stat-tile-label"><?php echo t('stats_distinct'); ?></div>
+                        </div>
+                    </div>
+
+                    <template x-if="$store.ui.publicProfile.topTracks.length">
+                        <section style="margin-top:18px;">
+                            <h3 class="home-row-title"><?php echo t('profiles_top_tracks'); ?></h3>
+                            <div class="rank-list">
+                                <template x-for="(t, i) in $store.ui.publicProfile.topTracks" :key="t.id">
+                                    <div class="rank-row" style="cursor:default;">
+                                        <span class="rank-index tabular" x-text="i + 1"></span>
+                                        <img class="rank-cover" :src="'covers/' + (t.cover || 'default.png')" alt="" loading="lazy" onerror="this.src='covers/default.png'">
+                                        <span class="rank-body">
+                                            <span class="rank-title" x-text="t.title"></span>
+                                            <span class="rank-sub" x-text="t.artist"></span>
+                                        </span>
+                                        <span class="rank-count tabular" x-text="T('stats_plays_count', { n: t.plays })"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+                    </template>
+
+                    <template x-if="$store.ui.publicProfile.topArtists.length">
+                        <section style="margin-top:18px;">
+                            <h3 class="home-row-title"><?php echo t('profiles_top_artists'); ?></h3>
+                            <div class="rank-list">
+                                <template x-for="(a, i) in $store.ui.publicProfile.topArtists" :key="a.name">
+                                    <div class="rank-row" style="cursor:default;">
+                                        <span class="rank-index tabular" x-text="i + 1"></span>
+                                        <span class="rank-body"><span class="rank-title" x-text="a.name"></span></span>
+                                        <span class="rank-count tabular" x-text="T('stats_plays_count', { n: a.plays })"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+                    </template>
+                </div>
+            </template>
+
+            <button type="button" class="btn btn-outline" style="width:100%; justify-content:center; margin-top:20px;"
+                    @click="$store.ui.closeModal('publicProfileModal')"><?php echo t('btn_close'); ?></button>
+        </div>
+    </div>
+
     <?php /* Generation d'une playlist par filtre. Le nombre de correspondances est
              annonce AVANT la creation : creer puis constater qu'on a 3000 titres (ou
              zero) est desagreable a defaire. */ ?>
