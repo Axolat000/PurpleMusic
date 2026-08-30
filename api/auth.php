@@ -95,12 +95,16 @@ switch ($action) {
         if ($targetId === false) { echo json_encode(['status' => 'error', 'message' => "Utilisateur introuvable."]); exit; }
         if ($targetId == $auth['id']) { echo json_encode(['status' => 'error', 'message' => "Impossible de te modifier toi-même."]); exit; }
 
-        $stmt = $db->prepare("SELECT id FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT id, username FROM users WHERE id = ?");
         $stmt->execute([$targetId]);
-        if (!$stmt->fetch()) { echo json_encode(['status' => 'error', 'message' => "Utilisateur introuvable."]); exit; }
+        $targetUser = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$targetUser) { echo json_encode(['status' => 'error', 'message' => "Utilisateur introuvable."]); exit; }
 
         $newPassword = bin2hex(random_bytes(6));
         $db->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([password_hash($newPassword, PASSWORD_DEFAULT), $targetId]);
+        // Le mot de passe genere n'est evidemment JAMAIS journalise : on note qu'une
+        // reinitialisation a eu lieu, sur qui et par qui, rien de plus.
+        log_admin_action($db, $auth, 'user_reset_password', $targetUser['username']);
         echo json_encode(['status' => 'success', 'password' => $newPassword]);
         break;
 

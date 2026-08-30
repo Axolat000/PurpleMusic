@@ -598,3 +598,34 @@ function resolve_album($db, $name, $artist = '', $cover = null) {
     $id = $find->fetchColumn();
     return $id === false ? null : (int) $id;
 }
+
+/**
+ * Journalise une action d'administration.
+ *
+ * Volontairement sans valeur de retour et sans exception : un journal qui casse
+ * l'action qu'il observe serait pire que pas de journal du tout. Si l'écriture
+ * échoue (base verrouillée, table absente sur une instance à moitié migrée), la
+ * suppression ou la promotion demandée doit aboutir quand même.
+ *
+ * $target : ce sur quoi on agit, lisible tel quel dans l'interface (un titre de
+ * piste, un nom de compte), pas seulement un identifiant — l'objet a souvent
+ * disparu au moment où on relit le journal.
+ */
+function log_admin_action($db, $auth, $action, $target = null, $details = null) {
+    try {
+        $stmt = $db->prepare(
+            "INSERT INTO admin_log (user_id, username, action, target, details, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([
+            $auth['id'] ?? null,
+            $auth['username'] ?? '',
+            (string) $action,
+            $target !== null ? mb_substr((string) $target, 0, 200) : null,
+            $details !== null ? mb_substr((string) $details, 0, 500) : null,
+            time(),
+        ]);
+    } catch (Exception $e) {
+        // Silencieux par conception : voir le commentaire ci-dessus.
+    }
+}

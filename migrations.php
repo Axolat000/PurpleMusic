@@ -134,3 +134,29 @@ function purplemusic_migrate_waveform(PDO $db): void
     if (!isset($have['loudness'])) $db->exec("ALTER TABLE tracks ADD COLUMN loudness REAL DEFAULT NULL");
     if (!isset($have['peak_amp'])) $db->exec("ALTER TABLE tracks ADD COLUMN peak_amp REAL DEFAULT NULL");
 }
+
+/**
+ * Journal des actions d'administration.
+ *
+ * Rien ne gardait trace de qui avait supprimé une piste, rétrogradé un compte ou
+ * fusionné deux genres. Sur une instance à plusieurs administrateurs, la seule
+ * réponse possible à « qui a supprimé ça ? » était : personne ne sait.
+ *
+ * Le nom d'utilisateur est recopié À CÔTÉ de l'identifiant, volontairement
+ * dénormalisé : supprimer un compte ne doit pas effacer la trace de ce qu'il a
+ * fait, et une jointure sur `users` rendrait justement ces lignes illisibles
+ * après coup. C'est un journal, pas une table relationnelle vivante.
+ */
+function purplemusic_migrate_admin_log(PDO $db): void
+{
+    $db->exec("CREATE TABLE IF NOT EXISTS admin_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        action TEXT NOT NULL,
+        target TEXT,
+        details TEXT,
+        created_at INTEGER NOT NULL
+    )");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_admin_log_created ON admin_log(created_at)");
+}

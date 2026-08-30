@@ -10,6 +10,7 @@
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'genres' }" @click="activeTab = 'genres'"><?php echo t('admin_section_genres'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'albums' }" @click="activeTab = 'albums'"><?php echo t('admin_section_albums'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'"><?php echo t('admin_section_users'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'log' }" @click="activeTab = 'log'"><?php echo t('admin_section_log'); ?></button>
         </div>
 
         <form method="post" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'save_admin_settings')">
@@ -128,7 +129,7 @@
                 </script>
             </div>
 
-            <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users' && activeTab !== 'albums'" x-cloak>
+            <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users' && activeTab !== 'albums' && activeTab !== 'log'" x-cloak>
                 <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
             </div>
         </form>
@@ -241,6 +242,41 @@
                 <button type="button" class="btn btn-primary" :disabled="assigning || selectedIds.length === 0" @click="assign(false)"><?php echo t('admin_albums_assign_btn'); ?></button>
                 <button type="button" class="btn btn-outline" :disabled="assigning || selectedIds.length === 0" @click="assign(true)"><?php echo t('admin_albums_detach_btn'); ?></button>
             </div>
+        </div>
+
+
+        <?php /* Historique des actions d'administration. Lecture seule : aucun bouton
+                 pour effacer le journal, un journal qu'on peut vider depuis l'interface
+                 qu'il surveille ne prouve rien. */ ?>
+        <div x-show="activeTab === 'log'" x-cloak x-data="adminLogPanel">
+            <p style="color:var(--text-muted); font-size:0.9em; margin-top:0;"><?php echo t('admin_log_intro'); ?></p>
+
+            <template x-if="loading && entries.length === 0">
+                <div class="search-skeletons">
+                    <div class="skeleton search-skeleton-line"></div>
+                    <div class="skeleton search-skeleton-line"></div>
+                    <div class="skeleton search-skeleton-line"></div>
+                </div>
+            </template>
+
+            <template x-if="!loading && entries.length === 0">
+                <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('admin_log_empty'); ?></p>
+            </template>
+
+            <div class="adm-log-list" x-show="entries.length > 0">
+                <template x-for="e in entries" :key="e.id">
+                    <div class="adm-log-row">
+                        <span class="adm-log-date tabular" x-text="formatDate(e.created_at)"></span>
+                        <span class="adm-log-who" x-text="e.username || '?'"></span>
+                        <span class="adm-log-action" x-text="actionLabel(e.action)"></span>
+                        <span class="adm-log-target" x-text="e.target || ''" :title="e.target || ''"></span>
+                        <span class="adm-log-details" x-text="e.details || ''"></span>
+                    </div>
+                </template>
+            </div>
+
+            <button type="button" class="btn btn-outline search-load-more" x-show="hasMore" x-cloak
+                    :disabled="loading" @click="load(true)"><?php echo t('search_load_more'); ?></button>
         </div>
 
         <div x-show="activeTab === 'users'" x-cloak>

@@ -222,7 +222,7 @@ switch ($action) {
         $tid = filter_var($_POST['track_id'] ?? 0, FILTER_VALIDATE_INT);
         if ($tid === false || $tid <= 0) { echo json_encode(["status" => "error", "message" => "ID de piste invalide"]); exit; }
 
-        $t = $db->prepare("SELECT uploader_id, filename, cover FROM tracks WHERE id=?"); $t->execute([$tid]); $curr = $t->fetch();
+        $t = $db->prepare("SELECT uploader_id, filename, cover, title FROM tracks WHERE id=?"); $t->execute([$tid]); $curr = $t->fetch();
         
         if($curr && ($auth['is_admin'] || $curr['uploader_id'] == $auth['id'])) {
             $safeMusicFile = basename($curr['filename']);
@@ -232,6 +232,7 @@ switch ($action) {
             if($safeCoverFile != 'default.png' && file_exists($coverDir.'/'.$safeCoverFile)) unlink($coverDir.'/'.$safeCoverFile);
             
             $db->prepare("DELETE FROM tracks WHERE id=?")->execute([$tid]);
+            log_admin_action($db, $auth, 'track_delete', $curr['title'] ?? ('#' . $tid));
             echo json_encode(["status" => "success"]);
         } else echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette musique"]);
         break;

@@ -120,6 +120,7 @@ switch ($action) {
             echo json_encode(["status" => "error", "message" => "Enregistrement impossible."]); exit;
         }
 
+        log_admin_action($db, $auth, 'album_save', $name);
         echo json_encode(['status' => 'success', 'album_id' => $id], JSON_UNESCAPED_UNICODE);
         break;
 
@@ -168,6 +169,7 @@ switch ($action) {
         $db->prepare("UPDATE tracks SET album = ?, album_id = ? WHERE id IN ($placeholders)")
            ->execute(array_merge([$albumName, $albumId], $ids));
 
+        log_admin_action($db, $auth, 'album_assign', $albumName, count($ids) . ' piste(s)');
         echo json_encode(['status' => 'success', 'assigned' => count($ids), 'album_id' => $albumId, 'album_name' => $albumName], JSON_UNESCAPED_UNICODE);
         break;
 
@@ -181,11 +183,16 @@ switch ($action) {
         $id = filter_var($_POST['album_id'] ?? 0, FILTER_VALIDATE_INT);
         if (!$id || $id <= 0) { echo json_encode(["status" => "error", "message" => "Album invalide."]); exit; }
 
+        $nameStmt = $db->prepare("SELECT name FROM albums WHERE id = ?");
+        $nameStmt->execute([$id]);
+        $deletedAlbum = $nameStmt->fetchColumn() ?: ('#' . $id);
+
         $db->beginTransaction();
         try {
             $db->prepare("UPDATE tracks SET album = NULL, album_id = NULL WHERE album_id = ?")->execute([$id]);
             $db->prepare("DELETE FROM albums WHERE id = ?")->execute([$id]);
             $db->commit();
+            log_admin_action($db, $auth, 'album_delete', $deletedAlbum);
         } catch (Exception $e) {
             $db->rollBack();
             echo json_encode(["status" => "error", "message" => "Suppression impossible."]); exit;

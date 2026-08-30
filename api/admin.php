@@ -54,6 +54,7 @@ switch ($action) {
             // un genre impossible à retrouver tel quel dans les filtres.
             register_genre($db, $_POST['adm_new_genre']);
         }
+        log_admin_action($db, $auth, 'settings_save');
         echo json_encode(['status' => 'success']);
         break;
 
@@ -69,8 +70,10 @@ switch ($action) {
         // affiché sur chaque piste — un genre fantôme, impossible à resélectionner
         // comme à nettoyer. On les bascule sur "Autre", valeur de repli déjà
         // utilisée partout ailleurs dans l'app.
-        $db->prepare("UPDATE tracks SET genre = 'Autre' WHERE genre = ?")->execute([$genreName]);
+        $moved = $db->prepare("UPDATE tracks SET genre = 'Autre' WHERE genre = ?");
+        $moved->execute([$genreName]);
         $db->prepare("DELETE FROM genres WHERE name = ?")->execute([$genreName]);
+        log_admin_action($db, $auth, 'genre_delete', $genreName, $moved->rowCount() . ' piste(s) basculee(s) sur Autre');
         echo json_encode(['status' => 'success']);
         break;
 
@@ -152,6 +155,9 @@ switch ($action) {
             $curr = $stmt->fetchColumn();
             if ($curr !== false) {
                 $db->prepare("UPDATE users SET is_admin = ? WHERE id = ?")->execute([$curr == 1 ? 0 : 1, $targetId]);
+                $nameStmt = $db->prepare("SELECT username FROM users WHERE id = ?");
+                $nameStmt->execute([$targetId]);
+                log_admin_action($db, $auth, $curr == 1 ? 'user_demote' : 'user_promote', $nameStmt->fetchColumn() ?: ('#' . $targetId));
             }
         }
         echo json_encode(['status' => 'success']);
@@ -183,7 +189,14 @@ switch ($action) {
             }
             $db->prepare("DELETE FROM playlists WHERE creator_id = ?")->execute([$targetId]);
 
+            // Le nom est lu AVANT la suppression : apres, il n'existe plus nulle part,
+            // et un journal qui ne dit que "#42" ne sert a rien six mois plus tard.
+            $nameStmt = $db->prepare("SELECT username FROM users WHERE id = ?");
+            $nameStmt->execute([$targetId]);
+            $deletedName = $nameStmt->fetchColumn() ?: ('#' . $targetId);
+
             $db->prepare("DELETE FROM users WHERE id = ?")->execute([$targetId]);
+            log_admin_action($db, $auth, 'user_delete', $deletedName, 'pistes et playlists supprimees en cascade');
         }
         echo json_encode(['status' => 'success']);
         break;
@@ -280,4 +293,39 @@ switch ($action) {
             'watchtower_configured' => (getenv('WATCHTOWER_API_URL') ?: '') !== '' && (getenv('WATCHTOWER_API_TOKEN') ?: '') !== '',
         ]);
         break;
+
+    // Journal des actions d'administration : qui a fait quoi, et quand.
+    //
+    // Lecture seule et reservee aux admins. Il n'existe volontairement AUCUN
+    // endpoint de suppression : un journal qu'on peut effacer depuis l'interface
+    // qu'il surveille ne prouve rien. Le menage se fait en base, a la main, par
+    // quelqu'un qui a deja acces au serveur.
+    case 'admin_log':
+        $auth = authenticate_api_user($db);
+        if (!$auth || !$auth['is_admin']) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+        $offset = max(0, (int) ($_GET['offset'] ?? 0));
+
+        $total = (int) $db->query("SELECT COUNT(*) FROM admin_log")->fetchColumn();
+        $stmt = $db->prepare("SELECT id, user_id, username, action, target, details, created_at
+                              FROM admin_log ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset");
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) {
+            $r['id'] = (int) $r['id'];
+            $r['created_at'] = (int) $r['created_at'];
+        }
+        unset($r);
+
+        echo json_encode([
+            'status' => 'success',
+            'entries' => $rows,
+            'total' => $total,
+            'has_more' => ($offset + count($rows)) < $total,
+        ], JSON_UNESCAPED_UNICODE);
+        break;
+
 }
