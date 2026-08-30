@@ -82,6 +82,15 @@
                                 <template x-if="$store.ui.playlistDetail.canEdit">
                                     <button class="btn btn-outline" onclick="editPlaylistFromDetail()"><?php echo t('btn_edit'); ?></button>
                                 </template>
+                                <?php /* Partage reserve au proprietaire (canEdit) : un lien de
+                                         partage engage la playlist de quelqu'un, ce n'est pas
+                                         une action de lecteur. */ ?>
+                                <template x-if="$store.ui.playlistDetail.canEdit">
+                                    <button class="btn btn-outline" @click="openPlaylistShare()">
+                                        <svg class="ico" aria-hidden="true"><use href="#ico-share"></use></svg>
+                                        <?php echo t('playlist_share'); ?>
+                                    </button>
+                                </template>
                                 <template x-if="$store.ui.playlistDetail.canEdit">
                                     <button class="btn btn-danger" @click="confirmPostAction('<?php echo t('confirm_delete_playlist'); ?>', 'delete_playlist', { playlist_id: $store.ui.playlistDetail.id })"><?php echo t('btn_delete_short'); ?></button>
                                 </template>

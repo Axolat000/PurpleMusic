@@ -45,6 +45,35 @@
         </div>
     </div>
 
+
+    <?php /* Lien de partage d'une playlist. La modale montre le lien EN CLAIR et
+             previent de sa portee : c'est le seul endroit de l'app ou l'on rend
+             quelque chose lisible sans compte, ca doit etre dit avant le clic, pas
+             apres. */ ?>
+    <div id="playlistShareModal" class="modal" x-show="$store.ui.activeModal === 'playlistShareModal'" x-transition.opacity.duration.200ms x-cloak
+         @click.self="$store.ui.closeModal('playlistShareModal')" @keydown.escape.window="$store.ui.closeModal('playlistShareModal')">
+        <div class="modal-content" x-show="$store.ui.activeModal === 'playlistShareModal'" x-transition.duration.200ms style="max-width:520px;" x-data="playlistShareForm">
+            <h2 style="margin-top:0;"><?php echo t('playlist_share_title'); ?></h2>
+            <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('playlist_share_intro'); ?></p>
+
+            <template x-if="link">
+                <div>
+                    <input type="text" readonly :value="link" @focus="$event.target.select()" class="share-link-input">
+                    <div style="display:flex; gap:12px; margin-top:14px;">
+                        <button type="button" class="btn btn-primary" style="flex:1; justify-content:center;" @click="copy()"><?php echo t('btn_copy'); ?></button>
+                        <button type="button" class="btn btn-danger" style="flex:1; justify-content:center;" @click="revoke()"><?php echo t('playlist_share_revoke'); ?></button>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="!link">
+                <button type="button" class="btn btn-primary" style="width:100%; justify-content:center;" :disabled="busy" @click="create()"><?php echo t('playlist_share_create'); ?></button>
+            </template>
+
+            <button type="button" class="btn btn-outline" style="width:100%; justify-content:center; margin-top:12px;" @click="$store.ui.closeModal('playlistShareModal')"><?php echo t('btn_close'); ?></button>
+        </div>
+    </div>
+
     <!-- Révélation du mot de passe temporaire généré par un admin (Admin Panel > Utilisateurs > Réinitialiser).
          Reste affiché jusqu'à fermeture manuelle (pas de toast auto-dismiss) pour laisser le temps de le copier. -->
     <div id="adminResetPasswordModal" class="modal" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.closeModal('adminResetPasswordModal')"><div class="modal-content" x-show="$store.ui.activeModal === 'adminResetPasswordModal'" x-transition.duration.200ms style="max-width:420px;">

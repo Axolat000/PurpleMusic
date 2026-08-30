@@ -676,3 +676,8 @@ kbd {
        et l'auteur formant l'en-tete de chaque entree. */
     .adm-log-row { grid-template-columns: 1fr; gap: 2px; padding: var(--space-3); }
 }
+
+
+/* Champ du lien de partage : monospace et selectionnable d'un clic -- on vient
+   ici pour copier une chaine, pas pour la lire. */
+.share-link-input { font-family: var(--font-mono); font-size: var(--text-sm); width: 100%; }

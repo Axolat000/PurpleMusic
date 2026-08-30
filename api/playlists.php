@@ -207,4 +207,47 @@ switch ($action) {
         echo json_encode(['status' => 'success', 'is_private' => $next]);
         break;
 
+
+    // Lien de partage en lecture seule.
+    //
+    // Le jeton est aleatoire et independant de l'identifiant de la playlist : sans
+    // ca, il suffirait d'incrementer un numero dans l'URL pour tomber sur les
+    // playlists des autres. Il est aussi revocable -- "revoke" invalide
+    // instantanement tous les liens deja envoyes, ce qu'un identifiant ne permet
+    // evidemment pas.
+    //
+    // Le partage est un acte EXPLICITE du proprietaire : il rend la playlist
+    // lisible par quiconque a le lien, y compris si elle est marquee privee. C'est
+    // le sens meme du bouton, et c'est dit dans l'interface.
+    case 'playlist_share':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $pid = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$pid || $pid <= 0) { echo json_encode(["status" => "error", "message" => "Playlist invalide."]); exit; }
+
+        $stmt = $db->prepare("SELECT creator_id, share_token FROM playlists WHERE id = ?");
+        $stmt->execute([$pid]);
+        $pl = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$pl) { echo json_encode(["status" => "error", "message" => "Playlist introuvable."]); exit; }
+        // Seul le createur (ou un admin) partage : un lien de partage engage la
+        // playlist de quelqu'un d'autre, ce n'est pas une action de lecteur.
+        if (!$auth['is_admin'] && (int) $pl['creator_id'] !== (int) $auth['id']) {
+            echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit;
+        }
+
+        $mode = $_POST['mode'] ?? 'create';
+        if ($mode === 'revoke') {
+            $db->prepare("UPDATE playlists SET share_token = NULL WHERE id = ?")->execute([$pid]);
+            echo json_encode(['status' => 'success', 'token' => null]);
+            break;
+        }
+
+        // 32 caracteres hexadecimaux (128 bits) : un lien de partage doit etre
+        // indevinable, pas court.
+        $token = $pl['share_token'] ?: bin2hex(random_bytes(16));
+        $db->prepare("UPDATE playlists SET share_token = ? WHERE id = ?")->execute([$token, $pid]);
+        echo json_encode(['status' => 'success', 'token' => $token]);
+        break;
+
 }

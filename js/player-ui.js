@@ -541,6 +541,9 @@ async function openPlaylistDetail(id) {
         creator_id: playlist.creator_id,
         song_ids: playlist.song_ids,
         cover: playlist.cover,
+        // Present uniquement pour ses propres playlists : index.php le met a null
+        // pour celles des autres (voir le commentaire la-bas).
+        share_token: playlist.share_token || null,
         canEdit: canEdit,
         tracks: [],
         loading: true

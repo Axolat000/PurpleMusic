@@ -61,3 +61,90 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 });
+
+// =============================================================================
+// LIEN DE PARTAGE D'UNE PLAYLIST
+// =============================================================================
+// Placé ici plutôt que dans un fichier à part : c'est une trentaine de lignes de
+// formulaire, et ce fichier regroupe déjà les petits composants Alpine de
+// service. Le lien lui-même est produit et révoqué par le serveur
+// (api.php?action=playlist_share), qui reste seul juge de qui a le droit.
+document.addEventListener('alpine:init', () => {
+    Alpine.data('playlistShareForm', () => ({
+        link: '',
+        busy: false,
+
+        // Le jeton connu est celui du détail de playlist déjà chargé : rouvrir la
+        // modale ne redemande donc rien au serveur tant que rien n'a changé.
+        init() {
+            const pd = Alpine.store('ui').playlistDetail;
+            this.link = (pd && pd.share_token) ? this.urlFor(pd.share_token) : '';
+        },
+
+        urlFor(token) {
+            // URL absolue construite depuis la page courante : l'instance peut vivre
+            // dans un sous-dossier, et un lien relatif ne se colle pas dans un SMS.
+            const base = window.location.href.split('?')[0].replace(/[^/]*$/, '');
+            return base + 'share.php?t=' + token;
+        },
+
+        async send(mode) {
+            const pd = Alpine.store('ui').playlistDetail;
+            if (!pd || this.busy) return null;
+            this.busy = true;
+            try {
+                const fd = new FormData();
+                fd.append('playlist_id', pd.id);
+                if (mode) fd.append('mode', mode);
+                fd.append('csrf_token', CSRF_TOKEN);
+                const res = await fetch('api.php?action=playlist_share', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.status !== 'success') { Alpine.store('ui').showToast(data.message || T('err_action_failed'), 'error'); return null; }
+                // Le détail en mémoire est mis à jour aussi : sans ça, refermer puis
+                // rouvrir la modale repartirait de l'ancien état.
+                pd.share_token = data.token;
+                return data;
+            } catch (e) {
+                Alpine.store('ui').showToast(T('err_action_failed'), 'error');
+                return null;
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        async create() {
+            const data = await this.send('create');
+            if (data && data.token) this.link = this.urlFor(data.token);
+        },
+
+        async revoke() {
+            const data = await this.send('revoke');
+            if (data) {
+                this.link = '';
+                Alpine.store('ui').showToast(T('playlist_share_revoked'), 'info');
+            }
+        },
+
+        copy() {
+            // navigator.clipboard n'existe qu'en contexte sécurisé (HTTPS ou
+            // localhost) : sur une instance en HTTP simple, on retombe sur la
+            // sélection du champ, que l'utilisateur copie lui-même.
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(this.link)
+                    .then(() => Alpine.store('ui').showToast(T('playlist_share_copied'), 'success'))
+                    .catch(() => this.selectLink());
+            } else {
+                this.selectLink();
+            }
+        },
+
+        selectLink() {
+            const input = this.$el.querySelector('.share-link-input');
+            if (input) { input.focus(); input.select(); }
+        },
+    }));
+});
+
+function openPlaylistShare() {
+    openModal('playlistShareModal');
+}

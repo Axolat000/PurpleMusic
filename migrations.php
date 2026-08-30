@@ -160,3 +160,24 @@ function purplemusic_migrate_admin_log(PDO $db): void
     )");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_admin_log_created ON admin_log(created_at)");
 }
+
+/**
+ * Lien de partage d'une playlist, en lecture seule.
+ *
+ * Un jeton aléatoire par playlist, indépendant de son identifiant : sans lui, il
+ * suffirait d'incrémenter un numéro pour tomber sur les playlists des autres. Le
+ * jeton est aussi révocable — regénérer invalide instantanément tous les liens
+ * déjà partagés, ce qu'un identifiant ne permet pas.
+ *
+ * NULL par défaut : une playlist n'est jamais partagée tant que son propriétaire
+ * ne l'a pas explicitement demandé.
+ */
+function purplemusic_migrate_playlist_share(PDO $db): void
+{
+    $cols = $db->query("PRAGMA table_info(playlists)")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($cols as $c) {
+        if ($c['name'] === 'share_token') return;
+    }
+    $db->exec("ALTER TABLE playlists ADD COLUMN share_token TEXT DEFAULT NULL");
+    $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_playlists_share ON playlists(share_token)");
+}

@@ -95,6 +95,7 @@ try {
     purplemusic_migrate_albums($db);
     purplemusic_migrate_waveform($db);
     purplemusic_migrate_admin_log($db);
+    purplemusic_migrate_playlist_share($db);
 
     // Récupération des paramètres -- avant require_once 'auth.php' : le traitement de l'inscription
     // dans auth.php a besoin de $terms_enabled pour savoir si accept_terms doit être exigé.
@@ -181,6 +182,18 @@ try {
         $playlistsStmt->execute([$user_id]);
         $all_playlists = $playlistsStmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    // Le jeton de partage est un secret que SEUL le proprietaire doit pouvoir
+    // rediffuser. Sans ce filtre, il partirait dans le HTML de tous les comptes qui
+    // voient la playlist, et n'importe lequel pourrait re-partager un lien que le
+    // proprietaire croyait avoir donne a une seule personne.
+    //
+    // Les admins ne font pas exception : ils peuvent deja creer ou revoquer un lien
+    // par l'API si besoin, connaitre celui des autres en plus ne leur sert a rien.
+    foreach ($all_playlists as &$plRow) {
+        if ((int) $plRow['creator_id'] !== (int) $user_id) $plRow['share_token'] = null;
+    }
+    unset($plRow);
 
     // Liste des comptes, pour l'onglet "Utilisateurs" de l'Admin Panel (page dédiée, admin uniquement).
     $all_users = $is_admin ? $db->query("SELECT id, username, is_admin FROM users ORDER BY username COLLATE NOCASE ASC")->fetchAll(PDO::FETCH_ASSOC) : [];
