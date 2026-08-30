@@ -374,7 +374,7 @@ try {
     // d'origine -- "defer" garantit une exécution dans l'ordre du DOM, donc ceci équivaut exactement à
     // l'ancien fichier unique concaténé. Pas de modules ES ici : Alpine.js et les onclick="..." inline
     // référencent des fonctions dans le scope global, ce que type="module" casserait.
-    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals', 'discovery', 'stats', 'shortcuts', 'admin-albums', 'waveform'];
+    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals', 'discovery', 'stats', 'shortcuts', 'admin-albums', 'waveform', 'audio-effects'];
     foreach ($appScripts as $s): ?>
     <script defer src="js/<?php echo $s; ?>.js?v=<?php echo urlencode($assetVersion); ?>"></script>
     <?php endforeach; ?>

@@ -19,6 +19,7 @@ document.addEventListener('alpine:init', () => {
         // Elle était lue sur #sortSelect.value, c'est-à-dire qu'un élément de
         // formulaire servait d'état applicatif — impossible de changer le tri sans
         // toucher au DOM, et impossible de le rendre autrement qu'avec un <select>.
+        reverbPreset: 'off', // ambiance de reverberation, voir js/audio-effects.js
         sortValue: 'recommended',
         sortMenuOpen: false,
         sortLabel() {
@@ -252,6 +253,7 @@ document.addEventListener('alpine:init', () => {
             this.themePreset = localStorage.getItem('purpleMusicTheme') || 'violet';
             this.sleepTimerLastMinutes = parseInt(localStorage.getItem('purpleMusicSleepTimerLastMinutes') || '0', 10) || 0;
             this.visualizerEnabled = localStorage.getItem('purpleMusicVisualizerEnabled') === '1';
+            restoreReverbSetting();
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';
             this.appDynamicThemeEnabled = localStorage.getItem('purpleMusicAppDynamicThemeEnabled') === '1';
 
@@ -760,13 +762,21 @@ function initAudioGraph() {
         analyserNode.fftSize = 256;
         analyserNode.smoothingTimeConstant = 0.75;
 
-        // Chaîne : source -> eq[0] -> eq[1] -> ... -> eq[4] -> analyser -> destination
+        // Chaîne : source -> eq[0..5] -> [sec | réverb] -> analyser -> destination
+        //
+        // L'étage de réverbération est inséré APRÈS l'égaliseur (on réverbère le son
+        // égalisé, pas l'inverse — égaliser une queue de réverbération donnerait un
+        // résultat incohérent quand on change de bande) et AVANT l'analyseur, pour
+        // que le visualiseur montre ce qu'on entend réellement.
         let node = sourceNode;
         eqFilters.forEach((filter) => {
             node.connect(filter);
             node = filter;
         });
-        node.connect(analyserNode);
+
+        const reverbStage = createReverbStage(audioCtx);
+        node.connect(reverbStage.input);
+        reverbStage.output.connect(analyserNode);
         analyserNode.connect(audioCtx.destination);
 
         applyEqGains();

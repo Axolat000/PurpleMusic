@@ -215,6 +215,21 @@
                     <button type="button" class="lang-switch-btn" onclick="applyEqPreset('<?php echo $preset; ?>')"><?php echo t('eq_preset_' . $preset); ?></button>
                 <?php endforeach; ?>
             </div>
+            <?php /* Reverberation / spatialisation. Placee dans l'onglet Egaliseur parce
+                     qu'elle vit dans le meme graphe audio et se regle dans le meme geste
+                     que le son. L'impulsion est generee, pas chargee : aucun fichier
+                     d'ambiance a embarquer dans l'image. */ ?>
+            <p class="settings-section-label" style="margin-top:22px;"><?php echo t('reverb_label'); ?></p>
+            <div class="lang-switch-row">
+                <?php $reverbPresets = ['off', 'room', 'hall', 'cathedral']; ?>
+                <?php foreach ($reverbPresets as $rp): ?>
+                    <button type="button" class="lang-switch-btn"
+                            :class="{ active: $store.ui.reverbPreset === '<?php echo $rp; ?>' }"
+                            @click="setReverbPreset('<?php echo $rp; ?>')"><?php echo t('reverb_' . $rp); ?></button>
+                <?php endforeach; ?>
+            </div>
+            <p style="font-size:0.8em; color:var(--text-muted); margin:-6px 0 18px;"><?php echo t('reverb_hint'); ?></p>
+
             <div class="eq-bands" id="eq-bands">
                 <?php $eqBandLabels = ['60 Hz', '100 Hz', '230 Hz', '910 Hz', '3.6 kHz', '14 kHz']; ?>
                 <?php foreach ($eqBandLabels as $eqI => $eqLabel): ?>
