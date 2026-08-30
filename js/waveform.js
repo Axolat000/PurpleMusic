@@ -79,11 +79,14 @@ function setWaveformProgress(pct) {
 // écrase les transitoires et donne une bouillie plate où tous les morceaux se
 // ressemblent. Le résultat est ensuite normalisé sur le maximum du morceau, sinon
 // un titre enregistré bas serait un trait plat à côté d'un titre masterisé fort.
-function peaksFromBuffer(buffer) {
+function analyseBuffer(buffer) {
     const channel = buffer.getChannelData(0);
     const blockSize = Math.floor(channel.length / WAVEFORM_POINTS) || 1;
     const raw = [];
     let max = 0;
+    let sumSquares = 0;
+    let sampleCount = 0;
+
     for (let i = 0; i < WAVEFORM_POINTS; i++) {
         const start = i * blockSize;
         let peak = 0;
@@ -94,15 +97,30 @@ function peaksFromBuffer(buffer) {
         for (let j = start; j < start + blockSize && j < channel.length; j += step) {
             const v = Math.abs(channel[j]);
             if (v > peak) peak = v;
+            // Le niveau moyen se calcule sur les mêmes échantillons que les pics :
+            // une seconde traversée du morceau pour la même information n'aurait
+            // servi à rien.
+            sumSquares += v * v;
+            sampleCount++;
         }
         raw.push(peak);
         if (peak > max) max = peak;
     }
-    if (max === 0) return null; // piste entièrement silencieuse : rien à montrer
-    return raw.map(v => Math.max(0, Math.min(100, Math.round((v / max) * 100))));
+    if (max === 0 || sampleCount === 0) return null; // piste silencieuse : rien à montrer
+
+    const rms = Math.sqrt(sumSquares / sampleCount);
+    return {
+        // Normalisés sur le maximum du morceau : sinon un titre enregistré bas
+        // serait un trait plat à côté d'un titre masterisé fort.
+        peaks: raw.map(v => Math.max(0, Math.min(100, Math.round((v / max) * 100)))),
+        // dBFS : 0 = plein échelle, négatif en dessous. C'est l'échelle dans
+        // laquelle un écart de niveau se raisonne (et se corrige) additivement.
+        loudness: Math.max(-70, Math.min(0, 20 * Math.log10(rms || 1e-7))),
+        peak: max,
+    };
 }
 
-async function computeAndStoreWaveform(track) {
+async function computeAndStoreAnalysis(track) {
     if (_waveformTried.has(track.id)) return null;
     _waveformTried.add(track.id);
     try {
@@ -116,18 +134,21 @@ async function computeAndStoreWaveform(track) {
         // branché sur la lecture en cours et ne doit jamais servir à décoder.
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const buffer = await ctx.decodeAudioData(bytes);
-        const peaks = peaksFromBuffer(buffer);
+        const analysis = analyseBuffer(buffer);
         ctx.close();
-        if (!peaks) return null;
+        if (!analysis) return null;
 
         const fd = new FormData();
         fd.append('track_id', track.id);
-        fd.append('peaks', JSON.stringify(peaks));
+        fd.append('peaks', JSON.stringify(analysis.peaks));
+        fd.append('loudness', String(analysis.loudness.toFixed(2)));
+        fd.append('peak_amp', String(analysis.peak.toFixed(5)));
         fd.append('csrf_token', CSRF_TOKEN);
         // Le dépôt est un bonus pour les auditeurs suivants : s'il échoue, la forme
-        // d'onde s'affiche quand même pour celui qui vient de la calculer.
+        // d'onde et la normalisation fonctionnent quand même pour celui qui vient de
+        // faire le calcul.
         fetch('api.php?action=waveform_save', { method: 'POST', body: fd }).catch(() => {});
-        return peaks;
+        return analysis;
     } catch (e) {
         return null;
     }
@@ -139,27 +160,35 @@ async function loadWaveformFor(track) {
     const trackId = track.id;
 
     if (_waveformCache.has(trackId)) {
-        applyWaveform(_waveformCache.get(trackId));
+        const cached = _waveformCache.get(trackId);
+        applyWaveform(cached && cached.peaks);
+        applyTrackNormalization(cached);
         return;
     }
     // On retire la forme d'onde du morceau précédent tout de suite : la garder
-    // pendant le chargement afficherait la silhouette d'un autre morceau.
+    // pendant le chargement afficherait la silhouette d'un autre morceau. Le gain de
+    // normalisation revient lui aussi à neutre, pour ne pas appliquer au nouveau
+    // morceau la correction calculée pour le précédent.
     applyWaveform(null);
+    applyTrackNormalization(null);
 
-    let peaks = null;
+    let analysis = null;
     try {
         const res = await fetch('api.php?action=waveform&q=' + encodeURIComponent(trackId));
         const data = await res.json();
-        if (data && data.status === 'success') peaks = data.peaks;
+        if (data && data.status === 'success' && data.peaks) {
+            analysis = { peaks: data.peaks, loudness: data.loudness, peak: data.peak_amp };
+        }
     } catch (e) { /* hors ligne : on tentera le calcul local */ }
 
     // Changement de piste pendant la requête : ce résultat ne concerne plus ce
     // qui joue, l'appliquer ferait clignoter une silhouette étrangère.
     if (!queue[currentIndex] || queue[currentIndex].id !== trackId) return;
 
-    if (peaks) {
-        _waveformCache.set(trackId, peaks);
-        applyWaveform(peaks);
+    if (analysis) {
+        _waveformCache.set(trackId, analysis);
+        applyWaveform(analysis.peaks);
+        applyTrackNormalization(analysis);
         return;
     }
 
@@ -167,9 +196,12 @@ async function loadWaveformFor(track) {
     // et le décodage est la tâche la plus lourde de la page. requestIdleCallback la
     // repousse à un moment où le navigateur n'a rien de mieux à faire.
     const compute = async () => {
-        const computed = await computeAndStoreWaveform(track);
+        const computed = await computeAndStoreAnalysis(track);
         _waveformCache.set(trackId, computed);
-        if (computed && queue[currentIndex] && queue[currentIndex].id === trackId) applyWaveform(computed);
+        if (computed && queue[currentIndex] && queue[currentIndex].id === trackId) {
+            applyWaveform(computed.peaks);
+            applyTrackNormalization(computed);
+        }
     };
     if (window.requestIdleCallback) requestIdleCallback(() => compute(), { timeout: 5000 });
     else setTimeout(compute, 1500);

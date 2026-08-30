@@ -215,6 +215,18 @@
                     <button type="button" class="lang-switch-btn" onclick="applyEqPreset('<?php echo $preset; ?>')"><?php echo t('eq_preset_' . $preset); ?></button>
                 <?php endforeach; ?>
             </div>
+            <?php /* Harmonisation du niveau sonore. Le gain vient d'une mesure faite a la
+                     lecture (voir js/waveform.js) : une piste jamais ecoutee reste donc a
+                     niveau neutre, et la bibliotheque se normalise au fil des ecoutes. */ ?>
+            <div class="eq-enable-row" style="margin-top:22px;">
+                <span class="settings-section-label" style="margin:0;"><?php echo t('normalize_label'); ?></span>
+                <label class="switch-toggle">
+                    <input type="checkbox" :checked="$store.ui.normalizeEnabled" @change="setNormalizeEnabled($event.target.checked)">
+                    <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                </label>
+            </div>
+            <p style="font-size:0.8em; color:var(--text-muted); margin:-12px 0 4px;"><?php echo t('normalize_hint'); ?></p>
+
             <?php /* Reverberation / spatialisation. Placee dans l'onglet Egaliseur parce
                      qu'elle vit dans le meme graphe audio et se regle dans le meme geste
                      que le son. L'impulsion est generee, pas chargee : aucun fichier

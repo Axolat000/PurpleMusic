@@ -19,7 +19,8 @@ document.addEventListener('alpine:init', () => {
         // Elle était lue sur #sortSelect.value, c'est-à-dire qu'un élément de
         // formulaire servait d'état applicatif — impossible de changer le tri sans
         // toucher au DOM, et impossible de le rendre autrement qu'avec un <select>.
-        reverbPreset: 'off', // ambiance de reverberation, voir js/audio-effects.js
+        reverbPreset: 'off',    // ambiance de reverberation, voir js/audio-effects.js
+        normalizeEnabled: false, // harmonisation du niveau sonore entre morceaux
         sortValue: 'recommended',
         sortMenuOpen: false,
         sortLabel() {
@@ -254,6 +255,7 @@ document.addEventListener('alpine:init', () => {
             this.sleepTimerLastMinutes = parseInt(localStorage.getItem('purpleMusicSleepTimerLastMinutes') || '0', 10) || 0;
             this.visualizerEnabled = localStorage.getItem('purpleMusicVisualizerEnabled') === '1';
             restoreReverbSetting();
+            restoreNormalizeSetting();
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';
             this.appDynamicThemeEnabled = localStorage.getItem('purpleMusicAppDynamicThemeEnabled') === '1';
 
@@ -776,7 +778,14 @@ function initAudioGraph() {
 
         const reverbStage = createReverbStage(audioCtx);
         node.connect(reverbStage.input);
-        reverbStage.output.connect(analyserNode);
+
+        // Normalisation en DERNIER, juste avant l'analyseur : elle corrige le niveau
+        // du morceau tel qu'il sort réellement, réverbération comprise. Placée avant
+        // l'étage d'ambiance, elle aurait corrigé un niveau que la réverbération
+        // modifie ensuite.
+        const normalizeStage = createNormalizeStage(audioCtx);
+        reverbStage.output.connect(normalizeStage);
+        normalizeStage.connect(analyserNode);
         analyserNode.connect(audioCtx.destination);
 
         applyEqGains();

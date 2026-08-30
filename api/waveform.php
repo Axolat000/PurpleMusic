@@ -29,19 +29,28 @@ switch ($action) {
         $id = filter_var($_GET['q'] ?? 0, FILTER_VALIDATE_INT);
         if (!$id || $id <= 0) { echo json_encode(["status" => "error", "message" => "Piste invalide."]); exit; }
 
-        $stmt = $db->prepare("SELECT waveform FROM tracks WHERE id = ?");
+        $stmt = $db->prepare("SELECT waveform, loudness, peak_amp FROM tracks WHERE id = ?");
         $stmt->execute([$id]);
-        $raw = $stmt->fetchColumn();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         // peaks = null signale au client qu'il doit le calculer lui-même. C'est un
         // cas normal (piste jamais encore lue), pas une erreur.
         $peaks = null;
-        if ($raw) {
-            $decoded = json_decode($raw, true);
+        if (!empty($row['waveform'])) {
+            $decoded = json_decode($row['waveform'], true);
             if (is_array($decoded) && count($decoded) === WAVEFORM_POINTS) $peaks = $decoded;
         }
 
-        echo json_encode(['status' => 'success', 'track_id' => $id, 'peaks' => $peaks]);
+        // Le niveau sonore voyage avec la forme d'onde : les deux sortent de la même
+        // passe de décodage, et l'écran qui affiche l'une a besoin de l'autre au même
+        // instant. Deux endpoints auraient doublé les allers-retours pour rien.
+        echo json_encode([
+            'status' => 'success',
+            'track_id' => $id,
+            'peaks' => $peaks,
+            'loudness' => isset($row['loudness']) ? (float) $row['loudness'] : null,
+            'peak_amp' => isset($row['peak_amp']) ? (float) $row['peak_amp'] : null,
+        ]);
         break;
 
     case 'waveform_save':
@@ -65,11 +74,27 @@ switch ($action) {
             $clean[] = $v;
         }
 
-        // On n'écrase JAMAIS une forme d'onde déjà déposée. Elles décrivent toutes
-        // le même fichier : la seconde n'apporterait rien, et cette règle retire au
-        // passage tout intérêt à en pousser une fausse par-dessus une bonne.
-        $upd = $db->prepare("UPDATE tracks SET waveform = ? WHERE id = ? AND waveform IS NULL");
-        $upd->execute([json_encode($clean), $id]);
+        // Niveau sonore : facultatif (un client plus ancien n'en envoie pas), mais
+        // si présent il doit être plausible. -70 dBFS est déjà du quasi-silence,
+        // 0 dBFS le plein échelle : hors de cette plage, c'est une mesure fausse.
+        $loudness = null;
+        if (isset($_POST['loudness']) && $_POST['loudness'] !== '') {
+            $l = filter_var($_POST['loudness'], FILTER_VALIDATE_FLOAT);
+            if ($l === false || $l < -70 || $l > 0) { echo json_encode(["status" => "error", "message" => "Niveau sonore invalide."]); exit; }
+            $loudness = $l;
+        }
+        $peakAmp = null;
+        if (isset($_POST['peak_amp']) && $_POST['peak_amp'] !== '') {
+            $pk = filter_var($_POST['peak_amp'], FILTER_VALIDATE_FLOAT);
+            if ($pk === false || $pk <= 0 || $pk > 1) { echo json_encode(["status" => "error", "message" => "Crête invalide."]); exit; }
+            $peakAmp = $pk;
+        }
+
+        // On n'écrase JAMAIS une analyse déjà déposée. Elles décrivent toutes le même
+        // fichier : la seconde n'apporterait rien, et cette règle retire au passage
+        // tout intérêt à en pousser une fausse par-dessus une bonne.
+        $upd = $db->prepare("UPDATE tracks SET waveform = ?, loudness = ?, peak_amp = ? WHERE id = ? AND waveform IS NULL");
+        $upd->execute([json_encode($clean), $loudness, $peakAmp, $id]);
 
         echo json_encode(['status' => 'success', 'stored' => $upd->rowCount() > 0]);
         break;

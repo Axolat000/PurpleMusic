@@ -132,3 +132,81 @@ function restoreReverbSetting() {
     reverbPreset = REVERB_PRESETS[saved] ? saved : 'off';
     if (window.Alpine) Alpine.store('ui').reverbPreset = reverbPreset;
 }
+
+// =============================================================================
+// NORMALISATION DU VOLUME
+// =============================================================================
+// Un morceau masterisé fort et un rip discret s'enchaînaient avec un écart de
+// niveau brutal : on baissait le son, puis on le remontait au titre suivant.
+//
+// La correction est un simple gain par piste, calculé à partir du niveau moyen
+// mesuré à l'analyse (voir js/waveform.js) — le même décodage que la forme
+// d'onde, une seule fois par piste, partagé ensuite par tous les auditeurs.
+//
+// PAS DE COMPRESSEUR NI DE LIMITEUR. C'est le choix structurant : un limiteur en
+// bout de chaîne aurait modifié le son de tout le monde, y compris des morceaux
+// déjà au bon niveau. Ici on ne fait que déplacer un curseur de volume, et on
+// s'interdit tout dépassement grâce à la crête réelle du morceau, mesurée elle
+// aussi à l'analyse : le gain ne peut mathématiquement pas faire saturer.
+//
+// Une piste jamais analysée reste à gain neutre. Une bibliothèque partiellement
+// analysée est donc partiellement normalisée -- elle se complète au fil des
+// écoutes, sans jamais rien dégrader.
+
+// Niveau visé, en dBFS RMS. -16 est un compromis courant : assez haut pour ne pas
+// obliger à monter le volume système, assez bas pour laisser de la marge aux
+// morceaux dynamiques sans les écraser contre le plafond.
+const NORMALIZE_TARGET_DB = -16;
+// Bornes de correction. Au-delà, ce n'est plus une harmonisation mais une
+// réécriture du morceau : un enregistrement très bas doit rester un peu bas.
+const NORMALIZE_MAX_GAIN = 4;    // +12 dB
+const NORMALIZE_MIN_GAIN = 0.25; // -12 dB
+
+let normalizeGain = null;
+let normalizeEnabled = false;
+let _lastAnalysis = null;
+
+function createNormalizeStage(ctx) {
+    normalizeGain = ctx.createGain();
+    normalizeGain.gain.value = 1;
+    return normalizeGain;
+}
+
+// Calcule le gain à appliquer pour une piste analysée. Exportée séparément de son
+// application pour rester vérifiable sans graphe audio.
+function normalizationGainFor(analysis) {
+    if (!normalizeEnabled || !analysis || typeof analysis.loudness !== 'number' || !isFinite(analysis.loudness)) return 1;
+
+    let gain = Math.pow(10, (NORMALIZE_TARGET_DB - analysis.loudness) / 20);
+
+    // Plafond anti-saturation : la crête du morceau multipliée par le gain ne doit
+    // jamais atteindre le plein échelle. 0.98 laisse une marge pour le
+    // dépassement inter-échantillon, invisible sur les crêtes mesurées.
+    if (typeof analysis.peak === 'number' && analysis.peak > 0) {
+        gain = Math.min(gain, 0.98 / analysis.peak);
+    }
+    return Math.max(NORMALIZE_MIN_GAIN, Math.min(NORMALIZE_MAX_GAIN, gain));
+}
+
+function applyTrackNormalization(analysis) {
+    _lastAnalysis = analysis || null;
+    if (!normalizeGain || !audioCtx) return;
+    const gain = normalizationGainFor(analysis);
+    // Rampe courte : un changement de gain instantané en pleine lecture s'entend
+    // comme un clic, exactement comme pour la réverbération.
+    normalizeGain.gain.setTargetAtTime(gain, audioCtx.currentTime, 0.05);
+}
+
+function setNormalizeEnabled(enabled) {
+    normalizeEnabled = !!enabled;
+    localStorage.setItem('purpleMusicNormalize', normalizeEnabled ? '1' : '0');
+    if (window.Alpine) Alpine.store('ui').normalizeEnabled = normalizeEnabled;
+    // Réapplique immédiatement au morceau en cours : attendre le suivant donnerait
+    // l'impression que le réglage n'a rien fait.
+    applyTrackNormalization(_lastAnalysis);
+}
+
+function restoreNormalizeSetting() {
+    normalizeEnabled = localStorage.getItem('purpleMusicNormalize') === '1';
+    if (window.Alpine) Alpine.store('ui').normalizeEnabled = normalizeEnabled;
+}

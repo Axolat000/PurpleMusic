@@ -118,8 +118,19 @@ function purplemusic_migrate_albums(PDO $db): void
 function purplemusic_migrate_waveform(PDO $db): void
 {
     $cols = $db->query("PRAGMA table_info(tracks)")->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($cols as $c) {
-        if ($c['name'] === 'waveform') return;
-    }
-    $db->exec("ALTER TABLE tracks ADD COLUMN waveform TEXT DEFAULT NULL");
+    $have = [];
+    foreach ($cols as $c) $have[$c['name']] = true;
+
+    if (!isset($have['waveform'])) $db->exec("ALTER TABLE tracks ADD COLUMN waveform TEXT DEFAULT NULL");
+
+    // Niveau sonore moyen (RMS en dBFS) et crete reelle (0-1), produits par la MEME
+    // passe de decodage que la forme d'onde -- decoder une piste coute cher, on ne
+    // le fait qu'une fois et on en tire tout ce dont on a besoin.
+    //
+    // La crete est indispensable a la normalisation : elle seule permet de savoir
+    // de combien on peut remonter un morceau discret SANS le faire saturer. Sans
+    // elle il faudrait un limiteur en bout de chaine, qui modifierait le son de
+    // tout le monde au lieu de se contenter d'ajuster un gain.
+    if (!isset($have['loudness'])) $db->exec("ALTER TABLE tracks ADD COLUMN loudness REAL DEFAULT NULL");
+    if (!isset($have['peak_amp'])) $db->exec("ALTER TABLE tracks ADD COLUMN peak_amp REAL DEFAULT NULL");
 }
