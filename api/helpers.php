@@ -563,3 +563,38 @@ function optimizeImage($sourcePath, $destinationPath, $mime = null) {
     if (!$success) move_uploaded_file($sourcePath, $destinationPath);
     return true;
 }
+
+/**
+ * Résout un nom d'album vers une ligne de la table `albums`, en la créant au besoin.
+ *
+ * Pendant du register_genre() ci-dessus, et pour la même raison : toute création
+ * d'album doit passer par ici, jamais par un INSERT direct. C'est ce qui garantit
+ * que `tracks.album` (le texte, lu par l'app Android via action=list) et
+ * `tracks.album_id` (la vraie relation) ne divergent jamais — le jour où ils
+ * divergent, l'app web et l'app Android rangent la même piste dans deux albums
+ * différents, et rien ne le signale.
+ *
+ * Retourne null pour un nom vide : une piste sans album n'est pas une erreur,
+ * c'est le cas le plus courant sur ce catalogue.
+ *
+ * $artist et $cover ne servent QU'À la création : ils donnent une valeur de départ
+ * à un album qu'on découvre. Ils n'écrasent jamais un album existant, dont les
+ * métadonnées ont pu être corrigées à la main depuis le Panel Admin.
+ */
+function resolve_album($db, $name, $artist = '', $cover = null) {
+    $name = trim((string) $name);
+    if ($name === '') return null;
+
+    $find = $db->prepare("SELECT id FROM albums WHERE name = ? COLLATE NOCASE");
+    $find->execute([$name]);
+    $id = $find->fetchColumn();
+    if ($id !== false) return (int) $id;
+
+    // INSERT OR IGNORE puis relecture : deux imports simultanés du même album
+    // nouveau ne doivent pas faire échouer le second sur l'index unique.
+    $db->prepare("INSERT OR IGNORE INTO albums (name, artist, cover, created_at) VALUES (?, ?, ?, ?)")
+       ->execute([$name, (string) $artist, $cover, time()]);
+    $find->execute([$name]);
+    $id = $find->fetchColumn();
+    return $id === false ? null : (int) $id;
+}

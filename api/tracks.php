@@ -156,7 +156,10 @@ switch ($action) {
             $duration = calculateAudioDuration($file['tmp_name']);
             
             if(move_uploaded_file($file['tmp_name'], $musicDir.'/'.$fn)) {
-                $db->prepare("INSERT INTO tracks (filename, title, artist, album, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $al, $cn, $ge, $auth['id'], $duration]);
+                // resolve_album() avant l'insertion : la piste naît déjà rattachée, le
+                // texte et l'identifiant d'album ne peuvent pas diverger même une seconde.
+                $albumId = resolve_album($db, $al, $ar, $cn);
+                $db->prepare("INSERT INTO tracks (filename, title, artist, album, album_id, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $al, $albumId, $cn, $ge, $auth['id'], $duration]);
                 register_genre($db, $ge);
                 echo json_encode(["status" => "success"]);
             } else echo json_encode(["status" => "error", "message" => "Erreur de déplacement du fichier"]);
@@ -177,7 +180,11 @@ switch ($action) {
             $cleanArtist = sanitize_text($_POST['artist'] ?? '');
             $cleanAlbum  = isset($_POST['album']) && $_POST['album'] !== '' ? sanitize_text($_POST['album']) : null;
 
-            $sets = ["title = ?", "artist = ?", "album = ?"]; $params = [$cleanTitle, $cleanArtist, $cleanAlbum];
+            // Le lien vers la table albums suit le texte saisi : c'est le seul
+            // endroit ou l'album d'une piste change a l'unite (l'edition en masse
+            // passe par action=album_assign).
+            $albumId = resolve_album($db, $cleanAlbum, $cleanArtist);
+            $sets = ["title = ?", "artist = ?", "album = ?", "album_id = ?"]; $params = [$cleanTitle, $cleanArtist, $cleanAlbum, $albumId];
 
             if(isset($_POST['new_genre'])) {
                 $editGenre = sanitize_text($_POST['new_genre'], 50);

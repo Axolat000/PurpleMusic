@@ -103,6 +103,11 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_user ON listen_events(user_id)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_created ON listen_events(created_at)");
 
+    // Migrations partagees avec index.php (voir migrations.php) : les deux scripts
+    // ouvrent la meme base, celui qui tourne en premier applique le schema.
+    require_once __DIR__ . '/migrations.php';
+    purplemusic_migrate_albums($db);
+
 } catch (Exception $e) { die(json_encode(["status" => "error", "message" => "Erreur BDD"])); }
 
 $musicDir = __DIR__ . '/music';
@@ -141,6 +146,7 @@ $actionDomains = [
     'admin' => ['save_admin_settings', 'delete_genre', 'genre_manage', 'toggle_admin', 'delete_user', 'trigger_update', 'check_update'],
     'lyrics' => ['get_lyrics'],
     'search' => ['search'],
+    'albums' => ['albums', 'album_save', 'album_assign', 'album_delete'],
 ];
 
 foreach ($actionDomains as $domainFile => $actions) {

@@ -90,6 +90,10 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_user ON listen_events(user_id)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_listen_created ON listen_events(created_at)");
 
+    // Migrations partagées avec api.php (voir migrations.php).
+    require_once __DIR__ . '/migrations.php';
+    purplemusic_migrate_albums($db);
+
     // Récupération des paramètres -- avant require_once 'auth.php' : le traitement de l'inscription
     // dans auth.php a besoin de $terms_enabled pour savoir si accept_terms doit être exigé.
     $settingsRaw = $db->query("SELECT * FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
