@@ -21,6 +21,8 @@ document.addEventListener('alpine:init', () => {
         // toucher au DOM, et impossible de le rendre autrement qu'avec un <select>.
         reverbPreset: 'off',    // ambiance de reverberation, voir js/audio-effects.js
         normalizeEnabled: false, // harmonisation du niveau sonore entre morceaux
+        crossfadeSeconds: 0,     // duree du fondu enchaine, 0 = desactive
+        gaplessEnabled: false,   // enchainement sans blanc
         profilePublic: false,    // mon profil d'ecoute est-il visible par les autres comptes
         publicProfile: null,     // profil actuellement ouvert dans la modale
         sortValue: 'recommended',
@@ -258,6 +260,7 @@ document.addEventListener('alpine:init', () => {
             this.visualizerEnabled = localStorage.getItem('purpleMusicVisualizerEnabled') === '1';
             restoreReverbSetting();
             restoreNormalizeSetting();
+            restoreCrossfadeSettings();
             this.profilePublic = (typeof PROFILE_PUBLIC !== 'undefined') && !!PROFILE_PUBLIC;
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';
             this.appDynamicThemeEnabled = localStorage.getItem('purpleMusicAppDynamicThemeEnabled') === '1';
@@ -675,7 +678,16 @@ function submitFormToApi(formEl, action) {
     return false;
 }
 
-const audio = document.getElementById('mainAudio');
+// Les deux elements de lecture. `audio` designe celui qui SONNE actuellement : il
+// change de main a chaque enchainement (voir swapActiveAudio() dans js/crossfade.js).
+// C'est un `let` et non un `const` pour cette raison, et tout le reste du code
+// continue de lire `audio` sans savoir lequel des deux c'est.
+const audioA = document.getElementById('mainAudio');
+const audioB = document.getElementById('mainAudioB');
+let audio = audioA;
+
+// L'element qui ne sonne pas : celui dans lequel on precharge la piste suivante.
+function idleAudio() { return audio === audioA ? audioB : audioA; }
 const queuePanel = document.getElementById('queue-panel');
 
 // --- SURFACES DE LECTEUR -----------------------------------------------------
@@ -718,7 +730,14 @@ const pmSetPlayIcon = (playing) => {
 // (togglePlay(), activation de l'égaliseur ou du visualiseur) -- jamais au chargement de la page, les
 // navigateurs exigeant une interaction utilisateur avant de démarrer un AudioContext.
 let audioCtx = null;
-let sourceNode = null;
+// Une source par element : createMediaElementSource() ne peut etre appele qu'une
+// fois par element, et les deux doivent alimenter la MEME chaine d'effets --
+// sinon le morceau entrant sortirait sans egaliseur ni ambiance pendant le fondu.
+let sourceNode = null;   // element A
+let sourceNodeB = null;  // element B
+// Faders du fondu enchaine, un par element, places juste apres chaque source.
+let fadeGainA = null;
+let fadeGainB = null;
 let eqFilters = [];
 let analyserNode = null;
 // 6 bandes -- calqué sur les presets courants d'android.media.audiofx.Equalizer, plus une bande basse
@@ -752,7 +771,14 @@ function initAudioGraph() {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) return;
         audioCtx = new AudioContextClass();
-        sourceNode = audioCtx.createMediaElementSource(audio);
+        sourceNode = audioCtx.createMediaElementSource(audioA);
+        sourceNodeB = audioCtx.createMediaElementSource(audioB);
+        fadeGainA = audioCtx.createGain();
+        fadeGainB = audioCtx.createGain();
+        // A porte le son, B est muet : au repos, un seul element joue. Le fondu ne
+        // fait qu'echanger ces deux valeurs.
+        fadeGainA.gain.value = 1;
+        fadeGainB.gain.value = 0;
 
         eqFilters = EQ_BANDS.map((band) => {
             const filter = audioCtx.createBiquadFilter();
@@ -773,7 +799,16 @@ function initAudioGraph() {
         // égalisé, pas l'inverse — égaliser une queue de réverbération donnerait un
         // résultat incohérent quand on change de bande) et AVANT l'analyseur, pour
         // que le visualiseur montre ce qu'on entend réellement.
-        let node = sourceNode;
+        // Les deux sources se rejoignent avant l'egaliseur : tout ce qui suit
+        // (egaliseur, ambiance, normalisation, visualiseur) est partage, et le
+        // morceau entrant est traite exactement comme le sortant.
+        const mixInput = audioCtx.createGain();
+        sourceNode.connect(fadeGainA);
+        sourceNodeB.connect(fadeGainB);
+        fadeGainA.connect(mixInput);
+        fadeGainB.connect(mixInput);
+
+        let node = mixInput;
         eqFilters.forEach((filter) => {
             node.connect(filter);
             node = filter;

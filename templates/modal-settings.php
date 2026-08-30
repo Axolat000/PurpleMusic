@@ -227,6 +227,31 @@
                     <button type="button" class="lang-switch-btn" onclick="applyEqPreset('<?php echo $preset; ?>')"><?php echo t('eq_preset_' . $preset); ?></button>
                 <?php endforeach; ?>
             </div>
+            <?php /* Enchainement des morceaux. Les deux reglages sont deux extremites du
+                     meme mecanisme (voir js/crossfade.js) et sont donc presentes ensemble.
+                     Desactives par defaut : tant qu'ils le sont, la lecture suit
+                     exactement le chemin d'avant. */ ?>
+            <p class="settings-section-label" style="margin-top:22px;"><?php echo t('crossfade_label'); ?></p>
+            <div class="lang-switch-row">
+                <?php foreach ([0, 2, 4, 6, 8, 12] as $cf): ?>
+                    <button type="button" class="lang-switch-btn"
+                            :class="{ active: $store.ui.crossfadeSeconds === <?php echo $cf; ?> }"
+                            @click="setCrossfadeSeconds(<?php echo $cf; ?>)"><?php
+                        echo $cf === 0 ? t('crossfade_off') : t('crossfade_seconds', ['n' => $cf]);
+                    ?></button>
+                <?php endforeach; ?>
+            </div>
+            <p style="font-size:0.8em; color:var(--text-muted); margin:-6px 0 14px;"><?php echo t('crossfade_hint'); ?></p>
+
+            <div class="eq-enable-row">
+                <span class="settings-section-label" style="margin:0;"><?php echo t('gapless_label'); ?></span>
+                <label class="switch-toggle">
+                    <input type="checkbox" :checked="$store.ui.gaplessEnabled" @change="setGaplessEnabled($event.target.checked)">
+                    <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                </label>
+            </div>
+            <p style="font-size:0.8em; color:var(--text-muted); margin:-12px 0 20px;"><?php echo t('gapless_hint'); ?></p>
+
             <?php /* Harmonisation du niveau sonore. Le gain vient d'une mesure faite a la
                      lecture (voir js/waveform.js) : une piste jamais ecoutee reste donc a
                      niveau neutre, et la bibliotheque se normalise au fil des ecoutes. */ ?>

@@ -80,8 +80,26 @@ function reportListen(trackId, seconds) {
         .catch(e => console.error(e));
 }
 
+// Les trois titres de lecteur (mini-barre, plein écran mobile, grand lecteur
+// desktop) passent par le MÊME composant .marquee-wrap et la même fonction de
+// mesure. Avant : la mini-barre tronquait sans jamais défiler, le plein écran
+// réimplémentait le marquee en dur, et le lecteur desktop n'avait qu'une ellipse
+// CSS — trois comportements pour un seul besoin.
+//
+// Hors de loadTrack() : l'enchaînement anticipé (js/crossfade.js) met à jour les
+// titres sans passer par un chargement de piste.
+function setPlayerTitle(el, text) {
+    if (!el) return;
+    const span = el.querySelector('span') || el;
+    span.textContent = text;
+    applyMarqueeIfOverflowing(el);
+}
+
 function loadTrack(autoPlay = true) {
     if (!queue[currentIndex]) return;
+    // Un fondu declenche juste avant continuerait a monter le gain d'un morceau
+    // qu'on vient d'abandonner : toute prise en main explicite l'annule.
+    cancelCrossfade();
     const track = queue[currentIndex];
     audio.src = 'music/' + track.filename;
     // Ne compte plus la vue immédiatement au chargement -- voir startListenTracking() : une "vue" n'est
@@ -97,18 +115,6 @@ function loadTrack(autoPlay = true) {
         e.stopPropagation();
         const name = splitArtistNames(track.artist)[0] || track.artist;
         if (name) showArtistPage(name);
-    };
-
-    // Les trois titres de lecteur (mini-barre, plein écran mobile, grand lecteur
-    // desktop) passent désormais par le MÊME composant .marquee-wrap et la même
-    // fonction de mesure. Avant : la mini-barre tronquait sans jamais défiler, le
-    // plein écran réimplémentait le marquee en dur ici, et le lecteur desktop
-    // n'avait qu'une ellipse CSS — trois comportements pour un seul besoin.
-    const setPlayerTitle = (el, text) => {
-        if (!el) return;
-        const span = el.querySelector('span') || el;
-        span.textContent = text;
-        applyMarqueeIfOverflowing(el);
     };
 
     const coverUrl = 'covers/' + (track.cover || 'default.png');
@@ -194,7 +200,13 @@ function setupMediaSessionHandlers() {
     set('stop', () => { audio.pause(); audio.currentTime = 0; });
 }
 
-if (audio) {
+// Les gestionnaires sont poses sur LES DEUX elements, mais ne font quoi que ce soit
+// que pour celui qui sonne : pendant un fondu, les deux emettent des evenements
+// timeupdate, et sans ce filtre l'affichage sauterait d'un morceau a l'autre a
+// chaque image.
+function attachAudioHandlers(el) {
+    if (!el) return;
+    const isActive = () => el === audio;
     // L'état "en cours de lecture" alimente l'indicateur des cartes/lignes : il doit
     // suivre TOUTES les origines de changement (bouton de l'app, contrôles système,
     // fin de piste, coupure réseau), pas seulement togglePlay().
@@ -204,14 +216,16 @@ if (audio) {
     // déclarée dans discovery.js, chargé APRÈS — passer la référence directement
     // lèverait un ReferenceError ici. L'enveloppe ne résout le nom qu'au moment où
     // l'événement se produit, quand tous les fichiers sont chargés.
-    audio.addEventListener('play', () => syncPlaybackState());
-    audio.addEventListener('pause', () => syncPlaybackState());
-    audio.addEventListener('ended', () => syncPlaybackState());
+    el.addEventListener('play', () => { if (isActive()) syncPlaybackState(); });
+    el.addEventListener('pause', () => { if (isActive()) syncPlaybackState(); });
+    el.addEventListener('ended', () => { if (isActive()) syncPlaybackState(); });
 
-    audio.onloadedmetadata = () => {
+    el.onloadedmetadata = () => {
+        if (!isActive()) return;
         pmText('total', formatTime(audio.duration));
     };
-    audio.ontimeupdate = () => {
+    el.ontimeupdate = () => {
+        if (!isActive()) return;
         // Pendant un glissement sur la barre, c'est le curseur qui pilote
         // l'affichage : laisser la lecture réécrire la largeur ferait revenir la
         // barre à la position réelle entre deux mouvements, donc clignoter.
@@ -220,6 +234,9 @@ if (audio) {
         const pct = (audio.currentTime / audio.duration) * 100;
         pmEach('progress-bar', el => { el.style.width = (pct || 0) + '%'; });
         setWaveformProgress(pct);
+        // Enchainement anticipe (fondu ou gapless) : evalue a chaque tick, ne fait
+        // rien tant que les deux reglages sont desactives.
+        maybeStartCrossfade();
         pmText('curr', formatTime(audio.currentTime));
         if (audio.duration) pmText('total', formatTime(audio.duration));
 
@@ -231,8 +248,16 @@ if (audio) {
             }
         }
     };
-    audio.onended = nextTrack;
+    // Pendant un enchainement anticipe, le morceau SORTANT atteint sa fin alors que
+    // le suivant sonne deja : son `ended` ne doit surtout pas declencher nextTrack(),
+    // qui rechargerait la piste suivante par-dessus elle-meme et couperait le fondu.
+    // Mesure : le fondu de 2 s demarrait bien, puis `ended` arrivait ~50 ms avant la
+    // fin programmee de la bascule et gagnait la course.
+    el.onended = () => { if (isActive() && !_crossfading) nextTrack(); };
 }
+
+attachAudioHandlers(audioA);
+attachAudioHandlers(audioB);
 
 function nextTrack() {
     if (loopMode === 2) { audio.currentTime = 0; audio.play(); return; }

@@ -172,7 +172,16 @@
         </div>
     </div>
 
+    <?php /* DEUX elements audio, pas un.
+             Le fondu enchaine demande que deux morceaux sonnent EN MEME TEMPS : c'est
+             impossible avec un seul <audio>, quel que soit le montage Web Audio
+             derriere. Le second element est donc la structure minimale qui rend
+             crossfade et gapless possibles.
+             Tant que les deux reglages sont desactives (leur valeur par defaut), le
+             second element ne recoit jamais de source et la lecture suit exactement le
+             chemin d'avant. Voir js/crossfade.js. */ ?>
     <audio id="mainAudio"></audio>
+    <audio id="mainAudioB"></audio>
 
     <div class="modal" x-show="$store.ui.confirmState.open" x-transition.opacity.duration.200ms x-cloak @click.self="$store.ui.confirmNo()" @keydown.escape.window="$store.ui.confirmNo()">
         <div class="modal-content" x-show="$store.ui.confirmState.open" x-transition.duration.200ms style="max-width:420px; text-align:center;">
