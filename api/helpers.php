@@ -234,41 +234,123 @@ function wikipedia_summary($name, $lang) {
     return null;
 }
 
+/**
+ * Moteur de recommandations.
+ *
+ * Il ne tire rien au sort : il note chaque piste sur des signaux mesures
+ * (affinites de genre et d'artiste, tendance recente, taux d'ecoute, likes,
+ * popularite amortie) puis garde les meilleures. Ce qui suit decrit ce qui a
+ * change, et surtout pourquoi.
+ *
+ * 1. LES GENRES ET LES ARTISTES SONT DECOUPES DES DEUX COTES. C'etait le defaut
+ *    le plus couteux : la comparaison se faisait sur la chaine BRUTE. Depuis que
+ *    l'app accepte plusieurs genres par piste ("Phonk, Nightcore"), une piste
+ *    ainsi etiquetee ne correspondait JAMAIS a une affinite "Phonk" -- le signal
+ *    de genre etait mort pour une grande partie de la bibliotheque sans que rien
+ *    ne le signale. Meme probleme pour "A & B" face a une affinite "A".
+ *
+ * 2. LE GOUT RECENT PESE PLUS LOURD. Les affinites etaient calculees sur tout
+ *    l'historique a poids egal : ce qu'on ecoutait il y a un an pesait autant que
+ *    cette semaine. Une ecoute des 30 derniers jours compte desormais double.
+ *
+ * 3. ARTISTES SIMILAIRES, par co-occurrence dans les playlists. Deux artistes que
+ *    les gens rangent dans les memes playlists se ressemblent, en pratique, bien
+ *    plus surement que deux artistes partageant une etiquette de genre. C'est le
+ *    seul signal de similarite disponible sans service externe -- et il a
+ *    l'avantage de refleter CE catalogue-ci plutot qu'une base mondiale qui ne
+ *    connait ni les montages ni les nightcore.
+ *
+ * 4. PAS PLUS DE DEUX TITRES PAR ARTISTE. Sans ce plafond, un artiste tres ecoute
+ *    remplissait la rangee a lui seul : le classement etait bon, le resultat
+ *    inutile. On veut une rangee de decouverte, pas la discographie du dernier
+ *    artiste ecoute.
+ */
 function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
     $sevenDaysAgo = time() - (7 * 24 * 3600);
+    $thirtyDaysAgo = time() - (30 * 24 * 3600);
 
-    // Affinités de l'utilisateur : genres/artistes des pistes qu'il a réellement écoutées (>=10s).
-    $genreStmt = $db->prepare(
-        "SELECT tracks.genre as g, COUNT(*) as cnt FROM listen_events
-         JOIN tracks ON tracks.id = listen_events.track_id
-         WHERE listen_events.user_id = ? AND listen_events.listened_seconds >= 10
-         GROUP BY tracks.genre ORDER BY cnt DESC LIMIT 3"
+    // --- Affinites de genre et d'artiste ------------------------------------
+    // On lit les lignes brutes et on agrege en PHP : split_genres() et
+    // split_artist_names() sont les seuls a savoir decouper ces champs, et SQL ne
+    // sait pas les appeler. Le poids double des ecoutes recentes est calcule ici.
+    $affStmt = $db->prepare(
+        "SELECT t.genre AS g, t.artist AS a, le.created_at AS ts
+         FROM listen_events le JOIN tracks t ON t.id = le.track_id
+         WHERE le.user_id = ? AND le.listened_seconds >= 10"
     );
-    $genreStmt->execute([$userId]);
-    $topGenres = []; // genre => poids (1er = 1.0, 2e = 0.6, 3e = 0.3)
-    $genreWeights = [1.0, 0.6, 0.3];
-    foreach ($genreStmt->fetchAll(PDO::FETCH_ASSOC) as $i => $row) { $topGenres[$row['g']] = $genreWeights[$i] ?? 0.15; }
+    $affStmt->execute([$userId]);
 
-    $artistStmt = $db->prepare(
-        "SELECT tracks.artist as a, COUNT(*) as cnt FROM listen_events
-         JOIN tracks ON tracks.id = listen_events.track_id
-         WHERE listen_events.user_id = ? AND listen_events.listened_seconds >= 10
-         GROUP BY tracks.artist ORDER BY cnt DESC LIMIT 5"
-    );
-    $artistStmt->execute([$userId]);
+    $genreCounts = [];
+    $artistCounts = [];
+    foreach ($affStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $weight = ((int) $row['ts'] >= $thirtyDaysAgo) ? 2 : 1;
+        foreach (split_genres($row['g']) as $g) {
+            $k = mb_strtolower($g);
+            $genreCounts[$k] = ($genreCounts[$k] ?? 0) + $weight;
+        }
+        foreach (split_artist_names($row['a']) as $a) {
+            $k = mb_strtolower($a);
+            $artistCounts[$k] = ($artistCounts[$k] ?? 0) + $weight;
+        }
+    }
+    arsort($genreCounts);
+    arsort($artistCounts);
+
+    // Normalisation sur le maximum : une affinite vaut 0 a 1, quel que soit le
+    // volume d'ecoute de la personne. Sans ca, un gros auditeur aurait des scores
+    // ecrases contre le plafond et un nouveau des scores nuls.
+    $topGenres = [];
+    $maxGenre = $genreCounts ? max($genreCounts) : 0;
+    foreach (array_slice($genreCounts, 0, 5, true) as $g => $c) $topGenres[$g] = $maxGenre ? $c / $maxGenre : 0;
+
     $topArtists = [];
-    $artistWeights = [1.0, 0.8, 0.6, 0.4, 0.2];
-    foreach ($artistStmt->fetchAll(PDO::FETCH_ASSOC) as $i => $row) { $topArtists[$row['a']] = $artistWeights[$i] ?? 0.1; }
+    $maxArtist = $artistCounts ? max($artistCounts) : 0;
+    foreach (array_slice($artistCounts, 0, 8, true) as $a => $c) $topArtists[$a] = $maxArtist ? $c / $maxArtist : 0;
 
     $hasHistory = count($topGenres) > 0 || count($topArtists) > 0;
 
-    // Pistes déjà pas mal écoutées par CET utilisateur (secondes cumulées) -> à dépriorisée, pas exclue.
+    // --- Artistes similaires, par co-occurrence dans les playlists -----------
+    // Pour chaque playlist, on regarde quels artistes y cohabitent. Ceux qui
+    // partagent une playlist avec un artiste qu'on ecoute deja heritent d'une
+    // fraction de son affinite.
+    $similarArtists = [];
+    if ($hasHistory) {
+        $trackArtists = [];
+        foreach ($db->query("SELECT id, artist FROM tracks")->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $trackArtists[(int) $row['id']] = split_artist_names($row['artist']);
+        }
+        foreach ($db->query("SELECT song_ids FROM playlists")->fetchAll(PDO::FETCH_COLUMN) as $songIds) {
+            $ids = array_filter(array_map('intval', explode(',', (string) $songIds)), fn($v) => $v > 0);
+            if (count($ids) < 2) continue;
+
+            $inPlaylist = [];
+            foreach ($ids as $id) {
+                foreach ($trackArtists[$id] ?? [] as $name) $inPlaylist[mb_strtolower($name)] = true;
+            }
+            // La playlist compte-t-elle un artiste qu'on aime ? Si oui, tous les
+            // autres artistes qui s'y trouvent gagnent un point de similarite.
+            $anchor = 0.0;
+            foreach (array_keys($inPlaylist) as $name) {
+                if (isset($topArtists[$name])) $anchor = max($anchor, $topArtists[$name]);
+            }
+            if ($anchor <= 0) continue;
+            foreach (array_keys($inPlaylist) as $name) {
+                if (isset($topArtists[$name])) continue; // deja compte comme affinite directe
+                $similarArtists[$name] = ($similarArtists[$name] ?? 0) + $anchor;
+            }
+        }
+        $maxSimilar = $similarArtists ? max($similarArtists) : 0;
+        if ($maxSimilar > 0) {
+            foreach ($similarArtists as $k => $v) $similarArtists[$k] = $v / $maxSimilar;
+        }
+    }
+
+    // --- Signaux globaux ----------------------------------------------------
     $ownListenStmt = $db->prepare("SELECT track_id, SUM(listened_seconds) as total FROM listen_events WHERE user_id = ? GROUP BY track_id");
     $ownListenStmt->execute([$userId]);
     $ownListenSeconds = [];
     foreach ($ownListenStmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $ownListenSeconds[$row['track_id']] = (int) $row['total']; }
 
-    // Tendance récente (tous utilisateurs) et qualité (ratio d'écoute moyen), en une passe par piste.
     $recentStmt = $db->prepare("SELECT track_id, COUNT(*) as recent_plays, AVG(listened_seconds) as avg_sec FROM listen_events WHERE created_at > ? GROUP BY track_id");
     $recentStmt->execute([$sevenDaysAgo]);
     $recentPlays = []; $maxRecentPlays = 1;
@@ -279,9 +361,10 @@ function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
         if ($recentPlays[$row['track_id']] > $maxRecentPlays) $maxRecentPlays = $recentPlays[$row['track_id']];
     }
 
-    $likeStmt = $db->query("SELECT track_id, COUNT(*) as cnt FROM likes GROUP BY track_id");
     $likeCounts = [];
-    foreach ($likeStmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $likeCounts[$row['track_id']] = (int) $row['cnt']; }
+    foreach ($db->query("SELECT track_id, COUNT(*) as cnt FROM likes GROUP BY track_id")->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $likeCounts[$row['track_id']] = (int) $row['cnt'];
+    }
 
     $tracks = $db->query("SELECT id, title, artist, cover, genre, play_count, duration, uploader_id FROM tracks")->fetchAll(PDO::FETCH_ASSOC);
     if (empty($tracks)) return [];
@@ -290,36 +373,74 @@ function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
     $scored = [];
     foreach ($tracks as $t) {
         $id = $t['id'];
-        $genreScore = $topGenres[$t['genre']] ?? 0.0;
-        $artistScore = $topArtists[$t['artist']] ?? 0.0;
+
+        // Meilleure correspondance parmi les genres de la piste, et non la premiere :
+        // une piste "Autre, Phonk" doit valoir son Phonk.
+        $genreScore = 0.0;
+        foreach (split_genres($t['genre']) as $g) {
+            $genreScore = max($genreScore, $topGenres[mb_strtolower($g)] ?? 0.0);
+        }
+        $artistScore = 0.0;
+        $similarScore = 0.0;
+        foreach (split_artist_names($t['artist']) as $a) {
+            $k = mb_strtolower($a);
+            $artistScore = max($artistScore, $topArtists[$k] ?? 0.0);
+            $similarScore = max($similarScore, $similarArtists[$k] ?? 0.0);
+        }
+
         $trendScore = isset($recentPlays[$id]) ? ($recentPlays[$id] / $maxRecentPlays) : 0.0;
-        $completionScore = 0.5; // valeur neutre par défaut si pas assez de données
+        $completionScore = 0.5; // valeur neutre si on ne sait pas encore
         if (!empty($t['duration']) && isset($avgListenSeconds[$id])) {
             $completionScore = max(0.0, min(1.0, $avgListenSeconds[$id] / $t['duration']));
         }
         $likeBoost = min(0.3, 0.1 * ($likeCounts[$id] ?? 0));
         $popularityDamped = log(1 + (int) $t['play_count']) / log(1 + $maxPlayCount);
 
-        $score = (0.35 * $genreScore) + (0.25 * $artistScore) + (0.2 * $trendScore) + (0.1 * $completionScore) + (0.1 * $popularityDamped) + $likeBoost;
+        $score = (0.30 * $genreScore)
+               + (0.22 * $artistScore)
+               + (0.13 * $similarScore)
+               + (0.17 * $trendScore)
+               + (0.09 * $completionScore)
+               + (0.09 * $popularityDamped)
+               + $likeBoost;
 
-        // Pénalité si déjà bien connue de cet utilisateur (mais jamais mise à zéro : garde une petite
-        // chance de resurgir, notamment pour un morceau aimé qu'on a envie de revoir de temps en temps).
+        // Deja bien connue de cette personne : forte penalite, jamais zero -- un
+        // morceau aime doit garder une chance de resurgir.
         $ownSeconds = $ownListenSeconds[$id] ?? 0;
         if ($ownSeconds >= 120) $score *= 0.25;
         elseif ($ownSeconds >= 30) $score *= 0.6;
 
-        // Sans historique du tout (nouvel utilisateur) : purement tendance + popularité amortie, le
-        // matching genre/artiste ($genreScore/$artistScore) étant nul pour tout le monde de toute façon.
+        // Sans aucun historique : tendance et popularite, les seuls signaux qui
+        // existent. Le reste vaut zero pour tout le monde de toute facon.
         if (!$hasHistory) $score = (0.5 * $trendScore) + (0.3 * $popularityDamped) + $likeBoost;
 
         $scored[] = ['track' => $t, 'score' => $score];
     }
 
     usort($scored, fn($a, $b) => $b['score'] <=> $a['score']);
-    $top = array_slice($scored, 0, $limit);
+
+    // --- Plafond par artiste -------------------------------------------------
+    // Deux titres maximum par artiste tant qu'il reste des candidats ailleurs. Les
+    // recales sont gardes de cote et servent a completer si la bibliotheque est
+    // trop petite pour remplir la rangee autrement -- une rangee courte serait un
+    // plus mauvais resultat qu'une rangee un peu repetitive.
+    $perArtist = [];
+    $picked = [];
+    $overflow = [];
+    foreach ($scored as $entry) {
+        $names = split_artist_names($entry['track']['artist']);
+        $key = mb_strtolower($names[0] ?? $entry['track']['artist']);
+        if (($perArtist[$key] ?? 0) >= 2) { $overflow[] = $entry; continue; }
+        $perArtist[$key] = ($perArtist[$key] ?? 0) + 1;
+        $picked[] = $entry;
+        if (count($picked) >= $limit) break;
+    }
+    if (count($picked) < $limit) {
+        $picked = array_merge($picked, array_slice($overflow, 0, $limit - count($picked)));
+    }
 
     $result = [];
-    foreach ($top as $entry) {
+    foreach ($picked as $entry) {
         $t = $entry['track'];
         $t['like_count'] = $likeCounts[$t['id']] ?? 0;
         $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
