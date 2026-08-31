@@ -534,6 +534,11 @@ async function openPlaylistDetail(id) {
     if (!playlist) return;
 
     const canEdit = (playlist.creator_id == CURRENT_USER_ID) || IS_ADMIN;
+    // Deux droits distincts : canEdit = disposer de la playlist (renommer, supprimer,
+    // partager, inviter), canEditContent = modifier la liste des morceaux. Un
+    // collaborateur a le second sans le premier.
+    const isCollaborator = typeof MY_COLLAB_PLAYLISTS !== 'undefined' && MY_COLLAB_PLAYLISTS.includes(Number(playlist.id));
+    const canEditContent = canEdit || isCollaborator;
     store.playlistDetail = {
         id: playlist.id,
         name: playlist.name,
@@ -545,6 +550,7 @@ async function openPlaylistDetail(id) {
         // pour celles des autres (voir le commentaire la-bas).
         share_token: playlist.share_token || null,
         canEdit: canEdit,
+        canEditContent: canEditContent,
         tracks: [],
         loading: true
     };
@@ -608,7 +614,7 @@ function renderPlaylistDetailTracks(loading) {
         const row = buildTrackRowElement(t, () => playTrackInPlaylistDetail(t.id));
         row.classList.add('fade-in-row');
         row.style.setProperty('--i', Math.min(i, 24));
-        if (pd.canEdit) {
+        if (pd.canEditContent) {
             row.draggable = true;
             row.dataset.plIndex = String(i);
             // Poignée insérée en tête de ligne : signale que la ligne est
@@ -623,7 +629,7 @@ function renderPlaylistDetailTracks(loading) {
     });
     container.appendChild(frag);
     container.querySelectorAll('.marquee-wrap').forEach(applyMarqueeIfOverflowing);
-    if (pd.canEdit) attachPlaylistDragHandlers(container);
+    if (pd.canEditContent) attachPlaylistDragHandlers(container);
 }
 
 function attachPlaylistDragHandlers(container) {
@@ -664,7 +670,7 @@ async function movePlaylistTrack(from, to) {
     if (!window.Alpine) return;
     const store = Alpine.store('ui');
     const pd = store.playlistDetail;
-    if (!pd || !pd.canEdit) return;
+    if (!pd || !pd.canEditContent) return;
 
     const tracks = [...pd.tracks];
     if (from < 0 || to < 0 || from >= tracks.length || to >= tracks.length) return;

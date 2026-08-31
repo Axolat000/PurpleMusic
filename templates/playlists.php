@@ -94,6 +94,15 @@
                                 <?php /* Partage reserve au proprietaire (canEdit) : un lien de
                                          partage engage la playlist de quelqu'un, ce n'est pas
                                          une action de lecteur. */ ?>
+                                <?php /* Reserve au proprietaire : un collaborateur qui pourrait en
+                                         inviter d'autres ferait perdre au createur le controle de sa
+                                         playlist. */ ?>
+                                <template x-if="$store.ui.playlistDetail.canEdit">
+                                    <button class="btn btn-outline" @click="openPlaylistCollab()">
+                                        <svg class="ico" aria-hidden="true"><use href="#ico-artist"></use></svg>
+                                        <?php echo t('playlist_collab'); ?>
+                                    </button>
+                                </template>
                                 <template x-if="$store.ui.playlistDetail.canEdit">
                                     <button class="btn btn-outline" @click="openPlaylistShare()">
                                         <svg class="ico" aria-hidden="true"><use href="#ico-share"></use></svg>
@@ -113,7 +122,7 @@
                      d'un glissement réinitialiserait les éléments en cours de déplacement.
                      Voir renderPlaylistDetailTracks() dans js/player-ui.js. -->
                 <div class="track-list" id="playlist-detail-list"></div>
-                <p class="playlist-reorder-hint" x-show="$store.ui.playlistDetail.canEdit && $store.ui.playlistDetail.tracks.length > 1" x-cloak>
+                <p class="playlist-reorder-hint" x-show="$store.ui.playlistDetail.canEditContent && $store.ui.playlistDetail.tracks.length > 1" x-cloak>
                     <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-drag"></use></svg>
                     <?php echo t('queue_reorder_hint'); ?>
                 </p>

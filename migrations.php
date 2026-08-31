@@ -197,3 +197,27 @@ function purplemusic_migrate_public_profile(PDO $db): void
     }
     $db->exec("ALTER TABLE users ADD COLUMN profile_public INTEGER DEFAULT 0");
 }
+
+/**
+ * Playlists collaboratives : qui, à part le créateur, peut y ajouter des morceaux.
+ *
+ * Une table de liens plutôt qu'un simple drapeau « ouverte à tous » : sur un
+ * serveur partagé entre amis, on veut ouvrir une playlist à trois personnes, pas
+ * à tous les comptes existants. Le drapeau aurait été plus simple à écrire et
+ * faux à l'usage.
+ *
+ * La collaboration donne le droit d'AJOUTER et de RETIRER des morceaux, jamais
+ * celui de renommer, de changer la visibilité ou de supprimer la playlist : ces
+ * actions-là restent au créateur. Un collaborateur contribue au contenu, il ne
+ * dispose pas de l'objet.
+ */
+function purplemusic_migrate_playlist_collab(PDO $db): void
+{
+    $db->exec("CREATE TABLE IF NOT EXISTS playlist_collaborators (
+        playlist_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        added_at INTEGER,
+        PRIMARY KEY (playlist_id, user_id)
+    )");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_collab_user ON playlist_collaborators(user_id)");
+}

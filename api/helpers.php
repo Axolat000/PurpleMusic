@@ -634,3 +634,20 @@ function log_admin_action($db, $auth, $action, $target = null, $details = null) 
         // Silencieux par conception : voir le commentaire ci-dessus.
     }
 }
+
+/**
+ * Droit d'écrire dans le CONTENU d'une playlist (ajouter, retirer, réordonner).
+ *
+ * Distinct de la propriété : un collaborateur peut modifier la liste des morceaux
+ * mais pas renommer, changer la visibilité ni supprimer la playlist. Ces
+ * actions-là appellent directement la comparaison au creator_id.
+ */
+function can_edit_playlist_content($db, $auth, $playlistCreatorId, $playlistId) {
+    if (!$auth) return false;
+    if (!empty($auth['is_admin'])) return true;
+    if ((int) $playlistCreatorId === (int) $auth['id']) return true;
+
+    $stmt = $db->prepare("SELECT 1 FROM playlist_collaborators WHERE playlist_id = ? AND user_id = ?");
+    $stmt->execute([(int) $playlistId, (int) $auth['id']]);
+    return $stmt->fetchColumn() !== false;
+}

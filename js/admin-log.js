@@ -74,11 +74,16 @@ document.addEventListener('alpine:init', () => {
         link: '',
         busy: false,
 
-        // Le jeton connu est celui du détail de playlist déjà chargé : rouvrir la
-        // modale ne redemande donc rien au serveur tant que rien n'a changé.
+        // Meme piege que pour les collaborateurs : au moment ou ce composant est
+        // instancie, aucune playlist n'est ouverte. Lu une seule fois a
+        // l'instanciation, le jeton etait donc toujours vide et une playlist deja
+        // partagee reproposait "Creer un lien" au lieu d'afficher le sien.
         init() {
-            const pd = Alpine.store('ui').playlistDetail;
-            this.link = (pd && pd.share_token) ? this.urlFor(pd.share_token) : '';
+            this.$watch('$store.ui.activeModal', (modal) => {
+                if (modal !== 'playlistShareModal') return;
+                const pd = Alpine.store('ui').playlistDetail;
+                this.link = (pd && pd.share_token) ? this.urlFor(pd.share_token) : '';
+            });
         },
 
         urlFor(token) {
@@ -147,4 +152,81 @@ document.addEventListener('alpine:init', () => {
 
 function openPlaylistShare() {
     openModal('playlistShareModal');
+}
+
+// =============================================================================
+// COLLABORATEURS D'UNE PLAYLIST
+// =============================================================================
+// Voisin du formulaire de partage, et pour la même raison : quelques dizaines de
+// lignes de formulaire, pas de quoi ouvrir un fichier. Le serveur reste seul juge
+// des droits (voir can_edit_playlist_content() dans api/helpers.php) ; ce
+// composant ne fait qu'afficher et demander.
+document.addEventListener('alpine:init', () => {
+    Alpine.data('playlistCollabForm', () => ({
+        collaborators: [],
+        candidates: [],
+        pick: '',
+        loading: false,
+        busy: false,
+
+        // Le composant Alpine est instancie au chargement de la PAGE, bien avant
+        // qu'une playlist soit ouverte : charger dans init() lisait un
+        // playlistDetail encore null, sortait aussitot, et la modale restait
+        // bloquee sur "Chargement..." pour toujours. On ecoute donc l'ouverture.
+        init() {
+            this.$watch('$store.ui.activeModal', (modal) => {
+                if (modal === 'playlistCollabModal') this.load();
+            });
+        },
+
+        async load() {
+            const pd = Alpine.store('ui').playlistDetail;
+            if (!pd) return;
+            this.loading = true;
+            try {
+                const res = await fetch('api.php?action=playlist_collab_list&q=' + encodeURIComponent(pd.id));
+                const data = await res.json();
+                if (data && data.status === 'success') {
+                    this.collaborators = data.collaborators;
+                    this.candidates = data.candidates;
+                }
+            } catch (e) {
+                this.collaborators = [];
+                this.candidates = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async send(action, userId) {
+            const pd = Alpine.store('ui').playlistDetail;
+            if (!pd || this.busy) return;
+            this.busy = true;
+            try {
+                const fd = new FormData();
+                fd.append('playlist_id', pd.id);
+                fd.append('user_id', userId);
+                fd.append('csrf_token', CSRF_TOKEN);
+                const res = await fetch('api.php?action=' + action, { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.status !== 'success') { Alpine.store('ui').showToast(data.message || T('err_action_failed'), 'error'); return; }
+                // Rechargement de la liste plutot que mise a jour locale : c'est le
+                // serveur qui decide qui figure ou non, et il n'y a qu'une ligne a
+                // relire.
+                await this.load();
+                this.pick = '';
+            } catch (e) {
+                Alpine.store('ui').showToast(T('err_action_failed'), 'error');
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        add() { if (this.pick) this.send('playlist_collab_add', this.pick); },
+        remove(userId) { this.send('playlist_collab_remove', userId); },
+    }));
+});
+
+function openPlaylistCollab() {
+    openModal('playlistCollabModal');
 }

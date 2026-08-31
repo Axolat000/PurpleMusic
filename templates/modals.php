@@ -48,6 +48,59 @@
 
 
 
+
+    <?php /* Collaborateurs d'une playlist. Un collaborateur ajoute et retire des
+             morceaux ; il ne renomme pas, ne supprime pas et n'invite personne. La
+             modale le dit, parce que "collaborer" ne veut pas dire la meme chose
+             partout. */ ?>
+    <div id="playlistCollabModal" class="modal" x-show="$store.ui.activeModal === 'playlistCollabModal'" x-transition.opacity.duration.200ms x-cloak
+         @click.self="$store.ui.closeModal('playlistCollabModal')" @keydown.escape.window="$store.ui.closeModal('playlistCollabModal')">
+        <div class="modal-content" x-show="$store.ui.activeModal === 'playlistCollabModal'" x-transition.duration.200ms style="max-width:520px;" x-data="playlistCollabForm">
+            <h2 style="margin-top:0;"><?php echo t('playlist_collab_title'); ?></h2>
+            <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('playlist_collab_intro'); ?></p>
+
+            <template x-if="loading">
+                <p style="color:var(--text-muted);"><?php echo t('search_loading'); ?></p>
+            </template>
+
+            <template x-if="!loading">
+                <div>
+                    <template x-if="collaborators.length === 0">
+                        <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('playlist_collab_none'); ?></p>
+                    </template>
+
+                    <div class="adm-album-list" x-show="collaborators.length > 0">
+                        <template x-for="c in collaborators" :key="c.id">
+                            <div class="adm-genre-item">
+                                <span class="profile-avatar" style="width:32px; height:32px; font-size:0.9em;" aria-hidden="true"
+                                      x-text="(c.username || '?').charAt(0).toUpperCase()"></span>
+                                <span class="adm-genre-name" x-text="c.username"></span>
+                                <span class="adm-genre-actions">
+                                    <button type="button" class="track-row-btn danger" :title="T('btn_delete_short')" @click="remove(c.id)">
+                                        <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-close"></use></svg>
+                                    </button>
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="adm-assign-actions" style="margin-top:16px;">
+                        <select x-model="pick" style="flex:1; min-width:180px;">
+                            <option value="">— <?php echo t('playlist_collab_pick'); ?> —</option>
+                            <template x-for="u in candidates" :key="u.id">
+                                <option :value="u.id" x-text="u.username"></option>
+                            </template>
+                        </select>
+                        <button type="button" class="btn btn-primary" :disabled="!pick || busy" @click="add()"><?php echo t('playlist_collab_add'); ?></button>
+                    </div>
+                </div>
+            </template>
+
+            <button type="button" class="btn btn-outline" style="width:100%; justify-content:center; margin-top:16px;"
+                    @click="$store.ui.closeModal('playlistCollabModal')"><?php echo t('btn_close'); ?></button>
+        </div>
+    </div>
+
     <?php /* Profil d'ecoute public d'un autre compte. Ce que quelqu'un ecoute est une
              donnee personnelle : rien ne s'affiche ici tant que la personne n'a pas
              active son profil elle-meme, et le serveur le reverifie a chaque lecture. */ ?>

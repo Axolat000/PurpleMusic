@@ -10,6 +10,7 @@
         const CSRF_TOKEN = <?php echo json_encode($csrf_token); ?>;
         const TERMS_ENABLED = <?php echo json_encode($terms_enabled); ?>;
         const PROFILE_PUBLIC = <?php echo json_encode($profile_public ?? false); ?>;
+        const MY_COLLAB_PLAYLISTS = <?php echo json_encode($my_collab_playlists ?? []); ?>;
 
         <?php // Modes de tri de la bibliotheque. Emis ici plutot qu'en dur cote JS : les
               // libelles sont traduits par PHP, et la liste sert a la fois au menu overlay

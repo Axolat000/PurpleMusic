@@ -37,7 +37,14 @@ switch ($action) {
         $mode = $_POST['mode'] ?? '';
         $p = $db->prepare("SELECT song_ids, creator_id FROM playlists WHERE id=?"); $p->execute([$pid]); $curr = $p->fetch();
 
-        if($curr && ($auth['is_admin'] || $curr['creator_id'] == $auth['id'])) {
+        // Renommer et supprimer restent au createur ; ajouter et retirer des morceaux
+        // s'ouvrent aux collaborateurs. Un collaborateur contribue au contenu, il ne
+        // dispose pas de l'objet.
+        $isOwner = $curr && ($auth['is_admin'] || $curr['creator_id'] == $auth['id']);
+        $canEditContent = $curr && can_edit_playlist_content($db, $auth, $curr['creator_id'], $pid);
+        $needsOwner = in_array($mode, ['delete', 'rename'], true);
+
+        if($curr && ($needsOwner ? $isOwner : $canEditContent)) {
             if ($mode === 'delete') {
                 $db->prepare("DELETE FROM playlists WHERE id=?")->execute([$pid]);
             } elseif ($mode === 'rename') {
@@ -164,7 +171,10 @@ switch ($action) {
         $stmt = $db->prepare("SELECT song_ids, creator_id FROM playlists WHERE id = ?");
         $stmt->execute([$pid]);
         $curr = $stmt->fetch();
-        if (!$curr || !($auth['is_admin'] || $curr['creator_id'] == $auth['id'])) {
+        // Reordonner, c'est modifier le contenu : ouvert aux collaborateurs. Changer
+        // la visibilite ou le nom, non -- ces actions gardent la comparaison directe
+        // au creator_id.
+        if (!$curr || !can_edit_playlist_content($db, $auth, $curr['creator_id'], $pid)) {
             echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette playlist"]); exit;
         }
 
@@ -366,6 +376,94 @@ switch ($action) {
             'playlist_id' => (int) $db->lastInsertId(),
             'count' => count($ids),
         ], JSON_UNESCAPED_UNICODE);
+        break;
+
+
+    // --- COLLABORATEURS D'UNE PLAYLIST ---------------------------------------
+    //
+    // Une table de liens plutot qu'un drapeau "ouverte a tous" : sur un serveur
+    // partage entre amis, on veut ouvrir une playlist a trois personnes, pas a tous
+    // les comptes existants.
+    //
+    // Seul le createur (ou un admin) gere la liste. Un collaborateur qui pourrait
+    // en inviter d'autres ferait perdre au proprietaire le controle de sa playlist.
+
+    case 'playlist_collab_list':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $pid = filter_var($_GET['q'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$pid || $pid <= 0) { echo json_encode(["status" => "error", "message" => "Playlist invalide."]); exit; }
+
+        $st = $db->prepare("SELECT creator_id FROM playlists WHERE id = ?");
+        $st->execute([$pid]);
+        $creatorId = $st->fetchColumn();
+        if ($creatorId === false) { echo json_encode(["status" => "error", "message" => "Playlist introuvable."]); exit; }
+        if (!$auth['is_admin'] && (int) $creatorId !== (int) $auth['id']) {
+            echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit;
+        }
+
+        $cols = $db->prepare(
+            "SELECT u.id, u.username FROM playlist_collaborators c
+             JOIN users u ON u.id = c.user_id
+             WHERE c.playlist_id = ? ORDER BY u.username COLLATE NOCASE ASC"
+        );
+        $cols->execute([$pid]);
+        $collaborators = $cols->fetchAll(PDO::FETCH_ASSOC);
+
+        // Comptes invitables : tous sauf le createur et ceux deja invites. La liste
+        // est nominative parce qu'inviter demande de choisir quelqu'un ; elle ne
+        // revele rien de plus que ce que le Panel Admin montre deja.
+        $candidates = $db->prepare(
+            "SELECT id, username FROM users
+             WHERE id <> ? AND id NOT IN (SELECT user_id FROM playlist_collaborators WHERE playlist_id = ?)
+             ORDER BY username COLLATE NOCASE ASC"
+        );
+        $candidates->execute([(int) $creatorId, $pid]);
+
+        foreach ($collaborators as &$c) { $c['id'] = (int) $c['id']; }
+        unset($c);
+
+        echo json_encode([
+            'status' => 'success',
+            'collaborators' => $collaborators,
+            'candidates' => $candidates->fetchAll(PDO::FETCH_ASSOC),
+        ], JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'playlist_collab_add':
+    case 'playlist_collab_remove':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $pid = filter_var($_POST['playlist_id'] ?? 0, FILTER_VALIDATE_INT);
+        $uid = filter_var($_POST['user_id'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$pid || $pid <= 0 || !$uid || $uid <= 0) { echo json_encode(["status" => "error", "message" => "Paramètres invalides."]); exit; }
+
+        $st = $db->prepare("SELECT creator_id FROM playlists WHERE id = ?");
+        $st->execute([$pid]);
+        $creatorId = $st->fetchColumn();
+        if ($creatorId === false) { echo json_encode(["status" => "error", "message" => "Playlist introuvable."]); exit; }
+        if (!$auth['is_admin'] && (int) $creatorId !== (int) $auth['id']) {
+            echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit;
+        }
+        // Le createur est deja tout-puissant sur sa playlist : l'inscrire comme
+        // collaborateur creerait une ligne sans effet, et un bouton "retirer" qui
+        // laisserait croire qu'on peut lui enlever ses droits.
+        if ((int) $uid === (int) $creatorId) { echo json_encode(["status" => "error", "message" => "Le créateur a déjà tous les droits."]); exit; }
+
+        $exists = $db->prepare("SELECT 1 FROM users WHERE id = ?");
+        $exists->execute([$uid]);
+        if ($exists->fetchColumn() === false) { echo json_encode(["status" => "error", "message" => "Compte introuvable."]); exit; }
+
+        if ($action === 'playlist_collab_add') {
+            $db->prepare("INSERT OR IGNORE INTO playlist_collaborators (playlist_id, user_id, added_at) VALUES (?, ?, ?)")
+               ->execute([$pid, $uid, time()]);
+        } else {
+            $db->prepare("DELETE FROM playlist_collaborators WHERE playlist_id = ? AND user_id = ?")->execute([$pid, $uid]);
+        }
+
+        echo json_encode(['status' => 'success']);
         break;
 
 }
