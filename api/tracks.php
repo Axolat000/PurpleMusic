@@ -43,6 +43,25 @@ switch ($action) {
             $safeFilename = basename($t['filename']);
             $path = $musicDir . '/' . $safeFilename;
 
+            // Debit reduit demande : on sert la version reencodee (voir
+            // api/quality.php). Tout le reste de ce case -- Range, 206, boucle de
+            // lecture -- fonctionne a l'identique, seul le chemin du fichier change.
+            //
+            // CE CHEMIN EXIGE UNE SESSION, contrairement au streaming de l'original
+            // qui est public depuis toujours (contrat de l'app Android). Le
+            // reencodage est une operation couteuse en processeur : la laisser
+            // declencher par n'importe qui offrirait un levier de saturation trivial.
+            $requestedBitrate = filter_var($_GET['br'] ?? 0, FILTER_VALIDATE_INT) ?: 0;
+            if ($requestedBitrate > 0) {
+                require_once __DIR__ . '/quality.php';
+                if (empty($_SESSION['user_id'])) { header("HTTP/1.1 403 Forbidden"); exit; }
+                $transcoded = quality_transcoded_path($musicDir, (int) ($_GET['q'] ?? 0), $safeFilename, $requestedBitrate);
+                // Reencodage impossible (ffmpeg absent, format refuse) : on retombe
+                // sur l'original plutot que d'echouer. Mieux vaut le bon morceau en
+                // qualite d'origine qu'une erreur de lecture.
+                if ($transcoded) $path = $transcoded;
+            }
+
             if (file_exists($path)) {
                 $size = filesize($path);
                 

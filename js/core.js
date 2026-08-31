@@ -21,6 +21,9 @@ document.addEventListener('alpine:init', () => {
         // toucher au DOM, et impossible de le rendre autrement qu'avec un <select>.
         reverbPreset: 'off',    // ambiance de reverberation, voir js/audio-effects.js
         normalizeEnabled: false, // harmonisation du niveau sonore entre morceaux
+        streamQuality: 'original',    // 'original' ou un debit ; voir js/audio-effects.js
+        streamQualityAvailable: false, // le serveur sait-il reencoder (ffmpeg present)
+        streamQualityBitrates: [],
         crossfadeSeconds: 0,     // duree du fondu enchaine, 0 = desactive
         gaplessEnabled: false,   // enchainement sans blanc
         profilePublic: false,    // mon profil d'ecoute est-il visible par les autres comptes
@@ -270,6 +273,7 @@ document.addEventListener('alpine:init', () => {
             restoreReverbSetting();
             restoreNormalizeSetting();
             restoreCrossfadeSettings();
+            restoreStreamQuality();
             this.profilePublic = (typeof PROFILE_PUBLIC !== 'undefined') && !!PROFILE_PUBLIC;
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';
             this.appDynamicThemeEnabled = localStorage.getItem('purpleMusicAppDynamicThemeEnabled') === '1';

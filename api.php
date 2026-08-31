@@ -155,6 +155,7 @@ $actionDomains = [
     'waveform' => ['waveform', 'waveform_save'],
     'import' => ['import_scan', 'import_run'],
     'mixes' => ['daily_mixes'],
+    'quality' => ['quality_options'],
 ];
 
 foreach ($actionDomains as $domainFile => $actions) {

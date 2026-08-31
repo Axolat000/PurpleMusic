@@ -255,6 +255,24 @@
                     <button type="button" class="lang-switch-btn" onclick="applyEqPreset('<?php echo $preset; ?>')"><?php echo t('eq_preset_' . $preset); ?></button>
                 <?php endforeach; ?>
             </div>
+            <?php /* Qualite de streaming. Le bloc entier n'apparait que si le serveur
+                     sait reencoder : afficher un menu sans effet serait pire que ne rien
+                     afficher. Voir api/quality.php. */ ?>
+            <div x-show="$store.ui.streamQualityAvailable" x-cloak>
+                <p class="settings-section-label" style="margin-top:22px;"><?php echo t('quality_label'); ?></p>
+                <div class="lang-switch-row">
+                    <button type="button" class="lang-switch-btn"
+                            :class="{ active: $store.ui.streamQuality === 'original' }"
+                            @click="setStreamQuality('original')"><?php echo t('quality_original'); ?></button>
+                    <template x-for="br in $store.ui.streamQualityBitrates" :key="br">
+                        <button type="button" class="lang-switch-btn"
+                                :class="{ active: $store.ui.streamQuality === String(br) }"
+                                @click="setStreamQuality(br)" x-text="br + ' kbit/s'"></button>
+                    </template>
+                </div>
+                <p style="font-size:0.8em; color:var(--text-muted); margin:-6px 0 14px;"><?php echo t('quality_hint'); ?></p>
+            </div>
+
             <?php /* Enchainement des morceaux. Les deux reglages sont deux extremites du
                      meme mecanisme (voir js/crossfade.js) et sont donc presentes ensemble.
                      Desactives par defaut : tant qu'ils le sont, la lecture suit

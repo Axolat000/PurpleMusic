@@ -15,6 +15,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && sed -ri 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf \
     && rm -rf /var/lib/apt/lists/*
 
+# QUALITE DE STREAMING (optionnelle, desactivee par defaut).
+#
+# L'app ne stocke qu'un fichier par piste : proposer plusieurs debits suppose de
+# les fabriquer, donc de reencoder, donc ffmpeg. Le code est en place et se
+# detecte lui-meme (voir api/quality.php) : sans ffmpeg, le reglage n'apparait
+# meme pas et tout le monde ecoute l'original.
+#
+# Pour l'activer, decommenter la ligne suivante. Elle ajoute environ 80 Mo a
+# l'image et fait porter au serveur le cout processeur du reencodage (une fois par
+# piste et par debit, le resultat etant ensuite mis en cache dans music/_cache).
+# C'est un choix qui appartient a celui qui heberge, pas au code.
+#
+# RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
 COPY docker/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

@@ -101,7 +101,7 @@ function loadTrack(autoPlay = true) {
     // qu'on vient d'abandonner : toute prise en main explicite l'annule.
     cancelCrossfade();
     const track = queue[currentIndex];
-    audio.src = 'music/' + track.filename;
+    audio.src = trackStreamUrl(track);
     // Ne compte plus la vue immédiatement au chargement -- voir startListenTracking() : une "vue" n'est
     // désormais journalisée que si le morceau est réellement écouté 10s ou plus (report_listen côté
     // serveur revérifie aussi ce seuil, jamais confiance aveugle au client).

@@ -210,3 +210,60 @@ function restoreNormalizeSetting() {
     normalizeEnabled = localStorage.getItem('purpleMusicNormalize') === '1';
     if (window.Alpine) Alpine.store('ui').normalizeEnabled = normalizeEnabled;
 }
+
+
+// =============================================================================
+// QUALITE DE STREAMING
+// =============================================================================
+// L'app ne stocke qu'UN fichier par piste : proposer plusieurs debits suppose de
+// les fabriquer, donc de reencoder, donc ffmpeg. Le serveur dit lui-meme s'il en
+// dispose (api.php?action=quality_options) et l'interface n'affiche le reglage
+// que dans ce cas -- plutot qu'un menu sans effet.
+//
+// En qualite d'origine, la lecture pointe DIRECTEMENT sur le fichier statique :
+// c'est le chemin le plus rapide, sans PHP dans la boucle. Ce n'est qu'en debit
+// reduit qu'on passe par api.php, qui sert la version reencodee et mise en cache.
+let streamQuality = 'original';   // 'original' ou un debit en kbit/s
+let streamQualityAvailable = false;
+
+// Source de lecture d'une piste. Un seul endroit, utilise par loadTrack() comme
+// par le prechargement du fondu enchaine -- sinon les deux divergeraient au
+// premier changement de reglage.
+function trackStreamUrl(track) {
+    if (streamQuality === 'original') return 'music/' + track.filename;
+    return 'api.php?action=stream&q=' + encodeURIComponent(track.id) + '&br=' + encodeURIComponent(streamQuality);
+}
+
+function setStreamQuality(value) {
+    streamQuality = (value === 'original') ? 'original' : String(parseInt(value, 10) || 'original');
+    localStorage.setItem('purpleMusicQuality', streamQuality);
+    if (window.Alpine) Alpine.store('ui').streamQuality = streamQuality;
+    // Le changement ne s'applique qu'a la piste SUIVANTE : recharger la source en
+    // cours de lecture ferait repartir le morceau de zero, ce que personne
+    // n'attend d'un reglage de qualite.
+}
+
+async function restoreStreamQuality() {
+    const saved = localStorage.getItem('purpleMusicQuality') || 'original';
+    streamQuality = saved;
+    if (window.Alpine) Alpine.store('ui').streamQuality = saved;
+    try {
+        const res = await fetch('api.php?action=quality_options');
+        const data = await res.json();
+        streamQualityAvailable = !!(data && data.status === 'success' && data.available);
+        if (window.Alpine) {
+            Alpine.store('ui').streamQualityAvailable = streamQualityAvailable;
+            Alpine.store('ui').streamQualityBitrates = (data && data.bitrates) || [];
+        }
+        // Le serveur ne sait pas reencoder mais un debit etait memorise (image
+        // changee, ffmpeg retire) : on revient a l'original sans le dire, plutot
+        // que de demander un debit qui retombera de toute facon sur l'original.
+        if (!streamQualityAvailable && streamQuality !== 'original') {
+            streamQuality = 'original';
+            localStorage.setItem('purpleMusicQuality', 'original');
+            if (window.Alpine) Alpine.store('ui').streamQuality = 'original';
+        }
+    } catch (e) {
+        streamQualityAvailable = false;
+    }
+}

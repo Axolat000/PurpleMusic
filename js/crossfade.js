@@ -59,7 +59,7 @@ function preloadNextTrack() {
     if (!track) return;
 
     const el = idleAudio();
-    el.src = 'music/' + track.filename;
+    el.src = trackStreamUrl(track);
     el.currentTime = 0;
     el.preload = 'auto';
     el.load();
@@ -96,7 +96,7 @@ function startCrossfadeTo(nextIdx) {
 
     const incoming = idleAudio();
     if (_preloadedIndex !== nextIdx) {
-        incoming.src = 'music/' + track.filename;
+        incoming.src = trackStreamUrl(track);
         incoming.currentTime = 0;
     }
 
