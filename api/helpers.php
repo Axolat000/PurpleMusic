@@ -372,6 +372,11 @@ function authenticate_api_user($db) {
 }
 
 // --- CALCULE LA DURÉE MULTI-FORMATS ---
+// Les fermetures de $fp sont gardees par is_resource() : selon le chemin emprunte
+// (en-tete Xing sans frequence exploitable, table de debit a zero, sortie de
+// boucle), le meme descripteur etait ferme deux ou trois fois. Sans consequence en
+// PHP 7, TypeError fatale en PHP 8 -- tout fichier non-MP3 (un WAV, un OGG) faisait
+// planter l'upload comme l'import, avec une page d'erreur au lieu d'un JSON.
 function calculateAudioDuration($path) {
     if (!file_exists($path)) return 0;
     $fp = fopen($path, 'rb');
@@ -383,7 +388,7 @@ function calculateAudioDuration($path) {
     if ($signature === 'fLaC') {
         fseek($fp, 8);
         $streamInfo = fread($fp, 34);
-        fclose($fp);
+        if (is_resource($fp)) fclose($fp);
         
         if (strlen($streamInfo) === 34) {
             $fields = unpack('N3', substr($streamInfo, 10, 12));
@@ -401,7 +406,7 @@ function calculateAudioDuration($path) {
         fseek($fp, 0);
         $content = fread($fp, 1024 * 400);
         $mvhdPos = strpos($content, 'mvhd');
-        fclose($fp);
+        if (is_resource($fp)) fclose($fp);
         
         if ($mvhdPos !== false) {
             $version = ord($content[$mvhdPos + 4]);
@@ -448,21 +453,21 @@ function calculateAudioDuration($path) {
                     $srTable = [3 => [44100, 48000, 32000, 0], 2 => [22050, 24000, 16000, 0]];
                     $sampleRate = $srTable[$mpegVersion][($byte2 >> 2) & 0x03] ?? 44100;
                     $samplesPerFrame = ($mpegVersion === 3) ? 1152 : 576;
-                    fclose($fp);
+                    if (is_resource($fp)) fclose($fp);
                     if ($sampleRate > 0) return round(($frameCount * $samplesPerFrame) / $sampleRate);
                 }
             }
             
             $brTable = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
             $bitrate = $brTable[($byte2 >> 4) & 0x0F] ?? 128;
-            fclose($fp);
+            if (is_resource($fp)) fclose($fp);
             if ($bitrate > 0) return round((filesize($path) * 8) / ($bitrate * 1000));
             break;
         }
         $offset++;
     }
 
-    fclose($fp);
+    if (is_resource($fp)) fclose($fp);
     return round((filesize($path) * 8) / (128 * 1000));
 }
 

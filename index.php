@@ -209,7 +209,7 @@ try {
     $all_users = $is_admin ? $db->query("SELECT id, username, is_admin FROM users ORDER BY username COLLATE NOCASE ASC")->fetchAll(PDO::FETCH_ASSOC) : [];
 
     // Onglet initial de l'Admin Panel (préservé après un redirect POST/GET depuis une action de cette page, ex: ?admin_tab=users).
-    $adminTabOptions = ['general', 'legal', 'theme', 'media', 'genres', 'albums', 'users', 'log'];
+    $adminTabOptions = ['general', 'legal', 'theme', 'media', 'genres', 'albums', 'users', 'log', 'import'];
     $initialAdminTab = in_array($_GET['admin_tab'] ?? '', $adminTabOptions, true) ? $_GET['admin_tab'] : 'general';
 
 } catch (Exception $e) { die(t('err_db_prefix') . $e->getMessage()); }
@@ -398,7 +398,7 @@ try {
     // d'origine -- "defer" garantit une exécution dans l'ordre du DOM, donc ceci équivaut exactement à
     // l'ancien fichier unique concaténé. Pas de modules ES ici : Alpine.js et les onclick="..." inline
     // référencent des fonctions dans le scope global, ce que type="module" casserait.
-    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals', 'discovery', 'stats', 'shortcuts', 'admin-albums', 'admin-log', 'playlist-generate', 'waveform', 'audio-effects', 'crossfade'];
+    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals', 'discovery', 'stats', 'shortcuts', 'admin-albums', 'admin-log', 'admin-import', 'playlist-generate', 'waveform', 'audio-effects', 'crossfade'];
     foreach ($appScripts as $s): ?>
     <script defer src="js/<?php echo $s; ?>.js?v=<?php echo urlencode($assetVersion); ?>"></script>
     <?php endforeach; ?>

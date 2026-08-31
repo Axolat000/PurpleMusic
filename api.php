@@ -152,6 +152,7 @@ $actionDomains = [
     'search' => ['search'],
     'albums' => ['albums', 'album_save', 'album_assign', 'album_delete'],
     'waveform' => ['waveform', 'waveform_save'],
+    'import' => ['import_scan', 'import_run'],
 ];
 
 foreach ($actionDomains as $domainFile => $actions) {

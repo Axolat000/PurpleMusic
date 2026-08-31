@@ -11,6 +11,7 @@
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'albums' }" @click="activeTab = 'albums'"><?php echo t('admin_section_albums'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'"><?php echo t('admin_section_users'); ?></button>
             <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'log' }" @click="activeTab = 'log'"><?php echo t('admin_section_log'); ?></button>
+            <button type="button" class="settings-tab-btn" :class="{ active: activeTab === 'import' }" @click="activeTab = 'import'"><?php echo t('admin_section_import'); ?></button>
         </div>
 
         <form method="post" enctype="multipart/form-data" onsubmit="return submitFormToApi(this, 'save_admin_settings')">
@@ -129,7 +130,7 @@
                 </script>
             </div>
 
-            <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users' && activeTab !== 'albums' && activeTab !== 'log'" x-cloak>
+            <div style="display:flex; gap:15px; margin-top: 25px;" x-show="activeTab !== 'users' && activeTab !== 'albums' && activeTab !== 'log' && activeTab !== 'import'" x-cloak>
                 <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1; justify-content:center;"><?php echo t('btn_save'); ?></button>
             </div>
         </form>
@@ -277,6 +278,83 @@
 
             <button type="button" class="btn btn-outline search-load-more" x-show="hasMore" x-cloak
                     :disabled="loading" @click="load(true)"><?php echo t('search_load_more'); ?></button>
+        </div>
+
+
+        <?php /* Import en masse. Rien n'est importe automatiquement : le scan propose,
+                 un humain choisit. Un import declenche par le simple depot d'un fichier
+                 transformerait un `cp` malheureux en modification de bibliotheque. */ ?>
+        <div x-show="activeTab === 'import'" x-cloak x-data="adminImportPanel">
+            <p style="color:var(--text-muted); font-size:0.9em; margin-top:0;">
+                <?php echo t('admin_import_intro'); ?>
+                <code class="import-path" x-text="folder || 'music/_import'"></code>
+            </p>
+
+            <div class="adm-assign-filters">
+                <button type="button" class="btn btn-outline btn-sm" :disabled="scanning || importing" @click="scan()">
+                    <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-refresh"></use></svg>
+                    <?php echo t('admin_import_rescan'); ?>
+                </button>
+                <label style="display:flex; align-items:center; gap:8px; font-size:var(--text-sm); color:var(--text-muted);">
+                    <span><?php echo t('admin_import_genre'); ?></span>
+                    <input type="text" x-model="genre" style="margin:0; width:160px;">
+                </label>
+            </div>
+
+            <template x-if="scanning">
+                <div class="search-skeletons">
+                    <div class="skeleton search-skeleton-line"></div>
+                    <div class="skeleton search-skeleton-line"></div>
+                </div>
+            </template>
+
+            <template x-if="!scanning && files.length === 0">
+                <p style="color:var(--text-muted); font-size:0.9em;"><?php echo t('admin_import_empty'); ?></p>
+            </template>
+
+            <div x-show="!scanning && files.length > 0">
+                <label class="adm-assign-checkbox" style="margin-bottom:8px;">
+                    <input type="checkbox" @change="toggleAll($event.target.checked)" :checked="selectedFiles.length === files.length">
+                    <span><?php echo t('admin_import_select_all'); ?></span>
+                </label>
+
+                <div class="adm-assign-list">
+                    <template x-for="f in files" :key="f.file">
+                        <label class="adm-assign-row">
+                            <input type="checkbox" x-model="selected[f.file]">
+                            <span class="adm-assign-title">
+                                <span x-text="f.title"></span>
+                                <small style="display:block; color:var(--text-muted);" x-text="f.artist || f.file"></small>
+                            </span>
+                            <span class="adm-assign-meta" x-text="formatSize(f.size) + (f.has_cover ? ' \u00b7 \u25a0' : '')"></span>
+                        </label>
+                    </template>
+                </div>
+
+                <div class="adm-assign-actions">
+                    <span class="adm-assign-count tabular" x-text="T('selected_count', { n: selectedFiles.length })"></span>
+                    <span class="adm-assign-count" x-show="progress" x-text="progress"></span>
+                    <button type="button" class="btn btn-primary" :disabled="importing || selectedFiles.length === 0" @click="run()">
+                        <?php echo t('admin_import_run'); ?>
+                    </button>
+                </div>
+            </div>
+
+            <template x-if="report && (report.imported.length || report.failed.length)">
+                <div class="import-report">
+                    <p x-text="T('admin_import_done', { n: report.imported.length })"></p>
+                    <template x-if="report.failed.length">
+                        <div>
+                            <p style="color:var(--danger, #e05252);" x-text="T('admin_import_failed', { n: report.failed.length })"></p>
+                            <ul>
+                                <template x-for="f in report.failed" :key="f.file">
+                                    <li><span x-text="f.file"></span> — <span x-text="f.reason"></span></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                </div>
+            </template>
         </div>
 
         <div x-show="activeTab === 'users'" x-cloak>

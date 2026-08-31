@@ -705,3 +705,9 @@ kbd {
 .profile-name { font-weight: var(--weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .profile-plays { color: var(--text-muted); font-size: var(--text-sm); }
 .profile-head { display: flex; align-items: center; gap: var(--space-4); }
+
+
+/* --- PANEL ADMIN > IMPORT EN MASSE ------------------------------------------ */
+.import-path { font-family: var(--font-mono); background: var(--tint-1); padding: 2px 6px; border-radius: var(--radius-xs); }
+.import-report { margin-top: var(--space-5); padding: var(--space-4); border: 1px solid var(--hairline); border-radius: var(--radius-md); font-size: var(--text-sm); }
+.import-report ul { margin: var(--space-2) 0 0; padding-left: var(--space-5); color: var(--text-muted); }
