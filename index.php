@@ -98,6 +98,7 @@ try {
     purplemusic_migrate_playlist_share($db);
     purplemusic_migrate_public_profile($db);
     purplemusic_migrate_playlist_collab($db);
+    purplemusic_migrate_push($db);
 
     // Récupération des paramètres -- avant require_once 'auth.php' : le traitement de l'inscription
     // dans auth.php a besoin de $terms_enabled pour savoir si accept_terms doit être exigé.
@@ -410,7 +411,7 @@ try {
     // d'origine -- "defer" garantit une exécution dans l'ordre du DOM, donc ceci équivaut exactement à
     // l'ancien fichier unique concaténé. Pas de modules ES ici : Alpine.js et les onclick="..." inline
     // référencent des fonctions dans le scope global, ce que type="module" casserait.
-    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals', 'discovery', 'stats', 'shortcuts', 'admin-albums', 'admin-log', 'admin-import', 'playlist-generate', 'offline', 'waveform', 'audio-effects', 'crossfade'];
+    $appScripts = ['core', 'theme', 'player-controls', 'library', 'player-ui', 'playback', 'ui-modals', 'discovery', 'stats', 'shortcuts', 'admin-albums', 'admin-log', 'admin-import', 'playlist-generate', 'offline', 'push', 'waveform', 'audio-effects', 'crossfade'];
     foreach ($appScripts as $s): ?>
     <script defer src="js/<?php echo $s; ?>.js?v=<?php echo urlencode($assetVersion); ?>"></script>
     <?php endforeach; ?>

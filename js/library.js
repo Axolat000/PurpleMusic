@@ -359,6 +359,9 @@ function showArtistPage(name, pushState = true) {
     renderBreadcrumb('artist-breadcrumb');
 
     renderTrackListInto('artist-track-list', tracks);
+    // L'etat du bouton "suivre" depend de l'artiste affiche : il se remet a jour a
+    // chaque ouverture de page, pas seulement au chargement de l'app.
+    if (typeof refreshFollowButton === 'function') refreshFollowButton();
     fetchArtistBio(name);
     showSection('artist-page', pushState);
 }

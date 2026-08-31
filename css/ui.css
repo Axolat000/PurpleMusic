@@ -717,3 +717,8 @@ kbd {
    est visuellement identique a une carte de piste, alors qu'un clic n'y fait pas
    du tout la meme chose. */
 .mix-badge { position: absolute; left: var(--space-2); top: var(--space-2); padding: 2px 8px; border-radius: var(--radius-full); background: var(--primary); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+
+
+/* Bouton "suivre" d'une page artiste : l'etat suivi reprend la couleur d'accent,
+   pour qu'un coup d'oeil suffise sans lire le libelle. */
+.artist-follow.is-following { border-color: var(--accent); color: var(--accent); }

@@ -153,3 +153,61 @@ self.addEventListener('fetch', (event) => {
         })());
     }
 });
+
+// =============================================================================
+// NOTIFICATIONS PUSH
+// =============================================================================
+// Le serveur envoie un push VIDE : un simple signal, sans contenu (voir
+// api/push.php). C'est ici qu'on va chercher quoi afficher.
+//
+// Deux consequences utiles de ce choix : le titre du morceau ne transite jamais
+// par le service de push du navigateur, et le contenu affiche est celui du moment
+// ou la notification apparait -- pas celui du moment ou elle a ete emise.
+self.addEventListener('push', (event) => {
+    event.waitUntil((async () => {
+        let items = [];
+        try {
+            // credentials:'include' est indispensable : sans cookie de session, le
+            // serveur ne sait pas de quel compte il s'agit et ne renvoie rien.
+            const res = await fetch('api.php?action=push_pending', { credentials: 'include' });
+            const data = await res.json();
+            if (data && data.status === 'success') items = data.items || [];
+        } catch (e) { /* hors ligne : on affichera le repli ci-dessous */ }
+
+        if (!items.length) {
+            // Signal recu mais rien a lire (file deja vidée par un autre appareil,
+            // ou session expiree). On n'affiche RIEN plutot qu'une notification
+            // vide : la plupart des navigateurs en fabriqueraient une generique,
+            // ce qui est pire que le silence.
+            return;
+        }
+
+        await Promise.all(items.map(item => self.registration.showNotification(item.title, {
+            body: item.body || '',
+            icon: 'favicon.png',
+            badge: 'favicon.png',
+            // tag par identifiant : deux signaux pour la meme entree ne empilent pas
+            // deux notifications identiques.
+            tag: 'pm-' + item.id,
+            data: { url: item.url || 'index.php' },
+        })));
+    })());
+});
+
+// Clic sur une notification : on reutilise un onglet deja ouvert sur l'app plutot
+// que d'en empiler un nouveau a chaque fois.
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const target = (event.notification.data && event.notification.data.url) || 'index.php';
+    event.waitUntil((async () => {
+        const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of all) {
+            if (client.url.includes(self.registration.scope)) {
+                await client.focus();
+                if ('navigate' in client) await client.navigate(target);
+                return;
+            }
+        }
+        await clients.openWindow(target);
+    })());
+});

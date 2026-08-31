@@ -112,6 +112,7 @@ try {
     purplemusic_migrate_playlist_share($db);
     purplemusic_migrate_public_profile($db);
     purplemusic_migrate_playlist_collab($db);
+    purplemusic_migrate_push($db);
 
 } catch (Exception $e) { die(json_encode(["status" => "error", "message" => "Erreur BDD"])); }
 
@@ -156,6 +157,7 @@ $actionDomains = [
     'import' => ['import_scan', 'import_run'],
     'mixes' => ['daily_mixes'],
     'quality' => ['quality_options'],
+    'push' => ['push_config', 'push_subscribe', 'push_unsubscribe', 'push_pending', 'follow_artist', 'unfollow_artist', 'my_follows'],
 ];
 
 foreach ($actionDomains as $domainFile => $actions) {

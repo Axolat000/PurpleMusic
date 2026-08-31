@@ -181,6 +181,22 @@
         </div>
 
         <div x-show="activeTab === 'account'" x-cloak>
+            <?php /* Notifications de nouveautes. Le bloc n'apparait que si le serveur sait
+                     emettre (cles VAPID generables) ET si le navigateur sait recevoir. La
+                     permission n'est demandee qu'au clic sur l'interrupteur, jamais au
+                     chargement -- une demande non sollicitee est refusee neuf fois sur dix,
+                     et le refus est definitif. */ ?>
+            <div x-show="$store.ui.pushAvailable" x-cloak>
+                <div class="eq-enable-row">
+                    <span class="settings-section-label" style="margin:0;"><?php echo t('push_label'); ?></span>
+                    <label class="switch-toggle">
+                        <input type="checkbox" :checked="$store.ui.pushEnabled" @change="setPushEnabled($event.target.checked)">
+                        <span class="switch-toggle-track"><span class="switch-toggle-thumb"></span></span>
+                    </label>
+                </div>
+                <p style="font-size:0.8em; color:var(--text-muted); margin:-12px 0 20px;"><?php echo t('push_hint'); ?></p>
+            </div>
+
             <?php /* Ecoute hors ligne. Uniquement les coups de coeur, uniquement sur
                      demande : le service worker ne met jamais d'audio en cache tout seul
                      (voir sw.js), une bibliotheque auto-hebergee pese trop lourd pour un

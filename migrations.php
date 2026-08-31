@@ -221,3 +221,47 @@ function purplemusic_migrate_playlist_collab(PDO $db): void
     )");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_collab_user ON playlist_collaborators(user_id)");
 }
+
+/**
+ * Notifications push : abonnements, artistes suivis, et file d'attente.
+ *
+ * Trois tables parce que ce sont trois choses distinctes :
+ *   - push_subscriptions : un navigateur qui a accepte de recevoir des
+ *     notifications. Un compte peut en avoir plusieurs (telephone, ordinateur),
+ *     et chacun a sa propre autorisation, revocable de son cote.
+ *   - artist_follows : qui veut etre prevenu pour quel artiste. La fonctionnalite
+ *     demandee ("nouvel album pour les artistes suivis") supposait un suivi
+ *     d'artiste qui n'existait pas encore.
+ *   - push_queue : ce qu'il reste a annoncer. Le contenu de la notification n'est
+ *     PAS envoye dans le push lui-meme (voir api/push.php) : le navigateur recoit
+ *     un signal vide et vient lire ici, ce qui evite toute la couche de
+ *     chiffrement de charge utile et, accessoirement, ne confie aucun titre au
+ *     service de push du navigateur.
+ */
+function purplemusic_migrate_push(PDO $db): void
+{
+    $db->exec("CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        endpoint TEXT NOT NULL UNIQUE,
+        created_at INTEGER
+    )");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id)");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS artist_follows (
+        user_id INTEGER NOT NULL,
+        artist TEXT NOT NULL,
+        created_at INTEGER,
+        PRIMARY KEY (user_id, artist)
+    )");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS push_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT,
+        url TEXT,
+        created_at INTEGER
+    )");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_push_queue_user ON push_queue(user_id)");
+}

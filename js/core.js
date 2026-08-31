@@ -26,6 +26,8 @@ document.addEventListener('alpine:init', () => {
         streamQualityBitrates: [],
         crossfadeSeconds: 0,     // duree du fondu enchaine, 0 = desactive
         gaplessEnabled: false,   // enchainement sans blanc
+        pushAvailable: false,    // le serveur sait-il emettre des notifications (cles VAPID)
+        pushEnabled: false,      // cet appareil est-il abonne
         profilePublic: false,    // mon profil d'ecoute est-il visible par les autres comptes
         publicProfile: null,     // profil actuellement ouvert dans la modale
         sortValue: 'recommended',
@@ -274,6 +276,8 @@ document.addEventListener('alpine:init', () => {
             restoreNormalizeSetting();
             restoreCrossfadeSettings();
             restoreStreamQuality();
+            loadPushConfig();
+            loadFollowedArtists();
             this.profilePublic = (typeof PROFILE_PUBLIC !== 'undefined') && !!PROFILE_PUBLIC;
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';
             this.appDynamicThemeEnabled = localStorage.getItem('purpleMusicAppDynamicThemeEnabled') === '1';

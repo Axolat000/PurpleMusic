@@ -208,6 +208,13 @@ function home_row(string $storeKey, string $title, string $keyPrefix, ?string $s
                             <svg class="ico" aria-hidden="true"><use href="#ico-cast"></use></svg>
                             <?php echo t('entity_radio'); ?>
                         </button>
+                        <?php /* Suivre un artiste : sert a etre prevenu de ses nouveautes
+                                 (voir js/push.js). Le libelle et l'icone changent selon
+                                 l'etat, il n'y a pas deux boutons. */ ?>
+                        <button type="button" class="btn btn-outline artist-follow" id="artist-follow-btn" onclick="toggleFollowArtist()">
+                            <svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg>
+                            <span class="follow-label"><?php echo t('artist_follow'); ?></span>
+                        </button>
                     </div>
                 </div>
             </div>

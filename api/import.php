@@ -156,6 +156,8 @@ switch ($action) {
             $db->prepare("INSERT INTO tracks (filename, title, artist, album, album_id, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?,?,?)")
                ->execute([$fn, $title, $artist, $album, $albumId, $cover, $defaultGenre, $auth['id'], $duration]);
             register_genre($db, $defaultGenre);
+            require_once __DIR__ . '/push.php';
+            push_notify_new_track($db, ['artist' => $artist, 'title' => $title]);
 
             $imported[] = ['file' => basename($src), 'title' => $title, 'artist' => $artist];
         }

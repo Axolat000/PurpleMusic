@@ -180,6 +180,11 @@ switch ($action) {
                 $albumId = resolve_album($db, $al, $ar, $cn);
                 $db->prepare("INSERT INTO tracks (filename, title, artist, album, album_id, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $al, $albumId, $cn, $ge, $auth['id'], $duration]);
                 register_genre($db, $ge);
+                // Previent les abonnes qui suivent cet artiste. Silencieux par
+                // conception : une notification qui echoue ne doit pas faire echouer
+                // l'ajout du morceau.
+                require_once __DIR__ . '/push.php';
+                push_notify_new_track($db, ['artist' => $ar, 'title' => $ti]);
                 echo json_encode(["status" => "success"]);
             } else echo json_encode(["status" => "error", "message" => "Erreur de déplacement du fichier"]);
         } else echo json_encode(["status" => "error", "message" => "Fichier audio manquant"]);
