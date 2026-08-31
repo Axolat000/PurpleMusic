@@ -181,6 +181,34 @@
         </div>
 
         <div x-show="activeTab === 'account'" x-cloak>
+            <?php /* Ecoute hors ligne. Uniquement les coups de coeur, uniquement sur
+                     demande : le service worker ne met jamais d'audio en cache tout seul
+                     (voir sw.js), une bibliotheque auto-hebergee pese trop lourd pour un
+                     cache opportuniste. */ ?>
+            <div x-data="offlineDownloads">
+                <p class="settings-section-label"><?php echo t('offline_label'); ?></p>
+                <template x-if="!supported">
+                    <p style="font-size:0.8em; color:var(--text-muted); margin:-8px 0 20px;"><?php echo t('offline_unsupported'); ?></p>
+                </template>
+                <template x-if="supported">
+                    <div>
+                        <p style="font-size:0.8em; color:var(--text-muted); margin:-8px 0 12px;">
+                            <?php echo t('offline_hint'); ?>
+                            <span x-show="storedCount > 0" x-text="' ' + T('offline_stored', { n: storedCount, size: usedLabel })"></span>
+                        </p>
+                        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+                            <button type="button" class="btn btn-outline" :disabled="working || likedTracks.length === 0" @click="download()">
+                                <svg class="ico ico-sm" aria-hidden="true"><use href="#ico-download"></use></svg>
+                                <span x-text="progress || T('offline_download', { n: likedTracks.length })"></span>
+                            </button>
+                            <button type="button" class="btn btn-outline" x-show="storedCount > 0" :disabled="working" @click="clear()">
+                                <?php echo t('offline_clear'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
             <?php /* Profil d'ecoute public. Desactive par defaut, et l'activation ne peut
                      venir que de son proprietaire : aucun endpoint ne permet a un
                      administrateur de rendre public le profil de quelqu'un d'autre. */ ?>

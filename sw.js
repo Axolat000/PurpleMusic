@@ -27,6 +27,15 @@ const COVER_CACHE = `${CACHE_VERSION}-covers`;
 // grignoter indéfiniment le quota sur une grosse bibliothèque.
 const COVER_CACHE_MAX = 300;
 
+// Écoute hors ligne : les morceaux que l'utilisateur a explicitement demandés.
+//
+// Son nom ne contient PAS la version du cache, contrairement aux deux autres, et
+// c'est délibéré : ces fichiers ont été choisis un par un et peuvent peser
+// plusieurs centaines de méga-octets. Les effacer à chaque déploiement, comme on
+// le fait pour les assets, serait une purge invisible de données que l'utilisateur
+// croit posséder. Seul lui les supprime (voir js/offline.js).
+const OFFLINE_CACHE = 'pm-offline';
+
 self.addEventListener('install', (event) => {
     // skipWaiting : la nouvelle version prend la main immédiatement au lieu
     // d'attendre la fermeture de tous les onglets. Sans lui, un utilisateur qui
@@ -39,7 +48,7 @@ self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         const names = await caches.keys();
         await Promise.all(
-            names.filter(n => !n.startsWith(CACHE_VERSION)).map(n => caches.delete(n))
+            names.filter(n => !n.startsWith(CACHE_VERSION) && n !== OFFLINE_CACHE).map(n => caches.delete(n))
         );
         await self.clients.claim();
     })());
@@ -71,8 +80,20 @@ self.addEventListener('fetch', (event) => {
     // Rien d'externe (Wikipédia, lrclib.net) : ces réponses ne nous appartiennent
     // pas et leur fraîcheur compte plus que leur vitesse.
     if (url.origin !== self.location.origin) return;
-    // Exclusions explicites (voir l'en-tête de fichier).
-    if (url.pathname.includes('/music/') || url.pathname.endsWith('api.php')) return;
+    // Audio : jamais mis en cache opportunistement (voir l'en-tête de fichier), mais
+    // servi depuis le cache hors ligne s'il s'y trouve — c'est-à-dire uniquement si
+    // l'utilisateur a demandé ce morceau explicitement. On ne remplit jamais ce
+    // cache ici : le remplissage est un geste utilisateur, pas un effet de bord de
+    // la lecture.
+    if (url.pathname.includes('/music/')) {
+        event.respondWith((async () => {
+            const cached = await caches.match(req, { cacheName: OFFLINE_CACHE, ignoreSearch: true });
+            if (cached) return cached;
+            return fetch(req);
+        })());
+        return;
+    }
+    if (url.pathname.endsWith('api.php')) return;
 
     if (isStaticAsset(url)) {
         // Cache d'abord : ces fichiers portent un ?v= qui change à chaque
