@@ -64,7 +64,10 @@ switch ($action) {
             @mkdir($dir, 0755, true);
         }
 
-        $allowed = ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus', 'webm'];
+        // MEME liste que is_valid_audio() (api/helpers.php), qui est le vrai filtre :
+        // annoncer m4a/aac/opus/webm ici ne servait a rien, ces fichiers etaient
+        // ensuite refuses en silence et n'apparaissaient jamais dans le scan.
+        $allowed = ['mp3', 'wav', 'ogg', 'flac'];
         $files = [];
         foreach (scandir($dir) ?: [] as $name) {
             if ($name === '.' || $name === '..') continue;

@@ -100,6 +100,49 @@ function push_es256_signature(string $data, string $privatePem): ?string
     return str_pad($r, 32, "\0", STR_PAD_LEFT) . str_pad($s, 32, "\0", STR_PAD_LEFT);
 }
 
+/**
+ * Un endpoint d'abonnement est-il acceptable ?
+ *
+ * C'est le garde-fou contre la falsification de requête côté serveur (SSRF).
+ * push_send() fait un POST vers cette URL : sans contrôle, n'importe quel compte
+ * pourrait faire émettre au serveur des requêtes vers des adresses de son choix,
+ * y compris des services internes que lui-même ne peut pas joindre — cas
+ * particulièrement concret ici, l'instance vivant sur un réseau local.
+ *
+ * Deux verrous :
+ *   1. HTTPS uniquement, et une URL bien formée ;
+ *   2. l'hôte doit résoudre vers une adresse PUBLIQUE. Les plages privées, la
+ *      boucle locale et le lien-local sont refusées.
+ *
+ * Volontairement pas de liste blanche d'hébergeurs (FCM, Mozilla, Apple…) : elle
+ * casserait tout navigateur utilisant un autre service de push, ce qui n'est pas
+ * à cette application d'arbitrer.
+ */
+function push_endpoint_is_acceptable(string $endpoint): bool
+{
+    if ($endpoint === '' || !filter_var($endpoint, FILTER_VALIDATE_URL)) return false;
+    if (stripos($endpoint, 'https://') !== 0) return false;
+
+    $host = parse_url($endpoint, PHP_URL_HOST);
+    if (!$host) return false;
+
+    // Une IP littérale est vérifiée telle quelle ; un nom est résolu d'abord.
+    $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : array_merge(
+        gethostbynamel($host) ?: [],
+        array_column(@dns_get_record($host, DNS_AAAA) ?: [], 'ipv6')
+    );
+    if (!$ips) return false;
+
+    foreach ($ips as $ip) {
+        // FILTER_FLAG_NO_PRIV_RANGE et NO_RES_RANGE couvrent 10/8, 172.16/12,
+        // 192.168/16, 127/8, 169.254/16 et leurs equivalents IPv6.
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /** Envoie un push VIDE à un endpoint. Retourne le code HTTP, ou 0 en cas d'échec réseau. */
 function push_send(string $endpoint, array $keys, string $subject): int
 {
@@ -118,9 +161,17 @@ function push_send(string $endpoint, array $keys, string $subject): int
     if ($signature === null) return 0;
     $jwt = $header . '.' . $claims . '.' . push_b64($signature);
 
+    // Revérifié À L'ENVOI et pas seulement à l'abonnement : un nom de domaine
+    // accepté hier peut pointer vers une adresse interne aujourd'hui (rebinding
+    // DNS), et les abonnements vivent longtemps.
+    if (!push_endpoint_is_acceptable($endpoint)) return 0;
+
     $ch = curl_init($endpoint);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
+        // Aucune redirection suivie : sinon le contrôle d'adresse ci-dessus serait
+        // contournable par un simple 302 vers une adresse interne.
+        CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_POSTFIELDS => '',
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 8,
@@ -216,9 +267,7 @@ switch ($action) {
         if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
 
         $endpoint = trim((string) ($_POST['endpoint'] ?? ''));
-        // Un endpoint de push est toujours une URL HTTPS fournie par le navigateur :
-        // on refuse tout le reste plutôt que de stocker n'importe quelle chaîne.
-        if ($endpoint === '' || !filter_var($endpoint, FILTER_VALIDATE_URL) || stripos($endpoint, 'https://') !== 0) {
+        if (!push_endpoint_is_acceptable($endpoint)) {
             echo json_encode(["status" => "error", "message" => "Abonnement invalide."]); exit;
         }
         $db->prepare("INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, created_at) VALUES (?, ?, ?)")
@@ -238,6 +287,20 @@ switch ($action) {
 
     // Lu par le service worker a la reception d'un push. Vide la file au passage :
     // une notification affichee ne doit pas revenir au prochain signal.
+    //
+    // Reste un GET : le service worker vit hors du document et n'a aucun acces au
+    // jeton CSRF de la page, un POST protege lui serait donc inaccessible. Or
+    // authenticate_api_user() ne verifie le jeton que sur les POST : ce GET
+    // SUPPRIME des lignes et pouvait donc etre declenche depuis un site tiers pour
+    // vider en silence la file de quelqu'un.
+    //
+    // La suppression est desormais conditionnee a Sec-Fetch-Site: same-origin, un
+    // en-tete pose par le navigateur lui-meme et qu'une page tierce ne peut pas
+    // falsifier. Une requete d'origine etrangere obtient donc une reponse en
+    // LECTURE SEULE plutot qu'une erreur : elle ne peut de toute facon pas la lire
+    // (api.php repond Access-Control-Allow-Origin: *, ce qui interdit justement les
+    // requetes creditees), et degrader vaut mieux que casser les notifications sur
+    // un navigateur qui n'enverrait pas cet en-tete.
     case 'push_pending':
         $auth = authenticate_api_user($db);
         if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
@@ -245,7 +308,9 @@ switch ($action) {
         $stmt = $db->prepare("SELECT id, title, body, url FROM push_queue WHERE user_id = ? ORDER BY id ASC LIMIT 10");
         $stmt->execute([(int) $auth['id']]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        if ($items) {
+
+        $sameOrigin = ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? 'same-origin') === 'same-origin';
+        if ($items && $sameOrigin) {
             $ids = implode(',', array_map(fn($i) => (int) $i['id'], $items));
             $db->exec("DELETE FROM push_queue WHERE id IN ($ids)");
         }

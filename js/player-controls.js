@@ -38,8 +38,11 @@ function updateVolume(val) {
     if (!audio) return;
     // Remonter le volume à la main (au-dessus de 0) alors qu'on était en muet redonne le son, comme sur
     // la plupart des lecteurs — plus intuitif que de laisser le curseur sans effet audible.
-    if (audio.muted && val > 0) audio.muted = false;
-    audio.volume = val;
+    // Applique aux DEUX elements pendant un enchainement : voir forEachSoundingAudio().
+    forEachSoundingAudio(el => {
+        if (el.muted && val > 0) el.muted = false;
+        el.volume = val;
+    });
     if(desktopVol) desktopVol.value = val;
     if(settingsVol) settingsVol.value = val;
     if(dpVol) dpVol.value = val;
@@ -57,7 +60,10 @@ function updateVolume(val) {
 // dé-mute sans logique de sauvegarde séparée.
 function toggleMute() {
     if (!audio) return;
-    audio.muted = !audio.muted;
+    // L'etat cible est decide UNE fois puis applique aux deux elements : inverser
+    // chacun de son cote les desynchroniserait pendant un enchainement.
+    const next = !audio.muted;
+    forEachSoundingAudio(el => { el.muted = next; });
     refreshVolumeIcon();
 }
 

@@ -11,8 +11,10 @@ amusic_app.db
 *.db
 update_check_cache.json
 music/*
+!music/.htaccess
 covers/*
 !covers/default.png
+!covers/.htaccess
 !covers/.gitkeep
 
 .idea/

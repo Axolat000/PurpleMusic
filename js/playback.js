@@ -298,11 +298,12 @@ function togglePlay() {
         // un geste utilisateur valide pour démarrer un AudioContext, et c'est le point d'entrée le plus
         // fiable puisqu'une lecture va de toute façon démarrer juste après.
         resumeAudioGraph();
-        audio.play();
+        // Les deux elements pendant un enchainement : voir forEachSoundingAudio().
+        forEachSoundingAudio(el => { const p = el.play(); if (p && p.catch) p.catch(() => {}); });
         pmSetPlayIcon(true);
     }
     else {
-        audio.pause();
+        forEachSoundingAudio(el => el.pause());
         pmSetPlayIcon(false);
     }
 }

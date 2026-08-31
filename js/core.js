@@ -277,6 +277,7 @@ document.addEventListener('alpine:init', () => {
             restoreCrossfadeSettings();
             restoreStreamQuality();
             loadPushConfig();
+            refreshOfflineTrackIds();
             loadFollowedArtists();
             this.profilePublic = (typeof PROFILE_PUBLIC !== 'undefined') && !!PROFILE_PUBLIC;
             this.dynamicThemeEnabled = localStorage.getItem('purpleMusicDynamicThemeEnabled') === '1';

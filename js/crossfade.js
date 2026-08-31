@@ -268,3 +268,15 @@ function restoreCrossfadeSettings() {
         Alpine.store('ui').gaplessEnabled = gaplessEnabled;
     }
 }
+
+// Applique une commande de transport aux elements qui SONNENT.
+//
+// Hors enchainement il n'y en a qu'un, et c'est le cas courant. Pendant un fondu
+// il y en a DEUX : appuyer sur pause n'arretait alors que le morceau sortant, le
+// morceau entrant continuait de jouer pendant que l'icone affichait "en pause".
+// Meme probleme pour le volume et le muet, qui ne s'appliquaient qu'a la moitie
+// de ce qu'on entendait.
+function forEachSoundingAudio(fn) {
+    fn(audio);
+    if (_crossfading) fn(idleAudio());
+}

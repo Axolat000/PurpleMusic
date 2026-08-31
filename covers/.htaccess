@@ -1,0 +1,18 @@
+# Defense en profondeur : ce dossier ne contient QUE des fichiers deposes
+# (audio, pochettes). Aucun chemin du code ne peut y ecrire un .php -- les
+# extensions sont sur liste blanche et les octets de tete verifies
+# (is_valid_audio, api/helpers.php) -- mais si une regression le permettait un
+# jour, le fichier serait execute par le serveur. On refuse donc leur acces HTTP
+# une fois pour toutes.
+#
+# <FilesMatch> plutot que "php_flag engine off" : cette derniere directive n existe
+# que sous mod_php et provoque une erreur 500 sous php-fpm.
+<FilesMatch "\.(php|phtml|phps|phar|cgi|pl|py|sh)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>

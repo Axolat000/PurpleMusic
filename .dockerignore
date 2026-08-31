@@ -8,8 +8,10 @@ config.php
 music_app.db
 amusic_app.db
 music/*
+!music/.htaccess
 covers/*
 !covers/default.png
+!covers/.htaccess
 
 # Git / éditeurs / docs
 .git

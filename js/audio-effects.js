@@ -230,6 +230,13 @@ let streamQualityAvailable = false;
 // par le prechargement du fondu enchaine -- sinon les deux divergeraient au
 // premier changement de reglage.
 function trackStreamUrl(track) {
+    // Un morceau telecharge pour l'ecoute hors ligne est TOUJOURS lu depuis son
+    // fichier d'origine : c'est cette URL-la qui est dans le cache. Demander une
+    // version reencodee ferait manquer le cache et rendrait le telechargement
+    // inutile -- silencieusement, ce qui est le pire cas.
+    if (typeof OFFLINE_TRACK_IDS !== 'undefined' && OFFLINE_TRACK_IDS.has(track.id)) {
+        return 'music/' + track.filename;
+    }
     if (streamQuality === 'original') return 'music/' + track.filename;
     return 'api.php?action=stream&q=' + encodeURIComponent(track.id) + '&br=' + encodeURIComponent(streamQuality);
 }

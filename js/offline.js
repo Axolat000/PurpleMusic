@@ -19,6 +19,13 @@
 
 const OFFLINE_CACHE = 'pm-offline';
 
+// Identifiants des morceaux disponibles hors ligne, tenus a jour a chaque
+// changement. Sert a trackStreamUrl() (js/audio-effects.js) : un morceau
+// telecharge doit etre lu depuis SON fichier d'origine, sinon un debit reduit
+// ferait demander une autre URL (api.php?action=stream...) qui n'est pas dans le
+// cache -- le telechargement devenait alors inutile sans que rien ne le dise.
+let OFFLINE_TRACK_IDS = new Set();
+
 // Le navigateur peut refuser d'ouvrir un cache (mode privé strict, stockage
 // désactivé). Tout passe par ce point d'entrée pour que l'interface puisse dire
 // « indisponible » au lieu de planter.
@@ -35,7 +42,15 @@ function offlineUrlFor(track) {
     return 'music/' + track.filename;
 }
 
-// Identifiants des morceaux effectivement présents dans le cache.
+// Recalcule l'ensemble des identifiants disponibles hors ligne, sur TOUTE la
+// bibliotheque et pas seulement sur les coups de coeur : un morceau reste
+// jouable hors ligne meme si on le retire de ses favoris ensuite.
+async function refreshOfflineTrackIds() {
+    if (typeof ALL_MUSIC_DATA === 'undefined') return;
+    OFFLINE_TRACK_IDS = await offlineStoredIds(ALL_MUSIC_DATA);
+}
+
+// Identifiants des morceaux de la liste donnee qui sont presents dans le cache.
 async function offlineStoredIds(tracks) {
     const cache = await openOfflineCache();
     if (!cache) return new Set();
@@ -136,6 +151,7 @@ document.addEventListener('alpine:init', () => {
             const ids = await offlineStoredIds(this.likedTracks);
             this.storedCount = ids.size;
             this.usedLabel = formatBytes(await offlineUsedBytes());
+            await refreshOfflineTrackIds();
         },
 
         async download() {
