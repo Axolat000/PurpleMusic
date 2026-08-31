@@ -245,6 +245,14 @@ function attachAudioHandlers(el) {
             if ((store.showLyricsInPlayer || store.lyricsPanelOpen || store.desktopPlayerView === 'lyrics') && store.lyricsSynced && store.lyricsSynced.length > 0) {
                 const idx = findActiveLyricIndex(store.lyricsSynced, audio.currentTime);
                 if (idx !== store.lyricsActiveIndex) store.lyricsActiveIndex = idx;
+                // Balayage karaoké de la ligne en cours. Posé en variable CSS et non
+                // dans l'état Alpine : la valeur change à chaque image, la faire
+                // passer par la réactivité relancerait tout le rendu des paroles
+                // plusieurs fois par seconde.
+                if (idx >= 0) {
+                    const pct = (lyricLineProgress(store.lyricsSynced, idx, audio.currentTime) * 100).toFixed(1) + '%';
+                    document.querySelectorAll('.lyrics-line.active').forEach(el => el.style.setProperty('--lyric-progress', pct));
+                }
             }
         }
     };

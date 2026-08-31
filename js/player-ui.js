@@ -12,23 +12,92 @@ function toggleQueue() {
 
 // --- PAROLES (lrclib.net) ---
 
-// Parse un texte au format LRC ("[mm:ss.xx]texte") en tableau trié [{time, text}]
+// Parse un texte au format LRC en tableau trié [{time, text, words?}].
+//
+// Deux formats sont acceptés :
+//   [mm:ss.xx] texte                          -> LRC simple, un temps par ligne
+//   [mm:ss.xx] <mm:ss.xx> mot <mm:ss.xx> mot  -> LRC enrichi, un temps par MOT
+//
+// Le second (« enhanced LRC ») est ce qui permet un vrai karaoké mot à mot. Il
+// reste rare : lrclib.net, la source de l'app, ne le fournit pas aujourd'hui. On
+// le reconnaît quand même, parce que le jour où une source enrichie apparaît le
+// rendu s'améliore tout seul — et parce qu'un fichier enrichi ne doit surtout pas
+// s'afficher avec ses balises <mm:ss.xx> en clair au milieu du texte, ce qui était
+// le comportement précédent.
 function parseLRC(text) {
     const timeTagRe = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+    const wordTagRe = /<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>/g;
+    const toSeconds = (m, s, ms) => (parseInt(m, 10) * 60) + parseInt(s, 10) + (ms ? parseInt(String(ms).padEnd(3, '0'), 10) / 1000 : 0);
+
     const result = [];
     text.split('\n').forEach(line => {
         const tags = [...line.matchAll(timeTagRe)];
         if (tags.length === 0) return;
-        const content = line.replace(timeTagRe, '').trim();
+        const body = line.replace(timeTagRe, '');
+
+        // Découpage mot à mot, si la ligne porte des balises <...>.
+        const wordTags = [...body.matchAll(wordTagRe)];
+        let words = null;
+        if (wordTags.length > 0) {
+            words = [];
+            wordTags.forEach((tag, i) => {
+                const start = tag.index + tag[0].length;
+                const end = (i + 1 < wordTags.length) ? wordTags[i + 1].index : body.length;
+                const chunk = body.slice(start, end);
+                if (chunk.trim() === '') return;
+                words.push({ time: toSeconds(tag[1], tag[2], tag[3]), text: chunk });
+            });
+            if (!words.length) words = null;
+        }
+
+        // Le texte affiché est toujours débarrassé des balises de mot. Les espaces
+        // sont recollés au passage : retirer "<00:11.00>" entre deux mots laisse
+        // sinon un double espace bien visible à l'écran.
+        const content = body.replace(wordTagRe, '').replace(/\s+/g, ' ').trim();
+
         tags.forEach(tag => {
-            const min = parseInt(tag[1], 10);
-            const sec = parseInt(tag[2], 10);
-            const ms = tag[3] ? parseInt(tag[3].padEnd(3, '0'), 10) : 0;
-            result.push({ time: (min * 60) + sec + (ms / 1000), text: content });
+            const entry = { time: toSeconds(tag[1], tag[2], tag[3]), text: content };
+            if (words) entry.words = words;
+            result.push(entry);
         });
     });
     result.sort((a, b) => a.time - b.time);
     return result;
+}
+
+// Avancement DANS la ligne en cours, de 0 à 1. C'est ce qui produit le balayage
+// karaoké : le texte se remplit au fil de la ligne au lieu de s'allumer d'un bloc.
+//
+// Deux sources, dans cet ordre :
+//   1. les temps de MOT, quand le LRC est enrichi -> le balayage tombe exactement
+//      sur les frontières de mots, c'est la vraie donnée ;
+//   2. sinon, une INTERPOLATION linéaire entre le début de la ligne et celui de la
+//      suivante. C'est une approximation, pas une mesure : elle suppose un débit
+//      régulier, ce qui est faux sur une tenue de note ou un silence en fin de
+//      phrase. On l'assume — sans elle, l'immense majorité du catalogue n'aurait
+//      aucun effet karaoké, la source de paroles utilisée ne donnant que des temps
+//      de ligne.
+function lyricLineProgress(lines, index, currentTime) {
+    const line = lines[index];
+    if (!line) return 0;
+
+    if (line.words && line.words.length) {
+        let done = 0;
+        let chars = 0;
+        line.words.forEach(w => {
+            if (w.time <= currentTime) done = chars + w.text.length;
+            chars += w.text.length;
+        });
+        return chars ? Math.max(0, Math.min(1, done / chars)) : 0;
+    }
+
+    const next = lines[index + 1];
+    // Dernière ligne : aucune borne de fin connue, on retient 4 secondes plutôt
+    // que de laisser le balayage courir jusqu'à la fin du morceau.
+    const end = next ? next.time : line.time + 4;
+    const span = end - line.time;
+    if (span <= 0) return 1;
+    return Math.max(0, Math.min(1, (currentTime - line.time) / span));
 }
 
 // Clic sur une ligne de paroles synchronisées -> avance/recule la lecture jusqu'à ce timestamp, sans

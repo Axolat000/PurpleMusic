@@ -206,3 +206,31 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focu
    et ni l'une ni l'autre n'a de contrepartie de fermeture a animer (la page de
    connexion ne se ferme pas, le grand lecteur a sa propre transition de
    carrousel). */
+
+
+/* --- BALAYAGE KARAOKE DE LA LIGNE EN COURS ---------------------------------
+   La ligne active se remplit de gauche a droite au fil de la lecture, au lieu de
+   s'allumer d'un bloc. Le remplissage est un degrade a arret net applique AU TEXTE
+   (background-clip: text) : une seule propriete personnalisee change par image,
+   --lyric-progress, sans rien re-rendre.
+
+   Les mots viennent des temps de mot du LRC enrichi quand il y en a, d'une
+   interpolation lineaire sinon (voir lyricLineProgress dans js/player-ui.js).
+
+   Repli : si background-clip:text n'est pas supporte, la regle @supports ne
+   s'applique pas et la ligne active garde simplement sa couleur pleine -- le
+   comportement d'avant. */
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .lyrics-line.active {
+        background-image: linear-gradient(90deg, var(--accent) 0 var(--lyric-progress, 0%), var(--fg-soft) var(--lyric-progress, 0%) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+    }
+}
+/* Sous prefers-reduced-motion, le balayage progressif devient un remplissage
+   binaire : la ligne active est simplement mise en couleur, sans animation. */
+@media (prefers-reduced-motion: reduce) {
+    .lyrics-line.active { background-image: none; color: var(--accent); -webkit-text-fill-color: currentColor; }
+}
