@@ -96,6 +96,37 @@ function home_row(string $storeKey, string $title, string $keyPrefix, ?string $s
                 </template>
             </div>
 
+            <?php /* Mix du jour. Rangee a part et non un home_row() : une carte represente
+                     ici un MIX (une selection de 25 titres), pas une piste -- le clic lance
+                     la selection entiere. */ ?>
+            <template x-if="$store.ui.dailyMixes.length > 0">
+                <section class="home-row">
+                    <div class="home-row-header">
+                        <h3 class="home-row-title"><?php echo t('mixes_title'); ?></h3>
+                    </div>
+                    <div class="home-row-wrap" x-data="homeRowScroller()">
+                        <button type="button" class="home-row-arrow home-row-arrow-left" x-show="canLeft" x-cloak @click="scrollDir(-1)" aria-label="<?php echo htmlspecialchars(t('tooltip_prev')); ?>">
+                            <svg class="ico" aria-hidden="true"><use href="#ico-chevron-left"></use></svg>
+                        </button>
+                        <div class="home-row-scroll" x-ref="scrollEl" @scroll="onScroll">
+                            <template x-for="(m, i) in $store.ui.dailyMixes" :key="'mix-' + m.key">
+                                <article class="home-track-card fade-in-row" :style="'--i:' + i" @click="playDailyMix(m.key)">
+                                    <div class="home-card-art">
+                                        <img :src="'covers/' + (m.cover || 'default.png')" loading="lazy" alt="" @error="$event.target.src = 'covers/default.png'">
+                                        <span class="mix-badge"><?php echo t('mixes_badge'); ?></span>
+                                    </div>
+                                    <div class="marquee-wrap home-track-card-title"><span x-text="m.title"></span></div>
+                                    <div class="home-track-card-sub" x-text="T('tracks_count_label', { n: m.count })"></div>
+                                </article>
+                            </template>
+                        </div>
+                        <button type="button" class="home-row-arrow home-row-arrow-right" x-show="canRight" x-cloak @click="scrollDir(1)" aria-label="<?php echo htmlspecialchars(t('tooltip_next')); ?>">
+                            <svg class="ico" aria-hidden="true"><use href="#ico-chevron-right"></use></svg>
+                        </button>
+                    </div>
+                </section>
+            </template>
+
             <?php
             home_row('continueTracks', t('home_continue_listening'), 'cont');
             home_row('recentTracks', t('sort_recent'), 'recent', 'date_desc');

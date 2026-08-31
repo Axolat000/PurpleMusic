@@ -41,6 +41,7 @@ document.addEventListener('alpine:init', () => {
         playlistsPreview: [],
         recommendedTracks: [], // rempli de façon asynchrone (voir init()) -- calcul serveur, pas instantané comme les autres rangées
         continueTracks: [],    // "Reprendre l'écoute" : dérivé de l'historique local (voir pushListenHistory())
+        dailyMixes: [],        // "Mix du jour" : sélections par genre, refaites chaque jour (voir api/mixes.php)
         hiddenGemTracks: [],   // "Pépites oubliées" : les moins écoutées, hors jamais-jouées
         homeLoaded: false,     // passe à true quand les rangées serveur ont répondu -> retire les squelettes
         confirmState: { open: false, message: '', onConfirm: null },
@@ -250,6 +251,14 @@ document.addEventListener('alpine:init', () => {
             // Classement complet (pas juste le top 20 ci-dessus) : alimente le mode de tri 'recommended',
             // par défaut sur la bibliothèque -- arrive après le premier rendu, donc on retrie une fois prêt
             // si l'utilisateur est toujours sur ce tri (voir compareTracksBySort()/filterAndSortTracks()).
+            // Mix du jour : une requête séparée des recommandations, parce qu'ils ne
+            // répondent pas à la même question (« que puis-je écouter maintenant ? »
+            // contre « quoi de neuf pour moi ? ») et qu'une réponse lente de l'un ne
+            // doit pas retenir l'autre.
+            fetch('api.php?action=daily_mixes').then(r => r.json()).then(data => {
+                if (data && data.status === 'success') this.dailyMixes = data.mixes || [];
+            }).catch(e => console.error(e));
+
             fetch('api.php?action=recommendations&full=1').then(r => r.json()).then(data => {
                 if (!Array.isArray(data)) return;
                 RECOMMENDED_RANK = new Map(data.map((t, i) => [t.id, i]));

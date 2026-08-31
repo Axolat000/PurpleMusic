@@ -802,3 +802,23 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 // centralisée dans applyUrlState() (js/library.js) : ces écrans y sont traités
 // comme les autres. Un second point de restauration ici les rendrait deux fois
 // au chargement et divergerait à la première évolution.
+
+
+// Lance un mix du jour : sa liste de pistes devient la file, dans l'ordre tire par
+// le serveur. On ne rejoue pas le tirage cote client -- l'ordre affiche doit etre
+// celui qu'on entend.
+function playDailyMix(key) {
+    if (!window.Alpine) return;
+    const mix = Alpine.store('ui').dailyMixes.find(m => m.key === key);
+    if (!mix || !mix.tracks || !mix.tracks.length) return;
+
+    currentPlaylistId = null;
+    originalQueue = [...mix.tracks];
+    // Le mix EST deja un ordre choisi : on n'y applique pas la lecture aleatoire,
+    // qui le detruirait. Le bouton aleatoire reste disponible ensuite.
+    queue = [...mix.tracks];
+    currentIndex = 0;
+    loadTrack(true);
+    if (typeof updateQueueUI === 'function') updateQueueUI();
+    Alpine.store('ui').showToast(T('mixes_started', { name: mix.title }), 'success');
+}
