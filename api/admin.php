@@ -10,6 +10,15 @@ switch ($action) {
         // test manuel de cet endpoint) ne doit jamais pouvoir vider le thème/site_name par accident.
         $existingSettings = $db->query("SELECT * FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
         $stmtUpdate = $db->prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+        $sanitizeColor = function($val, $fallback = '') {
+            if ($val === null) return $fallback;
+            $val = trim((string)$val);
+            if ($val === '') return $fallback;
+            if (preg_match('/^(#[0-9a-fA-F]{3,8}|rgba?\(\s*[0-9.%]+(\s*,\s*[0-9.%]+){2,3}\s*\)|hsla?\(\s*[0-9.%deg]+(\s*,\s*[0-9.%]+){2,3}\s*\)|transparent)$/i', $val)) {
+                return $val;
+            }
+            return $fallback;
+        };
         $fields = [
             'site_name' => isset($_POST['adm_site_name']) ? trim($_POST['adm_site_name']) : ($existingSettings['site_name'] ?? ''),
             // Contact légal des CGU (cgu.php) : contrairement aux couleurs, une valeur vide ici est un
@@ -20,19 +29,19 @@ switch ($action) {
             // vide) -- le vrai formulaire envoyant toujours tous ses champs d'un coup, son absence ici
             // signifie sans ambiguïté "désactivé", pas "champ non fourni, garder l'existant".
             'terms_enabled' => isset($_POST['adm_terms_enabled']) ? '1' : '0',
-            'color_bg' => $_POST['adm_color_bg'] ?? $existingSettings['color_bg'] ?? '',
-            'color_panel' => $_POST['adm_color_panel'] ?? $existingSettings['color_panel'] ?? '',
-            'color_primary' => $_POST['adm_color_primary'] ?? $existingSettings['color_primary'] ?? '',
-            'color_accent' => $_POST['adm_color_accent'] ?? $existingSettings['color_accent'] ?? '',
-            'color_text' => $_POST['adm_color_text'] ?? $existingSettings['color_text'] ?? '',
-            'color_text_muted' => $_POST['adm_color_text_muted'] ?? $existingSettings['color_text_muted'] ?? '',
-            'color_border' => $_POST['adm_color_border'] ?? $existingSettings['color_border'] ?? '',
-            'color_search_bg' => $_POST['adm_color_search_bg'] ?? $existingSettings['color_search_bg'] ?? '',
-            'color_header_bg' => $_POST['adm_color_header_bg'] ?? $existingSettings['color_header_bg'] ?? '',
-            'color_player_bg' => $_POST['adm_color_player_bg'] ?? $existingSettings['color_player_bg'] ?? '',
-            'color_mob_nav_bg' => $_POST['adm_color_mob_nav_bg'] ?? $existingSettings['color_mob_nav_bg'] ?? '',
-            'color_fp_gradient_1' => $_POST['adm_color_fp_gradient_1'] ?? $existingSettings['color_fp_gradient_1'] ?? '',
-            'color_fp_gradient_2' => $_POST['adm_color_fp_gradient_2'] ?? $existingSettings['color_fp_gradient_2'] ?? '',
+            'color_bg' => $sanitizeColor($_POST['adm_color_bg'] ?? null, $existingSettings['color_bg'] ?? '#0f0c1d'),
+            'color_panel' => $sanitizeColor($_POST['adm_color_panel'] ?? null, $existingSettings['color_panel'] ?? '#1b1429'),
+            'color_primary' => $sanitizeColor($_POST['adm_color_primary'] ?? null, $existingSettings['color_primary'] ?? '#8e44ad'),
+            'color_accent' => $sanitizeColor($_POST['adm_color_accent'] ?? null, $existingSettings['color_accent'] ?? '#bb86fc'),
+            'color_text' => $sanitizeColor($_POST['adm_color_text'] ?? null, $existingSettings['color_text'] ?? '#e0e0e0'),
+            'color_text_muted' => $sanitizeColor($_POST['adm_color_text_muted'] ?? null, $existingSettings['color_text_muted'] ?? '#a196b4'),
+            'color_border' => $sanitizeColor($_POST['adm_color_border'] ?? null, $existingSettings['color_border'] ?? '#3d2b56'),
+            'color_search_bg' => $sanitizeColor($_POST['adm_color_search_bg'] ?? null, $existingSettings['color_search_bg'] ?? '#241b36'),
+            'color_header_bg' => $sanitizeColor($_POST['adm_color_header_bg'] ?? null, $existingSettings['color_header_bg'] ?? 'rgba(27, 20, 41, 0.85)'),
+            'color_player_bg' => $sanitizeColor($_POST['adm_color_player_bg'] ?? null, $existingSettings['color_player_bg'] ?? 'rgba(30, 24, 45, 0.85)'),
+            'color_mob_nav_bg' => $sanitizeColor($_POST['adm_color_mob_nav_bg'] ?? null, $existingSettings['color_mob_nav_bg'] ?? 'rgba(21, 16, 32, 0.95)'),
+            'color_fp_gradient_1' => $sanitizeColor($_POST['adm_color_fp_gradient_1'] ?? null, $existingSettings['color_fp_gradient_1'] ?? '#302b63'),
+            'color_fp_gradient_2' => $sanitizeColor($_POST['adm_color_fp_gradient_2'] ?? null, $existingSettings['color_fp_gradient_2'] ?? '#0f0c29'),
         ];
         foreach ($fields as $k => $v) { $stmtUpdate->execute([$k, $v]); }
 
@@ -171,13 +180,18 @@ switch ($action) {
         if ($targetId !== false && $targetId != $auth['id']) {
             // Cascade sur pistes/playlists de l'utilisateur : nécessaire, sinon elles deviennent orphelines
             // (le JOIN sur users dans les listings les ferait disparaître silencieusement).
-            $stmt = $db->prepare("SELECT filename, cover FROM tracks WHERE uploader_id = ?");
+            $stmt = $db->prepare("SELECT id, filename, cover FROM tracks WHERE uploader_id = ?");
             $stmt->execute([$targetId]);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
                 $safeMusicFile = basename($t['filename']);
                 $safeCoverFile = basename($t['cover']);
                 if (!empty($safeMusicFile) && file_exists($musicDir . '/' . $safeMusicFile)) unlink($musicDir . '/' . $safeMusicFile);
                 if ($safeCoverFile !== 'default.png' && file_exists($coverDir . '/' . $safeCoverFile)) unlink($coverDir . '/' . $safeCoverFile);
+                if (!empty($t['id'])) {
+                    foreach (glob($musicDir . '/_cache/' . (int)$t['id'] . '_*.mp3') ?: [] as $cachedFile) {
+                        if (file_exists($cachedFile)) @unlink($cachedFile);
+                    }
+                }
             }
             $db->prepare("DELETE FROM tracks WHERE uploader_id = ?")->execute([$targetId]);
 

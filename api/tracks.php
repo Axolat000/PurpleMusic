@@ -72,26 +72,50 @@ switch ($action) {
 
                 if (isset($_SERVER['HTTP_RANGE'])) {
                     $c_start = $start; $c_end = $end;
-                    list(, $range) = explode('=', $_SERVER['HTTP_RANGE'], 2);
-                    if (strpos($range, ',') !== false) { header('HTTP/1.1 416 Requested Range Not Satisfiable'); header("Content-Range: bytes $start-$end/$size"); exit; }
-                    if ($range == '-') { $c_start = $size - substr($range, 1); }
-                    else {
-                        $range = explode('-', $range);
-                        $c_start = $range[0];
-                        $c_end = (isset($range[1]) && is_numeric($range[1])) ? $range[1] : $size;
+                    if (strpos($_SERVER['HTTP_RANGE'], ',') !== false) {
+                        header('HTTP/1.1 416 Requested Range Not Satisfiable');
+                        header("Content-Range: bytes */$size");
+                        exit;
                     }
-                    $c_end = ($c_end > $end) ? $end : $c_end;
-                    if ($c_start > $c_end || $c_start > $size - 1 || $c_end >= $size) {
-                        header('HTTP/1.1 416 Requested Range Not Satisfiable'); header("Content-Range: bytes $start-$end/$size"); exit;
+                    if (preg_match('/bytes=\s*(\d*)\s*-\s*(\d*)/', $_SERVER['HTTP_RANGE'], $m)) {
+                        if ($m[1] === '' && $m[2] !== '') {
+                            // Suffix range : bytes=-500 (les 500 derniers octets)
+                            $suffix = (int)$m[2];
+                            $c_start = max(0, $size - $suffix);
+                            $c_end = $size - 1;
+                        } elseif ($m[1] !== '' && $m[2] === '') {
+                            // Prefix range : bytes=500-
+                            $c_start = (int)$m[1];
+                            $c_end = $size - 1;
+                        } elseif ($m[1] !== '' && $m[2] !== '') {
+                            // Explicit range : bytes=500-999
+                            $c_start = (int)$m[1];
+                            $c_end = min((int)$m[2], $size - 1);
+                        }
+                    }
+                    if ($c_start > $c_end || $c_start >= $size) {
+                        header('HTTP/1.1 416 Requested Range Not Satisfiable');
+                        header("Content-Range: bytes */$size");
+                        exit;
                     }
                     $start = $c_start; $end = $c_end; $length = $end - $start + 1;
                     fseek($fp, $start);
-                    header('HTTP/1.1 206 Partial Content'); header("Content-Range: bytes $start-$end/$size");
+                    header('HTTP/1.1 206 Partial Content');
+                    header("Content-Range: bytes $start-$end/$size");
                 } else {
                     $length = $size; header('HTTP/1.1 200 OK');
                 }
 
-                header('Content-Type: audio/mpeg'); header('Accept-Ranges: bytes'); header('Content-Length: ' . $length); header('Cache-Control: no-cache, must-revalidate');
+                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                $mime = 'audio/mpeg';
+                if ($ext === 'flac') $mime = 'audio/flac';
+                elseif ($ext === 'ogg') $mime = 'audio/ogg';
+                elseif ($ext === 'wav') $mime = 'audio/wav';
+
+                header('Content-Type: ' . $mime);
+                header('Accept-Ranges: bytes');
+                header('Content-Length: ' . $length);
+                header('Cache-Control: no-cache, must-revalidate');
                 @set_time_limit(1800); 
 
                 $buffer = 1024 * 16;
@@ -254,6 +278,13 @@ switch ($action) {
 
             if(!empty($safeMusicFile) && file_exists($musicDir.'/'.$safeMusicFile)) unlink($musicDir.'/'.$safeMusicFile);
             if($safeCoverFile != 'default.png' && file_exists($coverDir.'/'.$safeCoverFile)) unlink($coverDir.'/'.$safeCoverFile);
+            
+            $cacheDir = $musicDir . '/_cache';
+            if (is_dir($cacheDir)) {
+                foreach (glob($cacheDir . '/' . $tid . '_*.mp3') ?: [] as $cachedFile) {
+                    @unlink($cachedFile);
+                }
+            }
             
             $db->prepare("DELETE FROM tracks WHERE id=?")->execute([$tid]);
             log_admin_action($db, $auth, 'track_delete', $curr['title'] ?? ('#' . $tid));

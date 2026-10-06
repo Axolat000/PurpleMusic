@@ -68,17 +68,6 @@
                 <svg class="ico" aria-hidden="true"><use href="#ico-lyrics"></use></svg>
                 <span><?php echo t('btn_lyrics'); ?></span>
             </button>
-            <!-- Égaliseur : il n'était atteignable que par Paramètres > Égaliseur,
-                 c'est-à-dire en quittant le lecteur — alors que c'est justement en
-                 écoutant qu'on veut y toucher. -->
-            <button type="button" class="fp-lyrics-btn" @click="openSettingsTab('eq')">
-                <svg class="ico" aria-hidden="true"><use href="#ico-eq"></use></svg>
-                <span><?php echo t('settings_tab_eq'); ?></span>
-            </button>
-            <button type="button" class="fp-lyrics-btn" :class="{ active: $store.ui.sleepTimerActive }" @click="openSettingsTab('general')">
-                <svg class="ico" aria-hidden="true"><use href="#ico-sleep"></use></svg>
-                <span x-text="$store.ui.sleepTimerActive ? formatSleepTimerRemaining($store.ui.sleepTimerRemaining) : T('btn_sleep_timer')"><?php echo t('btn_sleep_timer'); ?></span>
-            </button>
         </div>
     </div>
 

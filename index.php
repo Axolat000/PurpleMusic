@@ -181,8 +181,8 @@ try {
     if ($is_admin) {
         $all_playlists = $db->query("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id")->fetchAll(PDO::FETCH_ASSOC);
     } else {
-        $playlistsStmt = $db->prepare("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id WHERE playlists.is_private = 0 OR playlists.creator_id = ?");
-        $playlistsStmt->execute([$user_id]);
+        $playlistsStmt = $db->prepare("SELECT playlists.*, users.username FROM playlists JOIN users ON playlists.creator_id = users.id WHERE playlists.is_private = 0 OR playlists.creator_id = ? OR playlists.id IN (SELECT playlist_id FROM playlist_collaborators WHERE user_id = ?)");
+        $playlistsStmt->execute([$user_id, $user_id]);
         $all_playlists = $playlistsStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 

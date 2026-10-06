@@ -104,7 +104,7 @@ switch ($action) {
         }
 
         $allTracks = $db->query(
-            "SELECT id, title, artist, cover, genre, play_count, duration FROM tracks"
+            "SELECT id, filename, title, artist, cover, genre, play_count, duration FROM tracks"
         )->fetchAll(PDO::FETCH_ASSOC);
         $maxPlay = 1;
         foreach ($allTracks as $t) $maxPlay = max($maxPlay, (int) $t['play_count']);

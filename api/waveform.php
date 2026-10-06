@@ -86,7 +86,7 @@ switch ($action) {
         $peakAmp = null;
         if (isset($_POST['peak_amp']) && $_POST['peak_amp'] !== '') {
             $pk = filter_var($_POST['peak_amp'], FILTER_VALIDATE_FLOAT);
-            if ($pk === false || $pk <= 0 || $pk > 1) { echo json_encode(["status" => "error", "message" => "Crête invalide."]); exit; }
+            if ($pk === false || $pk < 0 || $pk > 1) { echo json_encode(["status" => "error", "message" => "Crête invalide."]); exit; }
             $peakAmp = $pk;
         }
 

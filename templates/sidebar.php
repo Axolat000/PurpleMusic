@@ -15,17 +15,18 @@
  */
 ?>
 <aside id="app-sidebar" :class="{ 'collapsed': $store.ui.sidebarCollapsed }">
+    <button type="button" class="sidebar-edge-toggle"
+            @click="$store.ui.toggleSidebar()"
+            :aria-label="$store.ui.sidebarCollapsed ? T('sidebar_expand') : T('sidebar_collapse')"
+            :title="$store.ui.sidebarCollapsed ? T('sidebar_expand') : T('sidebar_collapse')">
+        <svg class="ico ico-sm sidebar-edge-toggle-ico" aria-hidden="true"><use href="#ico-chevron-left"></use></svg>
+    </button>
+
     <div class="sidebar-head">
         <div class="sidebar-logo" title="<?php echo htmlspecialchars($site_name); ?>">
             <span class="sidebar-logo-mark" aria-hidden="true"><?php echo htmlspecialchars(mb_substr($site_name, 0, 1)); ?></span>
             <span class="sidebar-logo-text"><?php echo htmlspecialchars($site_name); ?></span>
         </div>
-        <button type="button" class="sidebar-toggle-btn"
-                @click="$store.ui.toggleSidebar()"
-                :aria-label="$store.ui.sidebarCollapsed ? T('sidebar_expand') : T('sidebar_collapse')"
-                :title="$store.ui.sidebarCollapsed ? T('sidebar_expand') : T('sidebar_collapse')">
-            <svg class="ico" aria-hidden="true"><use href="#ico-sidebar-toggle"></use></svg>
-        </button>
     </div>
 
     <nav class="sidebar-nav" aria-label="<?php echo htmlspecialchars(t('sidebar_browse')); ?>">

@@ -693,7 +693,7 @@ function openTrackContextMenu(event, trackId) {
 
 function openPlaylistContextMenu(event, playlist) {
     openContextMenu(event, [
-        { icon: 'ico-play', label: T('ctx_play'), action: () => playPlaylist(playlist.id, playlist.id) },
+        { icon: 'ico-play', label: T('ctx_play'), action: () => { const s = playlist.song_ids || (typeof ALL_PLAYLISTS_DATA !== 'undefined' ? (ALL_PLAYLISTS_DATA.find(p => p.id == playlist.id) || {}).song_ids : ''); playPlaylist(s || '', playlist.id); } },
         { icon: 'ico-library', label: T('home_see_all'), action: () => openPlaylistDetail(playlist.id) },
         { separator: true },
         { icon: 'ico-share', label: T('ctx_copy_link'), action: () => copyPlaylistLink(playlist.id) },

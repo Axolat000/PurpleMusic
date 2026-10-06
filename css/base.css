@@ -43,8 +43,7 @@ body { margin:0; font-family: var(--font-sans); background: var(--bg-dark); colo
     padding: var(--space-5) var(--space-3);
     background: var(--bg-panel);
     border-right: 1px solid var(--hairline);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: visible;
     transition: width var(--dur-base) var(--ease-out);
 }
 #app-sidebar.collapsed { width: var(--sidebar-w-collapsed); }
@@ -60,9 +59,56 @@ html.sidebar-collapsed-preload .app-main { margin-left: var(--sidebar-w-collapse
 #app-sidebar.collapsed .sidebar-logo-text { display: none; }
 #app-sidebar.collapsed .sidebar-link { justify-content: center; padding-left: 0; padding-right: 0; }
 #app-sidebar.collapsed .sidebar-head { justify-content: center; }
-#app-sidebar.collapsed .sidebar-toggle-btn { display: none; }
 
-.sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-2) var(--space-4); }
+/* Bouton flèche au milieu de la bordure latérale (fusionné avec la barre et débordant légèrement) */
+.sidebar-edge-toggle {
+    position: absolute;
+    top: 50%;
+    right: -18px;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 38px;
+    background: var(--bg-panel);
+    border: 1px solid var(--hairline);
+    border-left: none;
+    border-radius: 0 12px 12px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text);
+    z-index: 220;
+    box-shadow: 3px 0 8px rgba(0, 0, 0, 0.35);
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--ease-out);
+}
+.sidebar-edge-toggle:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow: 4px 0 14px rgba(187, 134, 252, 0.45);
+    transform: translateY(-50%) translateX(2px);
+}
+.sidebar-edge-toggle:active {
+    transform: translateY(-50%) scale(0.95);
+}
+.sidebar-edge-toggle-ico {
+    width: 15px;
+    height: 15px;
+    margin-left: 3px;
+    transform-origin: center;
+    transition: transform var(--dur-base) var(--ease-out);
+}
+#app-sidebar.collapsed .sidebar-edge-toggle-ico,
+html.sidebar-collapsed-preload #app-sidebar .sidebar-edge-toggle-ico {
+    transform: rotate(180deg);
+}
+
+.sidebar-head { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) var(--space-4); }
 .sidebar-logo { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 /* Pastille d'initiale : sert d'identité quand la barre est réduite et que le nom
    complet du site n'est plus affiché. */
@@ -82,15 +128,25 @@ html.sidebar-collapsed-preload .app-main { margin-left: var(--sidebar-w-collapse
     color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sidebar-toggle-btn {
-    background: none; border: none; padding: var(--space-2);
-    border-radius: var(--radius-sm); cursor: pointer;
-    color: var(--text-muted);
-    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.sidebar-toggle-btn:hover { background: var(--tint-2); color: var(--text); }
 
-.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--tint-2) transparent;
+}
+.sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: var(--tint-2);
+    border-radius: var(--radius-full);
+}
 .sidebar-group-label {
     margin: var(--space-4) var(--space-3) var(--space-2);
     font-size: var(--text-2xs);

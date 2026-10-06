@@ -366,7 +366,7 @@ function build_recommendations($db, $userId, $baseUrl, $limit = 20) {
         $likeCounts[$row['track_id']] = (int) $row['cnt'];
     }
 
-    $tracks = $db->query("SELECT id, title, artist, cover, genre, play_count, duration, uploader_id FROM tracks")->fetchAll(PDO::FETCH_ASSOC);
+    $tracks = $db->query("SELECT id, filename, title, artist, cover, genre, play_count, duration, uploader_id FROM tracks")->fetchAll(PDO::FETCH_ASSOC);
     if (empty($tracks)) return [];
     $maxPlayCount = max(1, max(array_column($tracks, 'play_count')));
 

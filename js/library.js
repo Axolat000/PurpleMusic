@@ -94,16 +94,16 @@ function artistLinksHTML(rawArtist) {
     const names = splitArtistNames(rawArtist);
     if (names.length <= 1) {
         const n = names[0] || rawArtist || '';
-        return `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${n.replace(/'/g, "\\'")}')">${n}</span>`;
+        return `<span class="artist-link" onclick="event.stopPropagation();showArtistPage(decodeURIComponent('${encodeURIComponent(n)}'))">${escapeHTML(n)}</span>`;
     }
-    return names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${n.replace(/'/g, "\\'")}')">${n}</span>`).join(', ');
+    return names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage(decodeURIComponent('${encodeURIComponent(n)}'))">${escapeHTML(n)}</span>`).join(', ');
 }
 
 // Rend le nom d'album d'une piste sous forme de lien cliquable vers showAlbumPage() -- rien n'est rendu
 // si la piste n'a pas d'album renseigné (album optionnel, contrairement à artist).
 function albumLinkHTML(t) {
     if (!t.album) return '';
-    return ` <span style="opacity:0.6;">•</span> <span class="artist-link" onclick="event.stopPropagation();showAlbumPage('${t.album.replace(/'/g, "\\'")}')">${t.album}</span>`;
+    return ` <span style="opacity:0.6;">•</span> <span class="artist-link" onclick="event.stopPropagation();showAlbumPage(decodeURIComponent('${encodeURIComponent(t.album)}'))">${escapeHTML(t.album)}</span>`;
 }
 
 // Construit la rangée DOM d'une piste pour une liste triée/paginée (bibliothèque complète, page "Voir

@@ -9,12 +9,19 @@ switch ($action) {
         if ($playlistsAuth && $playlistsAuth['is_admin']) {
             $rows = $db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id")->fetchAll(PDO::FETCH_ASSOC);
         } elseif ($playlistsAuth) {
-            $stmt = $db->prepare("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id WHERE p.is_private = 0 OR p.creator_id = ?");
-            $stmt->execute([$playlistsAuth['id']]);
+            $stmt = $db->prepare("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id WHERE p.is_private = 0 OR p.creator_id = ? OR p.id IN (SELECT playlist_id FROM playlist_collaborators WHERE user_id = ?)");
+            $stmt->execute([$playlistsAuth['id'], $playlistsAuth['id']]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             $rows = $db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id WHERE p.is_private = 0")->fetchAll(PDO::FETCH_ASSOC);
         }
+        $currentAuthId = $playlistsAuth ? (int)$playlistsAuth['id'] : 0;
+        foreach ($rows as &$plRow) {
+            if ((int) $plRow['creator_id'] !== $currentAuthId) {
+                $plRow['share_token'] = null;
+            }
+        }
+        unset($plRow);
         echo json_encode($rows);
         break;
 
@@ -125,6 +132,12 @@ switch ($action) {
         }
 
         if ($playlistId) {
+            if (!empty($_FILES['playlist_cover']['name']) && !empty($coverName) && !empty($currPlaylist['cover']) && $currPlaylist['cover'] !== $coverName) {
+                $oldCover = basename($currPlaylist['cover']);
+                if ($oldCover !== 'default.png' && file_exists($coverDir . '/' . $oldCover)) {
+                    @unlink($coverDir . '/' . $oldCover);
+                }
+            }
             $db->prepare("UPDATE playlists SET name = ?, song_ids = ?, cover = ?, is_private = ? WHERE id = ?")->execute([$playlistName, $songIds, $coverName, $isPrivate, $playlistId]);
         } else {
             $db->prepare("INSERT INTO playlists (name, creator_id, song_ids, cover, is_private) VALUES (?, ?, ?, ?, ?)")->execute([$playlistName, $auth['id'], $songIds, $coverName, $isPrivate]);

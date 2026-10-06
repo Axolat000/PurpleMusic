@@ -42,17 +42,22 @@ if (isset($_POST['register'])) {
 }
 
 if (isset($_POST['login'])) {
-    $stmt = $db->prepare("SELECT * FROM users WHERE username = ?");
-    $stmt->execute([$_POST['username']]);
-    $u = $stmt->fetch();
-    if ($u && password_verify($_POST['password'], $u['password'])) {
-        $_SESSION['user_id'] = $u['id'];
-        $_SESSION['username'] = $u['username'];
-        $_SESSION['is_admin'] = $u['is_admin'] ?? 0;
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit;
+    if (!checkRateLimit('login', 2)) {
+        $error = t('err_please_wait');
     } else {
-        $error = t('err_invalid_credentials');
+        $stmt = $db->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([$_POST['username']]);
+        $u = $stmt->fetch();
+        if ($u && password_verify($_POST['password'], $u['password'])) {
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $u['id'];
+            $_SESSION['username'] = $u['username'];
+            $_SESSION['is_admin'] = $u['is_admin'] ?? 0;
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        } else {
+            $error = t('err_invalid_credentials');
+        }
     }
 }
 
