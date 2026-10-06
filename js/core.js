@@ -199,6 +199,7 @@ document.addEventListener('alpine:init', () => {
 
         toggleSidebar() {
             this.sidebarCollapsed = !this.sidebarCollapsed;
+            document.documentElement.classList.remove('sidebar-collapsed-preload');
             localStorage.setItem('purpleMusicSidebarCollapsed', this.sidebarCollapsed ? '1' : '0');
         },
 
@@ -217,6 +218,7 @@ document.addEventListener('alpine:init', () => {
 
         init() {
             this.sidebarCollapsed = localStorage.getItem('purpleMusicSidebarCollapsed') === '1';
+            document.documentElement.classList.remove('sidebar-collapsed-preload');
             try {
                 const rs = JSON.parse(localStorage.getItem('purpleMusicRecentSearches') || '[]');
                 if (Array.isArray(rs)) this.recentSearches = rs.filter(x => typeof x === 'string').slice(0, 10);
