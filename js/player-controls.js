@@ -444,9 +444,18 @@ function formatSleepTimerRemaining(totalSeconds) {
     return T('sleep_timer_short_minutes', { n: mins });
 }
 
+function unescapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    const txt = document.createElement('textarea');
+    txt.innerHTML = str;
+    return txt.value;
+}
+
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
-    return str.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    // Décode toute entité pré-existante (ex: &amp;, &#039;, #039;) pour éviter un double-échappement
+    const unescaped = unescapeHTML(str.toString());
+    return unescaped.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
 let searchTimeout;

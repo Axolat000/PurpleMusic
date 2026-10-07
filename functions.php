@@ -4,13 +4,13 @@ if (!defined('MAX_AUDIO_SIZE'))  define('MAX_AUDIO_SIZE', 100 * 1024 * 1024); //
 if (!defined('MAX_IMAGE_SIZE'))  define('MAX_IMAGE_SIZE', 5 * 1024 * 1024);   // 5 Mo
 if (!defined('MAX_FIELD_LENGTH')) define('MAX_FIELD_LENGTH', 200);
 
-// --- SÉCURITÉ : Validation et nettoyage des champs texte ---
+// --- SÉCURITÉ : Validation et nettoyage des champs texte (stockage brut en BDD, l'échappement XSS se fait au rendu) ---
 function sanitize_text($value, $max_length = MAX_FIELD_LENGTH) {
     $value = trim($value);
     if (mb_strlen($value) > $max_length) {
         $value = mb_substr($value, 0, $max_length);
     }
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    return $value;
 }
 
 // --- SÉCURITÉ : Vérification du type MIME réel d'un fichier audio ---

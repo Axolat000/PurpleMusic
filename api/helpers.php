@@ -28,13 +28,13 @@ function record_login_attempt($db) {
     $db->prepare("INSERT INTO login_attempts (ip, attempt_time) VALUES (?, ?)")->execute([$ip, time()]);
 }
 
-// --- SÉCURITÉ : Validation et nettoyage des champs texte ---
+// --- SÉCURITÉ : Validation et nettoyage des champs texte (stockage brut en BDD, l'échappement XSS se fait au rendu) ---
 function sanitize_text($value, $max_length = MAX_FIELD_LENGTH) {
     $value = trim($value);
     if (mb_strlen($value) > $max_length) {
         $value = mb_substr($value, 0, $max_length);
     }
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    return $value;
 }
 
 // --- SÉCURITÉ : Vérification du type MIME réel d'un fichier audio ---

@@ -92,16 +92,17 @@ function closeModal(id) {
 }
 
 function openEditTrackModal(id, title, artist, genre, album = '') {
+    const unesc = (s) => (typeof unescapeHTML === 'function' ? unescapeHTML(s) : s);
     document.getElementById('edit-track-id').value = id;
-    document.getElementById('edit-track-title').value = title;
-    document.getElementById('edit-track-artist').value = artist;
-    document.getElementById('edit-track-album').value = album;
+    document.getElementById('edit-track-title').value = unesc(title);
+    document.getElementById('edit-track-artist').value = unesc(artist);
+    document.getElementById('edit-track-album').value = unesc(album);
     // Champ texte libre (avec suggestions) et non plus une liste fermée : on
     // affecte donc la valeur telle quelle, y compris un genre qui n'existe pas
     // encore dans la table genres — un <select> l'aurait silencieusement ignorée
     // et affiché la première option à la place.
     const gInput = document.getElementById('edit-track-genre');
-    if (gInput) gInput.value = genre || '';
+    if (gInput) gInput.value = unesc(genre || '');
     openModal('editTrackModal');
 }
 

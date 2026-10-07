@@ -91,7 +91,7 @@ function reportListen(trackId, seconds) {
 function setPlayerTitle(el, text) {
     if (!el) return;
     const span = el.querySelector('span') || el;
-    span.textContent = text;
+    span.textContent = typeof unescapeHTML === 'function' ? unescapeHTML(text) : text;
     applyMarqueeIfOverflowing(el);
 }
 
@@ -111,16 +111,20 @@ function loadTrack(autoPlay = true) {
     // stopPropagation empêche le clic de remonter jusqu'au conteneur parent (ex: .player-info ouvre le
     // lecteur plein écran au clic). Réassigné à chaque piste plutôt qu'une fois pour toutes : le nom
     // affiché change, et .onclick (pas addEventListener) écrase proprement le précédent sans fuite.
+    const cleanArtist = typeof unescapeHTML === 'function' ? unescapeHTML(track.artist) : track.artist;
+    const cleanTitle = typeof unescapeHTML === 'function' ? unescapeHTML(track.title) : track.title;
+    const cleanAlbum = typeof unescapeHTML === 'function' ? unescapeHTML(track.album || '') : (track.album || '');
+
     const goToTrackArtist = (e) => {
         e.stopPropagation();
-        const name = splitArtistNames(track.artist)[0] || track.artist;
+        const name = splitArtistNames(cleanArtist)[0] || cleanArtist;
         if (name) showArtistPage(name);
     };
 
     const coverUrl = 'covers/' + (track.cover || 'default.png');
-    const artistLabel = track.artist || 'Artiste inconnu';
+    const artistLabel = cleanArtist || 'Artiste inconnu';
 
-    pmEach('title', el => setPlayerTitle(el, track.title));
+    pmEach('title', el => setPlayerTitle(el, cleanTitle));
     pmEach('artist', el => { el.innerText = artistLabel; el.onclick = goToTrackArtist; });
     pmEach('cover', el => { el.src = coverUrl; });
 
@@ -131,9 +135,9 @@ function loadTrack(autoPlay = true) {
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
-            title: track.title,
-            artist: track.artist || 'Purple Music',
-            album: track.album || '',
+            title: cleanTitle,
+            artist: cleanArtist || 'Purple Music',
+            album: cleanAlbum,
             // Plusieurs tailles : Android/Windows choisissent la plus proche de leur
             // besoin. Une seule entrée 96x96 donnait une vignette floue sur l'écran
             // verrouillé et dans le panneau média de Chrome.
