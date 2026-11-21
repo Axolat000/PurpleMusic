@@ -5,7 +5,7 @@ switch ($action) {
         // le nombre de pistes reste modeste sur ce type d'instance auto-hébergée, pas besoin d'optimiser
         // davantage. Pour savoir LESQUELLES l'utilisateur courant a lui-même likées, voir action=my_likes
         // (authentifié, séparé exprès pour ne pas complexifier/casser ce endpoint public existant).
-        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.cover, tracks.genre, tracks.play_count, tracks.duration, tracks.uploader_id, (SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id) as like_count FROM tracks ORDER BY play_count DESC, id DESC");
+        $stmt = $db->query("SELECT tracks.id, tracks.filename, tracks.title, tracks.artist, tracks.album, tracks.album_id, tracks.cover, tracks.genre, tracks.play_count, tracks.duration, tracks.uploader_id, tracks.upload_date, (SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id) as like_count FROM tracks ORDER BY play_count DESC, id DESC");
         $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach($tracks as &$t) {
             $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
@@ -54,7 +54,7 @@ switch ($action) {
             $requestedBitrate = filter_var($_GET['br'] ?? 0, FILTER_VALIDATE_INT) ?: 0;
             if ($requestedBitrate > 0) {
                 require_once __DIR__ . '/quality.php';
-                if (empty($_SESSION['user_id'])) { header("HTTP/1.1 403 Forbidden"); exit; }
+                if (!authenticate_api_user($db)) { header("HTTP/1.1 403 Forbidden"); exit; }
                 $transcoded = quality_transcoded_path($musicDir, (int) ($_GET['q'] ?? 0), $safeFilename, $requestedBitrate);
                 // Reencodage impossible (ffmpeg absent, format refuse) : on retombe
                 // sur l'original plutot que d'echouer. Mieux vaut le bon morceau en
