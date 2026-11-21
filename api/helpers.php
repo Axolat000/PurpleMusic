@@ -471,8 +471,8 @@ function authenticate_api_user($db) {
         ];
     }
 
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $username = $_POST['username'] ?? $_SERVER['HTTP_X_PURPLE_USER'] ?? $_GET['username'] ?? '';
+    $password = $_POST['password'] ?? $_SERVER['HTTP_X_PURPLE_PASS'] ?? $_GET['password'] ?? '';
 
     if (empty($username) || empty($password)) {
         return false;
